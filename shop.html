@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>阿美手作甜點｜Amei's Handmade Desserts</title>
+  <meta name="description" content="阿美手作甜點銷售網頁（GreenUP 一人成軍原型示範）。多語言、AI 導購、語音點餐，結帳即時同步到店主後台。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23F7B2C4'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23fff6e8'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/shop.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+  <script src="vendor/gsap.min.js"></script>
+</head>
+<body class="shop">
+  <div class="announce" data-i18n="announce"></div>
+  <header class="s-nav">
+    <a class="s-brand" href="#top">
+      <span class="s-logo"><svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="19" fill="#F7B2C4"/><circle cx="20" cy="20" r="13" fill="#fff6e8"/><path d="M20 10c4 2 6 5.5 5.4 9.6-.6 3.6-3.1 5.9-5.4 5.9s-4.8-2.3-5.4-5.9C14 15.5 16 12 20 10z" fill="#2DB674"/></svg></span>
+      <span><b>阿美手作甜點</b><small>Amei's Handmade Desserts</small></span>
+    </a>
+    <nav class="s-links"><a href="#products" data-i18n="navProducts"></a><a href="#about" data-i18n="navAbout"></a><a href="#ship" data-i18n="navShip"></a></nav>
+    <div class="s-actions">
+      <div class="lang-sw" id="langSw">
+        <button class="lang-btn" id="langBtn" aria-haspopup="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg><span id="langLabel">繁體中文</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button>
+        <ul class="lang-menu" id="langMenu" hidden></ul>
+      </div>
+      <button class="cart-btn" id="cartBtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg><span data-i18n="cart"></span><i id="cartCount">0</i></button>
+      <a class="admin-link" href="index.html#dashboard" target="greenup-admin"><span data-i18n="admin"></span> ↗</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="s-hero">
+      <div class="s-hero-txt">
+        <span class="s-kicker" data-i18n="heroKicker"></span>
+        <h1 data-i18n-html="heroTitle"></h1>
+        <p data-i18n="heroSub"></p>
+        <div class="s-cta"><a class="s-btn s-btn-primary" href="#products" data-i18n="shopNow"></a><button class="s-btn s-btn-ghost" id="heroAsk"><span class="bot-dot"></span><span data-i18n="askBot"></span></button></div>
+        <div class="s-feats">
+          <div><b data-i18n="f1"></b><small data-i18n="f1d"></small></div>
+          <div><b data-i18n="f2"></b><small data-i18n="f2d"></small></div>
+          <div><b data-i18n="f3"></b><small data-i18n="f3d"></small></div>
+        </div>
+      </div>
+      <div class="s-hero-3d" id="shopHero"></div>
+    </section>
+
+    <section class="s-products" id="products">
+      <div class="s-sec-h"><h2 data-i18n="prodTitle"></h2><p data-i18n="prodSub"></p></div>
+      <div class="p-grid" id="pGrid"></div>
+    </section>
+
+    <section class="s-botstrip" id="about">
+      <div class="bs-art"><span class="bs-bot"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/><circle cx="12" cy="3" r="1"/></svg></span></div>
+      <div class="bs-txt"><h3 data-i18n="botStrip"></h3><p data-i18n="botStripSub"></p></div>
+      <div class="bs-chips" id="bsChips"></div>
+    </section>
+
+    <section class="s-ship" id="ship">
+      <div><b>01</b><h4 data-i18n="f1"></h4><p data-i18n="f1d"></p></div>
+      <div><b>02</b><h4 data-i18n="f2"></h4><p data-i18n="f2d"></p></div>
+      <div><b>03</b><h4 data-i18n="f3"></h4><p data-i18n="f3d"></p></div>
+    </section>
+  </main>
+  <footer class="s-foot"><p data-i18n="footer"></p><a href="index.html" target="greenup-admin">GreenUP 一人成軍 · solo.greenup.ai</a></footer>
+
+  <!-- 購物車 -->
+  <aside class="drawer" id="drawer" hidden>
+    <div class="drawer-bg" data-close></div>
+    <div class="drawer-panel">
+      <div class="dr-h"><h3 data-i18n="cartTitle"></h3><button class="x-btn" data-close>✕</button></div>
+      <div class="dr-items" id="drItems"></div>
+      <div class="dr-foot" id="drFoot"></div>
+    </div>
+  </aside>
+
+  <!-- 商品詳情 / 結帳 -->
+  <div class="s-modal" id="sModal" hidden><div class="s-modal-card" id="sModalCard"></div></div>
+
+  <!-- AI 導購 -->
+  <button class="bot-fab" id="botFab" aria-label="AI"><span class="fab-ring"></span><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-width="2.6"/></svg><i class="fab-badge">1</i></button>
+  <section class="bot" id="bot" hidden>
+    <header class="bot-h">
+      <span class="bot-av"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/><circle cx="12" cy="3" r="1"/></svg></span>
+      <div class="bot-t"><b data-i18n="botName"></b><small><i></i><span data-i18n="botStatus"></span></small></div>
+      <select class="bot-lang" id="botLang" aria-label="language"></select>
+      <button class="bot-ib" id="botVoice" title=""></button>
+      <button class="bot-ib" id="botClose" title="close">✕</button>
+    </header>
+    <div class="bot-msgs" id="botMsgs"></div>
+    <div class="bot-chips" id="botChips"></div>
+    <form class="bot-in" id="botForm" autocomplete="off">
+      <button type="button" class="bot-mic" id="botMic" title="mic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg></button>
+      <input id="botInput" data-i18n-ph="botPh">
+      <button type="submit" class="bot-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg></button>
+    </form>
+  </section>
+
+  <script type="module" src="js/shop/shop.js"></script>
+</body>
+</html>

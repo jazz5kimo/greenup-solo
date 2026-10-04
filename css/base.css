@@ -1,0 +1,50 @@
+/* 共用設計 token（後台與銷售網頁） */
+:root {
+  --bg0: #04130d;
+  --bg1: #061a13;
+  --bg2: #0c3326;
+  --leaf: #2DB674;
+  --mint: #5EE0C4;
+  --amber: #F0A531;
+  --sky: #2E97D4;
+  --violet: #7C62E6;
+  --coral: #EC6A55;
+  --pink: #DD5597;
+  --txt: #eafff4;
+  --txt2: rgba(214, 240, 226, 0.72);
+  --txt3: rgba(214, 240, 226, 0.45);
+  --line: rgba(255, 255, 255, 0.08);
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass2: rgba(255, 255, 255, 0.07);
+  --radius: 18px;
+  --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans CJK JP", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: var(--font); -webkit-font-smoothing: antialiased; }
+button { font: inherit; cursor: pointer; }
+input, select, textarea { font: inherit; }
+a { color: inherit; }
+.ic { flex: none; display: inline-block; vertical-align: middle; }
+[hidden] { display: none !important; }
+.caret { display: inline-block; width: 2px; height: 1em; background: currentColor; margin-left: 2px; vertical-align: -2px; animation: blink 0.8s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Toast */
+.toast-host { position: fixed; right: 22px; bottom: 22px; z-index: 9999; display: flex; flex-direction: column-reverse; gap: 10px; pointer-events: none; }
+.toast { position: relative; overflow: hidden; pointer-events: auto; display: flex; gap: 12px; align-items: flex-start; min-width: 300px; max-width: 400px; padding: 14px 16px 16px; border-radius: 14px;
+  background: rgba(8, 36, 26, 0.92); border: 1px solid rgba(45, 182, 116, 0.45); color: var(--txt); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.03) inset; backdrop-filter: blur(14px); }
+.toast-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(45, 182, 116, 0.18); color: var(--leaf); flex: none; }
+.toast-warn { border-color: rgba(240, 165, 49, 0.5); }
+.toast-warn .toast-ic { background: rgba(240, 165, 49, 0.16); color: var(--amber); }
+.toast-info { border-color: rgba(46, 151, 212, 0.5); }
+.toast-info .toast-ic { background: rgba(46, 151, 212, 0.16); color: var(--sky); }
+.toast-txt { display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.5; }
+.toast-txt b { font-size: 14px; }
+.toast-txt span { color: var(--txt2); }
+.toast-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, var(--leaf), var(--mint)); transform-origin: left; }
+
+.chdot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; font-size: 11px; font-weight: 800; color: #fff; flex: none; }
+.ch-line { background: #2DB674; } .ch-whatsapp { background: #2E97D4; } .ch-zalo { background: #7C62E6; } .ch-messenger { background: #DD5597; }
+.ch-phone { background: #F0A531; } .ch-web { background: #20a98d; } .ch-pos { background: #EC6A55; }

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GreenUP 一人成軍｜AI 營運後台</title>
+  <meta name="description" content="GreenUP 一人成軍（GreenUP Solo）— AI 時代一人公司的全自動營運系統。前端原型示範，所有資料皆為模擬。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23061a13'/%3E%3Cpath d='M16 5c6 3 9 8 8 14-1 5-5 8-8 8s-7-3-8-8C7 13 10 8 16 5z' fill='%232DB674'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+  <script src="vendor/gsap.min.js"></script>
+  <script src="vendor/echarts.min.js"></script>
+</head>
+<body class="app">
+  <div class="bg-layer" aria-hidden="true"><div class="bg-grid"></div><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+  <aside class="sidebar">
+    <a class="brand" href="#dashboard">
+      <span class="brand-mark"><svg viewBox="0 0 32 32" width="34" height="34"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5EE0C4"/><stop offset="1" stop-color="#2DB674"/></linearGradient></defs><path d="M16 3c7 3.5 10.5 9 9.4 15.6C24.4 24.4 20 28 16 28s-8.4-3.6-9.4-9.4C5.5 12 9 6.5 16 3z" fill="url(#lg)"/><path d="M16 9v15M16 15l4-3M16 19l-4-3" stroke="#061a13" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <span class="brand-txt"><b>GreenUP <em>一人成軍</em></b><small>AI 時代一人公司的全自動營運系統</small></span>
+    </a>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <a class="side-shop" href="shop.html" target="greenup-shop" id="sideShop"><span class="pulse-dot"></span>開啟銷售網頁（客人端）</a>
+      <button class="side-reset" id="resetBtn" title="清除示範中新增的訂單">重置示範資料</button>
+      <small class="ver">Prototype · solo.greenup.ai</small>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="tb-left">
+        <h1 id="viewTitle">總覽</h1>
+        <span class="tb-sub" id="viewSub">今天的生意，AI 都幫你顧好了</span>
+      </div>
+      <div class="tb-right">
+        <div class="company"><span class="avatar">美</span><div><b>阿美手作甜點</b><small>負責人：阿美</small></div></div>
+        <span class="badge badge-plan">一人公司版</span>
+        <span class="badge badge-deploy" id="deployBadge">雲端訂閱</span>
+        <span class="ai-status"><i></i>AI 代理運作中</span>
+        <span class="clock" id="clock">--:--</span>
+        <a class="tb-btn" href="shop.html" target="greenup-shop">銷售網頁 ↗</a>
+      </div>
+    </header>
+    <main class="views" id="views"></main>
+  </div>
+
+  <div class="launcher" id="launcher" hidden>
+    <div class="launch-inner">
+      <div class="launch-kicker">綠奧智慧 GreenUP.AI 出品</div>
+      <h2 class="launch-title"><span>GreenUP</span> 一人成軍</h2>
+      <p class="launch-sub">AI 時代，一個人也能經營一間公司。接單、客服、入帳、報稅、開會，交給 AI 全自動。</p>
+      <div class="launch-cards">
+        <a class="launch-card lc-shop" href="shop.html" target="greenup-shop" id="launchShop">
+          <span class="lc-tag">客人端</span><b>銷售網頁 ＋ AI 導購</b><small>多語言購物、聊天推薦、語音點餐，結帳即時同步到後台</small><span class="lc-go">開啟 ↗</span>
+        </a>
+        <button class="launch-card lc-admin" id="launchAdmin">
+          <span class="lc-tag">店主端</span><b>AI 營運後台</b><small>聊天收單、電話客服、POS 會計、報稅試算、用問的、會議機器人</small><span class="lc-go">進入 →</span>
+        </button>
+      </div>
+      <ol class="launch-flow">
+        <li>聊天收單</li><li>電話客服</li><li>後台自動入帳</li><li>用問的</li><li>報稅試算</li><li>會議機器人</li>
+      </ol>
+      <p class="launch-note">原型示範：所有客戶、訂單與金額皆為模擬資料。</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
