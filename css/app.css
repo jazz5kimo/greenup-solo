@@ -576,7 +576,8 @@ body.app {
   background: radial-gradient(900px 600px at 50% 0%, rgba(45,182,116,0.3), transparent 60%), radial-gradient(700px 500px at 100% 100%, rgba(124,98,230,0.25), transparent 60%), rgba(3,14,10,0.97); }
 .launch-inner { max-width: 980px; text-align: center; perspective: 1000px; }
 .launch-kicker { color: var(--mint); letter-spacing: 0.3em; font-size: 13px; }
-.launch-title { font-size: 72px; margin: 10px 0; font-weight: 900; letter-spacing: 0.04em; }
+.launch-brand { font-size: 30px; font-weight: 900; letter-spacing: .16em; background: linear-gradient(90deg, #5EE0C4, #2DB674, #F0A531); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.launch-title { font-size: 60px; line-height: 1.18; margin: 8px 0 14px; font-weight: 900; letter-spacing: 0.02em; }
 .launch-title span { background: linear-gradient(90deg, #5EE0C4, #2DB674, #F0A531); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .launch-sub { color: var(--txt2); font-size: 18px; margin: 0 auto 34px; max-width: 700px; line-height: 1.7; }
 .launch-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -632,7 +633,7 @@ body.app {
   .dash-grid { grid-template-columns: 1fr; }
   .company, .badge-plan { display: none; }
   .views { padding: 16px; }
-  .launch-cards { grid-template-columns: 1fr; } .launch-title { font-size: 44px; }
+  .launch-cards { grid-template-columns: 1fr; } .launch-title { font-size: 36px; }
   .ans-grid { grid-template-columns: 1fr; }
   .hero-stats { grid-template-columns: repeat(2, auto); }
   .tax-head { flex-direction: column; align-items: flex-start; }

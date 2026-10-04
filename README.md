@@ -1,4 +1,4 @@
-# GreenUP 一人成軍（GreenUP Solo）前端原型
+# GreenUP：AI 時代一人公司的全自動營運系統（前端原型）
 
 > AI 時代一人公司的全自動營運系統｜綠奧智慧有限公司（GreenUP.AI）｜未來網址：solo.greenup.ai
 >
