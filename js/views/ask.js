@@ -74,7 +74,7 @@ async function ask(q) {
   const from = res.period.from, to = res.period.to;
   const atMidnight = to.getHours() === 0 && to.getMinutes() === 0 && to.getSeconds() === 0;
   const toShow = +to > +from && atMidnight ? addDays(to, -1) : to;
-  const src = `資料來源：${res.table}，期間 ${fmtDate(from)}–${fmtDate(toShow > new Date() ? new Date() : toShow)}，查詢時間 ${fmtTime(t0)}`;
+  const src = `資料來源：${res.table}，期間 ${fmtDate(from)}–${fmtDate(toShow > new Date() ? new Date() : toShow)}，金額含 5% 營業稅（會計帳務以未稅列示），查詢時間 ${fmtTime(t0)}`;
   const hl = res.highlight || {};
   box.innerHTML = `
     <div class="ans-q"><span class="me">${icon('user', 16)}</span><p>${esc(q)}</p><span class="intent">${icon('wand', 13)} 理解為：${esc(res.intent)}・${esc(res.period.label)}</span></div>
