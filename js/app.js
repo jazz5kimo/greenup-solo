@@ -8,6 +8,7 @@ import chat from './views/chat.js';
 import phone from './views/phone.js';
 import pos from './views/pos.js';
 import tax from './views/tax.js';
+import books from './views/books.js';
 import ask from './views/ask.js';
 import meeting from './views/meeting.js';
 import deploy from './views/deploy.js';
@@ -17,7 +18,8 @@ const VIEWS = [
   { mod: chat, id: 'chat', name: 'AI 聊天收單', icon: 'chat', sub: 'LINE、WhatsApp、Zalo、Messenger 多語言自動接單', tag: '多語' },
   { mod: phone, id: 'phone', name: 'AI 電話客服', icon: 'phone', sub: '24 小時接聽、複述確認、自動建單' },
   { mod: pos, id: 'pos', name: 'POS 與會計', icon: 'pos', sub: '訂單、電子發票、分錄、庫存全自動' },
-  { mod: tax, id: 'tax', name: '自動化報稅', icon: 'tax', sub: '營業稅 401 申報試算（示範）' },
+  { mod: books, id: 'books', name: '會計帳務', icon: 'book', sub: '產銷人發財・收入費用・損益表・資產負債表，AI 自動記帳結帳', tag: '新' },
+  { mod: tax, id: 'tax', name: '自動化報稅', icon: 'tax', sub: '營業稅、營所稅、扣繳與二代健保，自動試算（示範）' },
   { mod: ask, id: 'ask', name: '用問的', icon: 'ask', sub: '用一句話問出經營圖表', tag: 'AI' },
   { mod: meeting, id: 'meeting', name: '會議機器人', icon: 'meeting', sub: '逐字稿 → 摘要、決議、待辦、報價單' },
   { mod: deploy, id: 'deploy', name: '部署模式', icon: 'deploy', sub: '雲端訂閱／企業地端／雲地混合' },

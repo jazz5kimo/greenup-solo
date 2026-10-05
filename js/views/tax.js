@@ -4,6 +4,7 @@ import { $, $$, el, gsap, money, countUp, fmtDate, pad, fmtMD } from '../util.js
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { addDays, startOfDay } from '../data.js';
+import { renderExtra } from './tax-extra.js';
 
 let root, chart = null, cdTimer = 0, submitted = false;
 
@@ -31,6 +32,8 @@ export default {
     const { p } = compute();
     section.innerHTML = `
     <div class="tax-wrap">
+      <div class="tx-tabs anim-in">${[['vat', 'receipt', '營業稅 401', '每兩個月'], ['cit', 'bank', '營利事業所得稅', '年度結算・暫繳'], ['wh', 'users', '扣繳與二代健保', '薪資、租金、勞務'], ['cal', 'calendar', '稅務行事曆', '全年截止日提醒']].map(([k, ic, t, sub], i) => `<button class="glass tx-tab ${i ? '' : 'on'}" data-p="${k}">${icon(ic, 20)}<span><b>${t}</b><small>${sub}</small></span></button>`).join('')}</div>
+      <div class="tx-pane" data-p="vat">
       <div class="glass tax-head anim-in">
         <div class="th-l">
           <span class="demo-badge">${icon('alert', 14)} 試算／示範・非正式申報</span>
@@ -64,6 +67,10 @@ export default {
           </div>
         </div>
       </div>
+      </div>
+      <div class="tx-pane" data-p="cit" hidden></div>
+      <div class="tx-pane" data-p="wh" hidden></div>
+      <div class="tx-pane" data-p="cal" hidden></div>
       <div class="tax-success" id="taxOk" hidden>
         <div class="ts-card">
           <svg viewBox="0 0 120 120" class="ts-check"><circle cx="60" cy="60" r="50"/><path d="M38 62 l15 15 l30 -32"/></svg>
@@ -75,6 +82,14 @@ export default {
       </div>
     </div>`;
     $('#taxGo', section).addEventListener('click', submit);
+    $$('.tx-tab', section).forEach(b => b.addEventListener('click', () => {
+      $$('.tx-tab', root).forEach(x => x.classList.toggle('on', x === b));
+      $$('.tx-pane', root).forEach(x => { x.hidden = x.dataset.p !== b.dataset.p; });
+      const pane = $(`.tx-pane[data-p="${b.dataset.p}"]`, root);
+      if (b.dataset.p !== 'vat') renderExtra(b.dataset.p, pane);
+      gsap.fromTo(pane.children, { opacity: 0, y: 18 }, { opacity: 1, y: 0, stagger: 0.06, duration: 0.5, ease: 'power3.out' });
+      window.dispatchEvent(new Event('resize'));
+    }));
     $('#taxClose', section).addEventListener('click', () => gsap.to('#taxOk', { opacity: 0, duration: 0.3, onComplete: () => { $('#taxOk', root).hidden = true; } }));
     store.on('order', () => root && !root.hidden && render(true));
   },
