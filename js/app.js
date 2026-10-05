@@ -160,3 +160,5 @@ $('#launchShop').addEventListener('click', () => setTimeout(hideLauncher, 300));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !launcher.hidden) hideLauncher(); });
 
 go(location.hash.slice(1) || 'dashboard');
+// 自動化中心在背景預先載入，讓開啟前進來的訂單也會記錄在即時執行流水
+setTimeout(() => ensureMounted(VIEWS.find(v => v.id === 'auto')), 1200);
