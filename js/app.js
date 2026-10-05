@@ -12,17 +12,31 @@ import books from './views/books.js';
 import ask from './views/ask.js';
 import meeting from './views/meeting.js';
 import deploy from './views/deploy.js';
+import brief from './views/brief.js';
+import crm from './views/crm.js';
+import inventory from './views/inventory.js';
+import shipping from './views/shipping.js';
+import staff from './views/staff.js';
+import bank from './views/bank.js';
+import hub from './views/hub.js';
 
 const VIEWS = [
-  { mod: dashboard, id: 'dashboard', name: '總覽', icon: 'dashboard', sub: '今天的生意，AI 都幫你顧好了' },
-  { mod: chat, id: 'chat', name: 'AI 聊天收單', icon: 'chat', sub: 'LINE、WhatsApp、Zalo、Messenger 多語言自動接單', tag: '多語' },
-  { mod: phone, id: 'phone', name: 'AI 電話客服', icon: 'phone', sub: '24 小時接聽、複述確認、自動建單' },
-  { mod: pos, id: 'pos', name: 'POS 與會計', icon: 'pos', sub: '訂單、電子發票、分錄、庫存全自動' },
-  { mod: books, id: 'books', name: '會計帳務', icon: 'book', sub: '產銷人發財・收入費用・損益表・資產負債表，AI 自動記帳結帳', tag: '新' },
-  { mod: tax, id: 'tax', name: '自動化報稅', icon: 'tax', sub: '營業稅、營所稅、扣繳與二代健保，自動試算（示範）' },
-  { mod: ask, id: 'ask', name: '用問的', icon: 'ask', sub: '用一句話問出經營圖表', tag: 'AI' },
-  { mod: meeting, id: 'meeting', name: '會議機器人', icon: 'meeting', sub: '逐字稿 → 摘要、決議、待辦、報價單' },
-  { mod: deploy, id: 'deploy', name: '部署模式', icon: 'deploy', sub: '雲端訂閱／企業地端／雲地混合' },
+  { mod: dashboard, id: 'dashboard', group: '首頁', name: '總覽', icon: 'dashboard', sub: '今天的生意，AI 都幫你顧好了' },
+  { mod: brief, id: 'brief', group: '首頁', name: 'AI 晨報', icon: 'sparkle', sub: '每天早上 AI 告訴你：昨天發生什麼、今天該做什麼', tag: 'AI' },
+  { mod: chat, id: 'chat', group: '接客收單', name: 'AI 聊天收單', icon: 'chat', sub: 'LINE、WhatsApp、Zalo、Messenger 多語言自動接單', tag: '多語' },
+  { mod: phone, id: 'phone', group: '接客收單', name: 'AI 電話客服', icon: 'phone', sub: '24 小時接聽、複述確認、自動建單' },
+  { mod: pos, id: 'pos', group: '接客收單', name: 'POS 收銀台', icon: 'pos', sub: '門市結帳、會員、載具統編、電子發票、交班日結' },
+  { mod: crm, id: 'crm', group: '接客收單', name: '會員與行銷', icon: 'heart', sub: '跨通路會員、分眾、AI 多語行銷活動與自動推播' },
+  { mod: inventory, id: 'inventory', group: '營運管理', name: '庫存與生產', icon: 'box', sub: '配方 BOM、原料效期、AI 補貨與今日生產排程' },
+  { mod: shipping, id: 'shipping', group: '營運管理', name: '出貨物流', icon: 'truck', sub: '揀貨、託運單、冷鏈、超商取貨、跨境寄送' },
+  { mod: staff, id: 'staff', group: '營運管理', name: '排班打卡', icon: 'clock', sub: 'AI 排班、打卡、請假、工時自動算薪與勞基法檢核' },
+  { mod: books, id: 'books', group: '財務會計', name: '會計帳務', icon: 'book', sub: '產銷人發財・收入費用・損益表・資產負債表，AI 自動記帳結帳' },
+  { mod: tax, id: 'tax', group: '財務會計', name: '自動化報稅', icon: 'tax', sub: '營業稅、營所稅、扣繳與二代健保，自動試算（示範）' },
+  { mod: bank, id: 'bank', group: '財務會計', name: '金流對帳', icon: 'bank', sub: '銀行與金流自動對帳、應收催款、現金流預測' },
+  { mod: ask, id: 'ask', group: 'AI 助理', name: '用問的', icon: 'ask', sub: '用一句話問出經營圖表', tag: 'AI' },
+  { mod: meeting, id: 'meeting', group: 'AI 助理', name: '會議機器人', icon: 'meeting', sub: '逐字稿 → 摘要、決議、待辦、報價單' },
+  { mod: hub, id: 'hub', group: '系統', name: '整合與協作', icon: 'link', sub: '通路與金流串接、會計師協作、多國稅制設定' },
+  { mod: deploy, id: 'deploy', group: '系統', name: '部署模式', icon: 'deploy', sub: '雲端訂閱／企業地端／雲地混合' },
 ];
 const DEPLOY_NAME = { cloud: '雲端訂閱', onprem: '企業地端', hybrid: '雲地混合' };
 
@@ -31,10 +45,11 @@ const viewsHost = $('#views');
 const mounted = new Map();
 let current = null;
 
+let lastGroup = '';
 VIEWS.forEach((v, i) => {
+  if (v.group !== lastGroup) { nav.appendChild(el(`<div class="nav-group">${v.group}</div>`)); lastGroup = v.group; }
   const a = el(`<a class="nav-item" href="#${v.id}" data-id="${v.id}">${icon(v.icon, 20)}<span>${v.name}</span>${v.tag ? `<em>${v.tag}</em>` : ''}<i class="nav-badge" hidden></i></a>`);
   nav.appendChild(a);
-  if (i === 0 || i === 4 || i === 6) {/* spacing handled by css */}
 });
 
 function ensureMounted(v) {

@@ -256,3 +256,37 @@ body.shop {
 .ai-card .aic-go { margin-top: 20px; font-weight: 800; color: #9ff0c4; }
 html[lang="vi"] .s-hero h1, html[lang="ms"] .s-hero h1 { font-size: 50px; }
 @media (max-width: 900px) { html[lang="vi"] .s-hero h1, html[lang="ms"] .s-hero h1 { font-size: 34px; } }
+
+/* 訂單查詢與會員 */
+.track-btn { display: flex; align-items: center; gap: 8px; border: 1px solid rgba(31,51,41,0.14); background: #fff; color: var(--ink); padding: 9px 14px; border-radius: 999px; font-size: 14px; }
+.track-btn:hover { border-color: var(--gl); }
+.s-modal-card.track { width: min(640px, 94vw); padding: 34px 34px 28px; }
+.s-modal-card.track h2 { margin: 0 0 16px; }
+.s-modal-card.track h4 { margin: 18px 0 8px; font-size: 14px; color: #5c6b63; }
+.tr-form { display: flex; gap: 10px; }
+.tr-form input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(31,51,41,0.18); background: #fff; font-size: 14px; }
+.tr-card { margin-top: 12px; padding: 16px 18px; border-radius: 18px; background: #fff; box-shadow: 0 8px 30px rgba(31,51,41,0.08); }
+.tr-h { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 13px; color: #5c6b63; }
+.tr-h b:last-child { margin-left: auto; color: var(--ink); font-size: 15px; }
+.tr-steps { list-style: none; margin: 14px 0 10px; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); }
+.tr-steps li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; font-size: 11.5px; color: #8a978f; }
+.tr-steps li i { width: 18px; height: 18px; border-radius: 50%; background: #e6ebe7; border: 3px solid #fff; box-shadow: 0 0 0 1px #d5ddd8; z-index: 1; }
+.tr-steps li:not(:last-child)::after { content: ''; position: absolute; top: 8px; left: 50%; width: 100%; height: 3px; background: #e6ebe7; }
+.tr-steps li.done i { background: #2DB674; box-shadow: 0 0 0 1px #2DB674; }
+.tr-steps li.done::after { background: #2DB674 !important; }
+.tr-steps li.done, .tr-steps li.cur { color: var(--ink); font-weight: 700; }
+.tr-steps li.cur i { background: #F0A531; box-shadow: 0 0 0 4px rgba(240,165,49,0.3); animation: trPulse 1.4s infinite; }
+@keyframes trPulse { 50% { box-shadow: 0 0 0 9px rgba(240,165,49,0); } }
+.tr-meta { display: flex; justify-content: space-between; font-size: 12.5px; color: #5c6b63; }
+.tr-empty { color: #5c6b63; font-size: 14px; margin: 18px 0 6px; }
+.tr-note { font-size: 12.5px; color: #5c6b63; margin: 16px 0 0; line-height: 1.6; }
+.mem-card { margin-top: 16px; display: flex; gap: 14px; align-items: center; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, #e8f8ee, #fff4e0); }
+.mem-card b { display: block; font-size: 15px; }
+.mem-card small { color: #5c6b63; font-size: 12.5px; line-height: 1.5; }
+.mem-btn { flex: none; border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 700; color: #fff; background: #06C755; box-shadow: 0 8px 20px rgba(6,199,85,0.3); }
+.mem-btn.ok { background: #2DB674; }
+@media (max-width: 860px) {
+  .track-btn span { display: none; }
+  .tr-steps li span { font-size: 10px; }
+  .mem-card { flex-direction: column; align-items: stretch; }
+}

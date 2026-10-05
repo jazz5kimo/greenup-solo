@@ -70,19 +70,33 @@ class Store {
   }
 
   // 建立訂單：items = [{pid, qty}]
-  createOrder({ channel, customer, lang = 'zh', items, payment = '信用卡', status = 'paid', conv = null, note = '', region = '', pickup = false }) {
-    const full = items.map(it => ({ pid: it.pid, qty: it.qty, price: PRODUCT_MAP[it.pid].price }));
+  // 可選擴充（POS 用，皆向後相容）：discount 折扣金額（含稅，自總額扣除後重算銷售額／稅額）、
+  // buyerTaxId 買方統編（三聯式）、carrier 載具 {type, code}、donate 捐贈碼、member 會員 {id, name, tier}、
+  // tendered 收取金額、change 找零、payments 分開付款明細 [{method, amount}]、items[].note 單品備註
+  createOrder({ channel, customer, lang = 'zh', items, payment = '信用卡', status = 'paid', conv = null, note = '', region = '', pickup = false,
+    discount = 0, buyerTaxId = '', carrier = null, donate = '', member = null, tendered = null, change = null, payments = null }) {
+    const full = items.map(it => ({ pid: it.pid, qty: it.qty, price: PRODUCT_MAP[it.pid].price, ...(it.note ? { note: it.note } : {}) }));
     const money = priceOrder(full, channel);
     const setShip = (fee) => { money.shipping = fee; money.total = money.subtotal + fee; money.net = Math.round(money.total / 1.05); money.tax = money.total - money.net; };
     if (pickup) setShip(0);
     else if (region && /日本|Japan|東京|International|Jepun|Nhật|国際/i.test(region)) setShip(450);
+    const disc = Math.max(0, Math.min(Math.round(+discount || 0), money.total));
+    if (disc) { money.discount = disc; money.total -= disc; money.net = Math.round(money.total / 1.05); money.tax = money.total - money.net; }
+    const extra = {};
+    if (buyerTaxId) extra.buyerTaxId = buyerTaxId;
+    if (carrier) extra.carrier = carrier;
+    if (donate) extra.donate = donate;
+    if (member) extra.member = member;
+    if (tendered != null) extra.tendered = tendered;
+    if (change != null) extra.change = change;
+    if (payments) extra.payments = payments;
     const ts = Date.now();
     this.seq += 1;
     const order = {
       id: `SO-${fmtYMD(new Date(ts))}-${String(this.seq).padStart(4, '0')}`,
       ts, channel, lang, customer, items: full, ...money, payment, status,
       invoice: nextInvoice(), source: 'live', conv, note, region,
-      paidAt: status === 'paid' ? ts : null, createdPending: status === 'pending',
+      paidAt: status === 'paid' ? ts : null, createdPending: status === 'pending', ...extra,
     };
     this.live.push(order); this._rebuild();
     lsSet(LS_ORDERS, this.live);

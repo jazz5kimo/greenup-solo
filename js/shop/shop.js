@@ -7,6 +7,7 @@ import { productArt } from '../art.js';
 import { cart } from './cart.js';
 import { initBot } from './bot.js';
 import { createShopHero } from './shop-hero.js';
+import { initTrack, trackText } from './track.js';
 
 const LS_LANG = 'greenup-solo:lang';
 let lang = (() => { try { return localStorage.getItem(LS_LANG) || 'zh'; } catch { return 'zh'; } })();
@@ -191,13 +192,14 @@ function showSuccess(order) {
     <h2>${t(lang, 'okTitle')}</h2>
     <div class="ok-grid"><span>${t(lang, 'okOrder')}</span><b class="mono">${order.id}</b><span>${t(lang, 'okInvoice')}</span><b class="mono">${order.invoice}</b><span>${t(lang, 'total')}</span><b>${money(order.total)}</b></div>
     <p class="ok-sync"><i></i>${t(lang, 'okSync')}</p>
-    <div class="ok-act"><a class="s-btn s-btn-ghost" href="index.html#pos" target="greenup-admin">${t(lang, 'okAdmin')} ↗</a><button class="s-btn s-btn-primary" id="okClose">${t(lang, 'close')}</button></div>`;
+    <div class="ok-act"><a class="s-btn s-btn-ghost" href="index.html#pos" target="greenup-admin">${t(lang, 'okAdmin')} ↗</a><button class="s-btn s-btn-ghost" id="okTrack">${trackText('nav')}</button><button class="s-btn s-btn-primary" id="okClose">${t(lang, 'close')}</button></div>`;
   const c = $('.ok-check circle', card), p = $('.ok-check path', card);
   const lc = c.getTotalLength(), lp = p.getTotalLength();
   gsap.set(c, { strokeDasharray: lc, strokeDashoffset: lc }); gsap.set(p, { strokeDasharray: lp, strokeDashoffset: lp });
   gsap.timeline().fromTo(card, { scale: 0.92 }, { scale: 1, duration: 0.4, ease: 'back.out(2)' }).to(c, { strokeDashoffset: 0, duration: 0.6 }).to(p, { strokeDashoffset: 0, duration: 0.4 })
     .from(card.querySelectorAll('h2, .ok-grid, .ok-sync, .ok-act'), { opacity: 0, y: 10, stagger: 0.08, duration: 0.35 });
   $('#okClose').addEventListener('click', hideModal);
+  $('#okTrack').addEventListener('click', () => track.open(order.id));
 }
 
 // ---------- AI 導購快捷 ----------
@@ -221,6 +223,7 @@ gsap.from('.s-hero-txt > *', { opacity: 0, y: 30, duration: 0.8, stagger: 0.08, 
 gsap.from('.s-nav', { y: -30, opacity: 0, duration: 0.6 });
 createShopHero($('#shopHero'));
 const bot = initBot(shop);
+const track = initTrack(shop);
 $('#heroAsk').addEventListener('click', () => bot.open());
 window.__shop = shop;
 export { toast };
