@@ -5,7 +5,7 @@ import { mulberry32, startOfDay, addDays } from './data.js';
 export const TAX_RATE = 0.05;
 
 export const SELLER = {
-  name: '阿美手作甜點', legal: '阿美手作甜點工作室', taxId: '90418826', owner: '阿美',
+  name: '阿美手作甜點', legal: '阿美手作甜點有限公司', taxId: '90418826', owner: '阿美',
   addr: '台北市大安區溫州街 ○○ 號 1 樓', phone: '02-2365-○○20', email: 'hello@amei-sweets.example',
   bank: '示範銀行 大安分行', acct: '0123-○○○-456789',
 };

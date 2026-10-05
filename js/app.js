@@ -20,6 +20,10 @@ import staff from './views/staff.js';
 import bank from './views/bank.js';
 import hub from './views/hub.js';
 import auto from './views/auto.js';
+import timeView from './views/time.js';
+import importView from './views/import.js';
+import comply from './views/comply.js';
+import advisor from './views/advisor.js';
 import receipts from './views/receipts.js';
 import listing from './views/listing.js';
 import booking from './views/booking.js';
@@ -31,6 +35,7 @@ const VIEWS = [
   { mod: dashboard, id: 'dashboard', group: '首頁', name: '總覽', icon: 'dashboard', sub: '今天的生意，AI 都幫你顧好了' },
   { mod: auto, id: 'auto', group: '首頁', name: '自動化中心', icon: 'wand', sub: '設定一次，AI 自動接單、收款、開發票、記帳、報稅提醒', tag: '自動' },
   { mod: brief, id: 'brief', group: '首頁', name: 'AI 晨報', icon: 'sparkle', sub: '每天早上 AI 告訴你：昨天發生什麼、今天該做什麼', tag: 'AI' },
+  { mod: timeView, id: 'time', group: '首頁', name: '老闆的時間', icon: 'clock', sub: '休假模式、勿擾時段、工時健康：你休息，AI 顧店' },
   { mod: chat, id: 'chat', group: '接客收單', name: 'AI 聊天收單', icon: 'chat', sub: 'LINE、WhatsApp、Zalo、Messenger 多語言自動接單', tag: '多語' },
   { mod: phone, id: 'phone', group: '接客收單', name: 'AI 電話客服', icon: 'phone', sub: '24 小時接聽、複述確認、自動建單' },
   { mod: pos, id: 'pos', group: '接客收單', name: 'POS 收銀台', icon: 'pos', sub: '門市結帳、會員、載具統編、電子發票、交班日結' },
@@ -49,6 +54,9 @@ const VIEWS = [
   { mod: ask, id: 'ask', group: 'AI 助理', name: '用問的', icon: 'ask', sub: '用一句話問出經營圖表', tag: 'AI' },
   { mod: meeting, id: 'meeting', group: 'AI 助理', name: '會議機器人', icon: 'meeting', sub: '逐字稿 → 摘要、決議、待辦、報價單' },
   { mod: agent, id: 'agent', group: 'AI 助理', name: 'AI 店員設定', icon: 'bot', sub: '教 AI 店規：退換貨、運費、過敏原、何時轉給你' },
+  { mod: advisor, id: 'advisor', group: 'AI 助理', name: 'AI 經營顧問', icon: 'trend', sub: '每週經營檢討、決策模擬器、補助與貸款媒合', tag: 'AI' },
+  { mod: importView, id: 'import', group: '系統', name: '資料搬家', icon: 'db', sub: 'Excel、蝦皮、LINE 記事本、紙本，一鍵搬進 GreenUP' },
+  { mod: comply, id: 'comply', group: '系統', name: '合規與文件', icon: 'shield', sub: '法規健檢、合約證照到期提醒、AI 讀合約' },
   { mod: hub, id: 'hub', group: '系統', name: '整合與協作', icon: 'link', sub: '通路與金流串接、會計師協作、多國稅制設定' },
   { mod: deploy, id: 'deploy', group: '系統', name: '部署模式', icon: 'deploy', sub: '雲端訂閱／企業地端／雲地混合' },
 ];

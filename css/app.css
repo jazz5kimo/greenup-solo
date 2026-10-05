@@ -902,3 +902,6 @@ body.app {
   .toast-host { bottom: calc(86px + env(safe-area-inset-bottom)) !important; }
 }
 @media (max-width: 860px) { .dash .three { order: -1; } }
+.t3-list { gap: 2px; }
+.t3-list li { grid-template-columns: 24px 1fr auto 80px; font-size: 12.5px; }
+.t3-list .t3-art, .t3-list .t3-art svg { width: 24px; height: 24px; }

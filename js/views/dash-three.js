@@ -56,7 +56,7 @@ export function renderThree(live) {
   $('#t3Cnt', host).textContent = `${list.length} 筆訂單`;
   const qty = {}, amt = {};
   for (const o of list) for (const it of o.items) { qty[it.pid] = (qty[it.pid] || 0) + it.qty; amt[it.pid] = (amt[it.pid] || 0) + it.qty * it.price; }
-  const top = Object.keys(qty).sort((a, b) => amt[b] - amt[a]).slice(0, 4);
+  const top = Object.keys(qty).sort((a, b) => amt[b] - amt[a]); // 全部列出：老闆要知道今天每樣東西賣了多少
   $('#t3List', host).innerHTML = top.map(pid => `<li><span class="t3-art">${productArt(pid, 30)}</span><b>${PRODUCT_MAP[pid].name}</b><em>× ${qty[pid]}</em><span>${money(amt[pid])}</span></li>`).join('') || '<li class="empty">尚無銷售</li>';
   const byCh = {};
   for (const o of list) byCh[o.channel] = (byCh[o.channel] || 0) + 1;

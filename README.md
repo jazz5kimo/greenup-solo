@@ -40,6 +40,10 @@ python3 -m http.server 8080
 | 排班打卡 | `js/views/staff.js`、`js/staff-data.js` | 週班表與來客曲線、AI 自動排班、勞基法檢核、打卡機、請假加班核准、特休計算、工時自動產生薪資單 |
 | 金流對帳 | `js/views/bank.js`、`js/bank-data.js` | 帳戶總覽與撥款時間軸、AI 自動對帳連線動畫、應收帳齡與多語 AI 催款、60 天現金流預測、電子發票管理 |
 | 整合與協作 | `js/views/hub.js`、`js/hub-data.js` | 整合中心（3D 網路圖、22 項服務示範串接、事件流）、會計師／記帳士協作與分潤、多國稅制設定（台灣、越南、馬來西亞、日本）、資安權限與稽核日誌 |
+| 老闆的時間 | `js/views/time.js`、`js/time-data.js` | 休假模式（AI 接手、五語公告、出貨順延、暫停預約、通知供應商、急件規則、回來待辦）、勿擾時段、工時健康、AI 省下的時間、緊急代理人 |
+| AI 經營顧問 | `js/views/advisor.js`、`js/advisor-data.js` | AI 週報與行動建議、決策模擬器（漲價、雇人、買設備、開新通路）、問顧問、政府資源媒合與申請草稿 |
+| 資料搬家 | `js/views/import.js`、`js/import-data.js` | 六種來源、真實 CSV 解析（UTF-8／Big5）、AI 欄位對應與資料整理、匯入結果、新手 7 天上手任務 |
+| 合規與文件 | `js/views/comply.js`、`js/comply-data.js` | 合規健檢分數與雷達圖、22 項檢查與一鍵處理、文件櫃 AI 合約摘要、12 個月到期提醒 |
 | 自動化中心 | `js/views/auto.js`、`js/auto-data.js` | 三步驟設定精靈、9 個白話自動化開關、訂單全自動流程即時動畫、每個自動化可匯出 n8n 流程 JSON |
 | AI 商品上架 | `js/views/listing.js`、`js/listing-data.js` | 拍照上傳、五語商品文案、AI 定價方案、圖片優化示意、五通路預覽與一鍵上架 |
 | 預約與訂金 | `js/views/booking.js`、`js/booking-data.js` | 週／月曆、拖拉改期、AI 預約對話、訂金與取消規則、課程名單、預收款項會計 |

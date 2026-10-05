@@ -208,7 +208,7 @@ export function moveNotice(lang, name, when) {
 // 課前通知（客人語言）
 export function classNotice(lang, name, when, title) {
   return ({
-    zh: `${name} 您好，提醒您 ${when}「${title}」課程，地點在阿美手作甜點工作室。圍裙與材料我們準備，有過敏請先告訴我們。`,
+    zh: `${name} 您好，提醒您 ${when}「${title}」課程，地點在阿美手作甜點門市。圍裙與材料我們準備，有過敏請先告訴我們。`,
     ja: `${name}様、${when}「${title}」クラスのご案内です。エプロンと材料はご用意しております。アレルギーがあれば事前にお知らせください。`,
     en: `Hi ${name}, a reminder for "${title}" on ${when}. Aprons and ingredients are provided — please tell us about any allergies.`,
     vi: `Chào ${name}, nhắc bạn lớp "${title}" vào ${when}. Tạp dề và nguyên liệu đã được chuẩn bị sẵn.`,
