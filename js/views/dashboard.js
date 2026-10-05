@@ -135,7 +135,7 @@ function refresh(live) {
   charts.heat.setOption(heatmapOption(last30));
 }
 
-const KIND_IC = { order: ['chat', 'var(--leaf)'], web: ['store', 'var(--mint)'], pay: ['coins', 'var(--sky)'], tax: ['tax', 'var(--amber)'], meet: ['meeting', 'var(--violet)'], stock: ['alert', 'var(--coral)'], staff: ['clock', 'var(--sky)'], purchase: ['cart', 'var(--amber)'], ship: ['truck', 'var(--mint)'], bank: ['bank', 'var(--sky)'] };
+const KIND_IC = { order: ['chat', 'var(--leaf)'], web: ['store', 'var(--mint)'], pay: ['coins', 'var(--sky)'], tax: ['tax', 'var(--amber)'], meet: ['meeting', 'var(--violet)'], stock: ['alert', 'var(--coral)'], staff: ['clock', 'var(--sky)'], purchase: ['cart', 'var(--amber)'], ship: ['truck', 'var(--mint)'], bank: ['bank', 'var(--sky)'], ai: ['sparkle', 'var(--violet)'] };
 function feedItem(a) {
   const [ic, c] = KIND_IC[a.kind] || KIND_IC.order;
   return el(`<li style="--c:${c}"><span class="f-ic">${icon(ic, 16)}</span><div><p>${esc(a.text)}</p><small>${fmtTime(a.ts)}</small></div></li>`);

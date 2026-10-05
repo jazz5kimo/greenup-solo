@@ -877,3 +877,28 @@ body.app {
 @media (max-width: 1280px) { .three { grid-template-columns: 1fr; } }
 .form401 .f-actions { flex-wrap: wrap; }
 .form401 #taxAcct { color: #1f6b4a; background: #fff; border-color: #cfe0d5; }
+
+/* 手機：底部分頁列＋全部功能面板 */
+.tabbar, .more-sheet { display: none; }
+.tb-install { padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(45,182,116,0.5); background: rgba(45,182,116,0.12); color: #9ff0c8; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+@media (max-width: 860px) {
+  body.app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .views { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: rgba(4,19,13,0.92); backdrop-filter: blur(16px); border-top: 1px solid var(--line); }
+  .tabbar a, .tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; background: none; color: var(--txt3); text-decoration: none; font-size: 11px; border-radius: 12px; }
+  .tabbar .on { color: #fff; background: rgba(45,182,116,0.16); }
+  .tabbar .on .ic { color: var(--leaf); filter: drop-shadow(0 0 6px rgba(45,182,116,.7)); }
+  .more-sheet:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 60; }
+  .ms-bg { position: absolute; inset: 0; background: rgba(2,10,7,0.6); backdrop-filter: blur(4px); }
+  .ms-panel { position: absolute; left: 0; right: 0; bottom: 0; max-height: 82vh; overflow-y: auto; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #082219; border-top: 1px solid var(--line); }
+  .ms-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .ms-h b { font-size: 17px; }
+  .ms-x { border: 0; background: rgba(255,255,255,.06); color: var(--txt); width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; }
+  .ms-panel h4 { margin: 14px 0 8px; font-size: 12px; letter-spacing: .14em; color: var(--txt3); }
+  .ms-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .ms-grid a { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 14px; background: rgba(255,255,255,.04); color: var(--txt2); text-decoration: none; font-size: 11.5px; text-align: center; }
+  .ms-grid a .ic { color: var(--mint); }
+  .toast-host { bottom: calc(86px + env(safe-area-inset-bottom)) !important; }
+}
+@media (max-width: 860px) { .dash .three { order: -1; } }

@@ -6,6 +6,12 @@
   <title>GreenUP｜AI 時代一人公司的全自動營運系統</title>
   <meta name="description" content="GreenUP：AI 時代一人公司的全自動營運系統。前端原型示範，所有資料皆為模擬。">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23061a13'/%3E%3Cpath d='M16 5c6 3 9 8 8 14-1 5-5 8-8 8s-7-3-8-8C7 13 10 8 16 5z' fill='%232DB674'/%3E%3C/svg%3E">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#061a13">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GreenUP">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/pos.css">
@@ -17,6 +23,12 @@
   <link rel="stylesheet" href="css/bank.css">
   <link rel="stylesheet" href="css/hub.css">
   <link rel="stylesheet" href="css/auto.css">
+  <link rel="stylesheet" href="css/receipts.css">
+  <link rel="stylesheet" href="css/listing.css">
+  <link rel="stylesheet" href="css/booking.css">
+  <link rel="stylesheet" href="css/quotes.css">
+  <link rel="stylesheet" href="css/agent.css">
+  <link rel="stylesheet" href="css/owner.css">
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
   <script src="vendor/gsap.min.js"></script>
   <script src="vendor/echarts.min.js"></script>
@@ -49,6 +61,7 @@
         <span class="badge badge-deploy" id="deployBadge">雲端訂閱</span>
         <span class="ai-status"><i></i>AI 代理運作中</span>
         <span class="clock" id="clock">--:--</span>
+        <button class="tb-install" id="installBtn" hidden>安裝到手機</button>
         <a class="tb-btn" href="shop.html" target="greenup-shop">銷售網頁 ↗</a>
       </div>
     </header>

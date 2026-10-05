@@ -40,6 +40,14 @@ python3 -m http.server 8080
 | 排班打卡 | `js/views/staff.js`、`js/staff-data.js` | 週班表與來客曲線、AI 自動排班、勞基法檢核、打卡機、請假加班核准、特休計算、工時自動產生薪資單 |
 | 金流對帳 | `js/views/bank.js`、`js/bank-data.js` | 帳戶總覽與撥款時間軸、AI 自動對帳連線動畫、應收帳齡與多語 AI 催款、60 天現金流預測、電子發票管理 |
 | 整合與協作 | `js/views/hub.js`、`js/hub-data.js` | 整合中心（3D 網路圖、22 項服務示範串接、事件流）、會計師／記帳士協作與分潤、多國稅制設定（台灣、越南、馬來西亞、日本）、資安權限與稽核日誌 |
+| 自動化中心 | `js/views/auto.js`、`js/auto-data.js` | 三步驟設定精靈、9 個白話自動化開關、訂單全自動流程即時動畫、每個自動化可匯出 n8n 流程 JSON |
+| AI 商品上架 | `js/views/listing.js`、`js/listing-data.js` | 拍照上傳、五語商品文案、AI 定價方案、圖片優化示意、五通路預覽與一鍵上架 |
+| 預約與訂金 | `js/views/booking.js`、`js/booking-data.js` | 週／月曆、拖拉改期、AI 預約對話、訂金與取消規則、課程名單、預收款項會計 |
+| 報價與請款 | `js/views/quotes.js`、`js/quotes-data.js` | 一句話產生報價單、線上簽回、請款＋三聯式發票＋付款連結、月結對帳、定期扣款、應收催款 |
+| 拍照記帳 | `js/views/receipts.js`、`js/receipts-data.js` | 收據發票拍照辨識、自動分類與進項扣抵判斷、私人支出提醒、重複偵測、載具匯入 |
+| 老闆的錢 | `js/views/owner.js`、`js/owner-data.js` | 本月可安心領多少、稅金預留帳戶、董事酬勞與盈餘分配試算、現金跑道、公私分明、存錢目標 |
+| AI 店員設定 | `js/views/agent.js`、`js/agent-data.js` | 人設與語氣、店規知識庫、安全護欄、試聊沙盒、對話品質儀表 |
+| 手機 App（PWA） | `manifest.webmanifest`、`sw.js` | 可安裝到手機主畫面、離線快取、手機底部分頁列 |
 | 會計帳務 | `js/views/books.js`、`js/ledger.js` | 產銷人發財五大管理面向：原料進貨與 BOM 成本、通路與商品收入、薪資勞健保勞退、研發專案與投資抵減、資產負債表與現金流；損益表、收入費用明細帳（AI 自動分類） |
 | 自動化報稅 | `js/views/tax.js`、`js/views/tax-extra.js` | 營業稅 401 試算與申報書預覽；營利事業所得稅年度試算（20%、起徵額、研發投資抵減、未分配盈餘）；扣繳與二代健保補充保費；全年稅務行事曆 |
 | 用問的 | `js/ask.js`、`js/views/ask.js` | 規則式中文自然語言解析 → 文字＋ECharts 圖表＋資料來源標籤；支援語音提問（瀏覽器支援時） |

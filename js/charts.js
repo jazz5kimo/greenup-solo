@@ -9,7 +9,7 @@ const LINE = 'rgba(255,255,255,0.07)';
 echarts.registerTheme('greenup', {
   color: PALETTE,
   backgroundColor: 'transparent',
-  textStyle: { fontFamily: 'inherit', color: TXT },
+  textStyle: { fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", system-ui, sans-serif', color: TXT },
   title: { textStyle: { color: '#eafff4' } },
   legend: { textStyle: { color: TXT } },
   tooltip: {

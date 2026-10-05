@@ -1,0 +1,22 @@
+{
+  "name": "GreenUP｜AI 時代一人公司的全自動營運系統",
+  "short_name": "GreenUP",
+  "description": "AI 幫你從各種管道接客收單，會計報稅全自動，經營數據一問就知道。（原型示範）",
+  "lang": "zh-Hant-TW",
+  "start_url": "./index.html?nolaunch#dashboard",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#061a13",
+  "theme_color": "#061a13",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "今天賣了什麼", "url": "./index.html?nolaunch#dashboard" },
+    { "name": "拍照記帳", "url": "./index.html?nolaunch#receipts" },
+    { "name": "POS 收銀台", "url": "./index.html?nolaunch#pos" },
+    { "name": "報稅", "url": "./index.html?nolaunch#tax" }
+  ]
+}
