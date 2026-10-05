@@ -823,3 +823,57 @@ body.app {
   .side-foot { gap: 6px; padding-top: 8px; }
 }
 .view-ask { overflow-x: clip; }
+/* 簡單模式側欄 */
+.nav-simple .nav-item.adv:not(.active) { display: none; }
+.nav-mode { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border-radius: 10px; border: 1px solid rgba(45,182,116,0.35); background: rgba(45,182,116,0.08); color: #9ff0c8; font-size: 12px; }
+.nav-mode:hover { background: rgba(45,182,116,0.16); }
+@media (max-width: 1280px) { .nav-simple .nav-item.adv:not(.active) { display: flex; } }
+
+/* 總覽：三件事 */
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.t3 { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; border-top: 2px solid var(--c); min-width: 0; }
+.t3-h { display: flex; align-items: center; gap: 10px; }
+.t3-h > div { flex: 1; min-width: 0; }
+.t3-h b { display: block; font-size: 16px; }
+.t3-h small { color: var(--txt3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.t3-n { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-weight: 900; color: #04130d; background: var(--c); box-shadow: 0 0 16px color-mix(in srgb, var(--c) 55%, transparent); flex: none; }
+.t3-big { display: flex; align-items: baseline; gap: 10px; }
+.t3-big b { font-size: 28px; font-variant-numeric: tabular-nums; }
+.t3-big span { color: var(--txt2); font-size: 13px; }
+.t3-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.t3-list li { display: grid; grid-template-columns: 30px 1fr auto 86px; gap: 8px; align-items: center; font-size: 13px; }
+.t3-list li em { font-style: normal; color: var(--mint); font-weight: 700; }
+.t3-list li > span:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--txt2); }
+.t3-list li.empty { display: block; color: var(--txt3); }
+.t3-art { width: 30px; height: 30px; }
+.t3-ch { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.t3-ch span { font-size: 11.5px; color: var(--txt2); display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.05); }
+.t3-ch i { width: 7px; height: 7px; border-radius: 50%; background: var(--cc); }
+.t3-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.t3-pair > div { padding: 10px 12px; border-radius: 12px; background: rgba(46,151,212,.1); }
+.t3-pair > div.warn { background: rgba(240,165,49,.1); }
+.t3-pair small { display: block; font-size: 12px; color: var(--txt3); }
+.t3-pair b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; margin: 2px 0; }
+.t3-pair span { font-size: 11.5px; color: var(--txt2); }
+.t3-bar { height: 6px; border-radius: 4px; background: rgba(240,165,49,.35); overflow: hidden; }
+.t3-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2E97D4, #5EE0C4); border-radius: 4px; }
+.t3-note { margin: 0; font-size: 12px; color: var(--txt2); display: flex; gap: 6px; align-items: flex-start; line-height: 1.5; }
+.t3-note .ic { margin-top: 2px; color: var(--sky); }
+.t3-act { margin-top: auto; align-self: flex-start; }
+.t3-tax-row { display: flex; align-items: center; gap: 14px; }
+.t3-ring { position: relative; width: 64px; height: 64px; flex: none; }
+.t3-ring svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+.t3-ring circle { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 6; }
+.t3-ring circle.fg { stroke: var(--amber); stroke-linecap: round; filter: drop-shadow(0 0 4px var(--amber)); }
+.t3-ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; }
+.t3-eq small { display: block; font-size: 12px; color: var(--txt3); }
+.t3-eq b { display: block; font-size: 24px; color: #ffd79a; font-variant-numeric: tabular-nums; }
+.t3-eq span { font-size: 11.5px; color: var(--txt2); }
+.t3-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.t3-checks li { font-size: 12.5px; color: var(--txt2); display: flex; gap: 6px; align-items: center; }
+.t3-checks li.t3-ok .ic { color: var(--leaf); }
+.t3-checks li.t3-todo .ic { color: var(--amber); }
+.t3-btns { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+@media (max-width: 1280px) { .three { grid-template-columns: 1fr; } }
+.form401 .f-actions { flex-wrap: wrap; }
+.form401 #taxAcct { color: #1f6b4a; background: #fff; border-color: #cfe0d5; }

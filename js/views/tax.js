@@ -1,6 +1,6 @@
 // 自動化報稅：營業稅（401）試算示範
 import { store } from '../state.js';
-import { $, $$, el, gsap, money, countUp, fmtDate, pad, fmtMD } from '../util.js';
+import { $, $$, el, gsap, money, countUp, fmtDate, pad, fmtMD, toast } from '../util.js';
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { addDays, startOfDay } from '../data.js';
@@ -27,7 +27,7 @@ function compute() {
 }
 
 export default {
-  mount(section) {
+  mount(section, ctx) {
     root = section;
     const { p } = compute();
     section.innerHTML = `
@@ -63,6 +63,7 @@ export default {
           <table class="f-tbl" id="f401"></table>
           <div class="f-actions">
             <button class="btn btn-primary btn-lg" id="taxGo">${icon('shield', 18)} 本人確認後送出</button>
+            <button class="btn btn-ghost" id="taxAcct">${icon('users', 16)} 交給記帳士審核</button>
             <small>送出前 AI 不會自動申報；需負責人確認。本示範不會連線財政部系統。</small>
           </div>
         </div>
@@ -82,6 +83,7 @@ export default {
       </div>
     </div>`;
     $('#taxGo', section).addEventListener('click', submit);
+    $('#taxAcct', section).addEventListener('click', () => { toast('已送交記帳士審核（示範）', '林記帳士事務所將收到 401 申報資料與進銷項明細，審核完成後通知你確認送出', { kind: 'info', icon: icon('users', 18) }); ctx && ctx.go && setTimeout(() => ctx.go('hub'), 900); });
     $$('.tx-tab', section).forEach(b => b.addEventListener('click', () => {
       $$('.tx-tab', root).forEach(x => x.classList.toggle('on', x === b));
       $$('.tx-pane', root).forEach(x => { x.hidden = x.dataset.p !== b.dataset.p; });

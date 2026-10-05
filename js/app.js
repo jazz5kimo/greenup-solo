@@ -19,9 +19,11 @@ import shipping from './views/shipping.js';
 import staff from './views/staff.js';
 import bank from './views/bank.js';
 import hub from './views/hub.js';
+import auto from './views/auto.js';
 
 const VIEWS = [
   { mod: dashboard, id: 'dashboard', group: '首頁', name: '總覽', icon: 'dashboard', sub: '今天的生意，AI 都幫你顧好了' },
+  { mod: auto, id: 'auto', group: '首頁', name: '自動化中心', icon: 'wand', sub: '設定一次，AI 自動接單、收款、開發票、記帳、報稅提醒', tag: '自動' },
   { mod: brief, id: 'brief', group: '首頁', name: 'AI 晨報', icon: 'sparkle', sub: '每天早上 AI 告訴你：昨天發生什麼、今天該做什麼', tag: 'AI' },
   { mod: chat, id: 'chat', group: '接客收單', name: 'AI 聊天收單', icon: 'chat', sub: 'LINE、WhatsApp、Zalo、Messenger 多語言自動接單', tag: '多語' },
   { mod: phone, id: 'phone', group: '接客收單', name: 'AI 電話客服', icon: 'phone', sub: '24 小時接聽、複述確認、自動建單' },
@@ -45,11 +47,36 @@ const viewsHost = $('#views');
 const mounted = new Map();
 let current = null;
 
+// 簡單模式：一人公司只看核心頁面（接單、收款、帳務報稅、用問的、自動化），其餘收進「全部功能」
+const SIMPLE = new Set(['dashboard', 'auto', 'brief', 'chat', 'phone', 'pos', 'bank', 'books', 'tax', 'ask']);
+const LS_NAV = 'greenup-solo:nav';
+let simpleNav = true;
+try { simpleNav = localStorage.getItem(LS_NAV) !== 'all'; } catch { /* ignore */ }
+
 let lastGroup = '';
 VIEWS.forEach((v, i) => {
-  if (v.group !== lastGroup) { nav.appendChild(el(`<div class="nav-group">${v.group}</div>`)); lastGroup = v.group; }
-  const a = el(`<a class="nav-item" href="#${v.id}" data-id="${v.id}">${icon(v.icon, 20)}<span>${v.name}</span>${v.tag ? `<em>${v.tag}</em>` : ''}<i class="nav-badge" hidden></i></a>`);
+  if (v.group !== lastGroup) { nav.appendChild(el(`<div class="nav-group" data-g="${v.group}">${v.group}</div>`)); lastGroup = v.group; }
+  const a = el(`<a class="nav-item ${SIMPLE.has(v.id) ? '' : 'adv'}" data-g="${v.group}" href="#${v.id}" data-id="${v.id}">${icon(v.icon, 20)}<span>${v.name}</span>${v.tag ? `<em>${v.tag}</em>` : ''}<i class="nav-badge" hidden></i></a>`);
   nav.appendChild(a);
+});
+
+const modeBtn = el(`<button class="nav-mode" id="navMode"></button>`);
+$('.side-foot').prepend(modeBtn);
+function applyNavMode() {
+  document.body.classList.toggle('nav-simple', simpleNav);
+  $$('.nav-group', nav).forEach(g => {
+    const items = $$(`.nav-item[data-g="${g.dataset.g}"]`, nav);
+    g.hidden = simpleNav && !items.some(a => !a.classList.contains('adv') || a.classList.contains('active'));
+  });
+  modeBtn.innerHTML = simpleNav
+    ? `${icon('plus', 14)}<span>顯示全部功能（${VIEWS.length}）</span>`
+    : `${icon('minus', 14)}<span>簡單模式（只看核心 ${SIMPLE.size} 項）</span>`;
+}
+modeBtn.addEventListener('click', () => {
+  simpleNav = !simpleNav;
+  try { localStorage.setItem(LS_NAV, simpleNav ? 'simple' : 'all'); } catch { /* ignore */ }
+  applyNavMode();
+  gsap.fromTo($$('.nav-item:not(.adv)', nav).concat(simpleNav ? [] : $$('.nav-item.adv', nav)), { opacity: 0, x: -8 }, { opacity: 1, x: 0, stagger: 0.02, duration: 0.3 });
 });
 
 function ensureMounted(v) {
@@ -72,6 +99,7 @@ function show(v) {
   const prev = current; current = v;
   const section = ensureMounted(v);
   $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.id === v.id));
+  applyNavMode();
   const badge = $(`.nav-item[data-id="${v.id}"] .nav-badge`); if (badge) badge.hidden = true;
   $('#viewTitle').textContent = v.name;
   $('#viewSub').textContent = v.sub;

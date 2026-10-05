@@ -5,6 +5,7 @@ import { icon } from '../icons.js';
 import { makeChart, trendOption, channelOption, productOption, heatmapOption } from '../charts.js';
 import { createHero } from '../three-hero.js';
 import { startOfDay, addDays } from '../data.js';
+import { mountThree, renderThree } from './dash-three.js';
 
 let root, charts = null, hero = null;
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -60,6 +61,7 @@ export default {
         <div class="hero-3d" id="hero3d"><div class="hero-3d-label"><span>GreenUP AI Core</span><small>7 個通路 · 即時同步</small></div></div>
       </div>
 
+      <div class="three anim-in" id="dashThree"></div>
       <div class="kpis">
         ${KPI_DEF.map(k => `
           <div class="kpi glass anim-in" data-k="${k.key}" style="--c:${k.color}">
@@ -79,6 +81,7 @@ export default {
     </div>`;
     $$('[data-go]', section).forEach(b => b.addEventListener('click', () => ctx.go(b.dataset.go)));
     renderFeed();
+    mountThree($('#dashThree', section), ctx.go);
     store.on('order', ({ order }) => { refresh(true); hero && hero.pulse(order.channel); });
     store.on('order-updated', () => refresh(true));
     store.on('reset', () => refresh(true));
@@ -94,6 +97,7 @@ export default {
 };
 
 function refresh(live) {
+  renderThree(live);
   const k = store.kpis();
   const st = aiStats();
   countUp($('#hTotal', root), st.total); countUp($('#hMsgs', root), st.msgs); countUp($('#hOnline', root), st.online);
