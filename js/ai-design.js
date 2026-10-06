@@ -23,7 +23,7 @@ const LANGS = ['zh', 'en', 'ja', 'vi', 'ms'];
 
 // ---------- 設定（連線方式、金鑰、模型） ----------
 export function getSettings() {
-  try { return Object.assign({ mode: 'demo', model: DEFAULT_MODEL, apiKey: '', proxyUrl: '' }, JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}')); } catch { return { mode: 'demo', model: DEFAULT_MODEL, apiKey: '', proxyUrl: '' }; }
+  try { return Object.assign({ mode: 'demo', model: DEFAULT_MODEL, auth: 'apikey', apiKey: '', token: '', proxyUrl: '' }, JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}')); } catch { return { mode: 'demo', model: DEFAULT_MODEL, auth: 'apikey', apiKey: '', token: '', proxyUrl: '' }; }
 }
 export function saveSettings(patch) {
   const s = Object.assign(getSettings(), patch);
@@ -107,19 +107,24 @@ export async function callClaude({ prompt, prev, feedback, signal }) {
   let res;
   if (s.mode === 'proxy') {
     if (!s.proxyUrl) throw new Error('請先填入 n8n 的 /webhook/ai-design 網址');
-    res = await fetch(s.proxyUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tenant: TENANT_ID, request: body }), signal });
+    // auth 告訴 n8n 代理用哪一組憑證（API 金鑰，或 greenup ai login 寫入的帳號登入權杖）
+    res = await fetch(s.proxyUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tenant: TENANT_ID, auth: s.auth === 'oauth' ? 'oauth' : 'apikey', request: body }), signal });
   } else {
-    if (!s.apiKey) throw new Error('請先填入 Claude API 金鑰，或改用示範模式');
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST', signal,
-      headers: { 'content-type': 'application/json', 'x-api-key': s.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify(body),
-    });
+    const headers = { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+    if (s.auth === 'oauth') {
+      // Anthropic 帳號登入（ant auth login）的權杖：Bearer＋oauth beta 標頭；權杖是短效的，過期要重新取得
+      if (!s.token) throw new Error('請先貼上帳號登入權杖（ant auth print-credentials --access-token），或改用示範模式');
+      headers.authorization = `Bearer ${s.token.replace(/^Bearer\s+/i, '')}`; headers['anthropic-beta'] = 'oauth-2025-04-20';
+    } else {
+      if (!s.apiKey) throw new Error('請先填入 Claude API 金鑰，或改用示範模式');
+      headers['x-api-key'] = s.apiKey;
+    }
+    res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal, headers, body: JSON.stringify(body) });
   }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try { const j = await res.json(); msg = j.error?.message || j.message || msg; } catch { /* ignore */ }
-    if (res.status === 401) msg = '金鑰無效或已失效（401）：' + msg;
+    if (res.status === 401) msg = (s.mode !== 'proxy' && s.auth === 'oauth' ? '登入權杖無效或已過期（401），請重新執行 ant auth print-credentials --access-token 取得新權杖：' : '金鑰無效或已失效（401）：') + msg;
     if (res.status === 429) msg = '目前請求太多，稍後再試（429）：' + msg;
     throw new Error(msg);
   }
@@ -223,7 +228,7 @@ export function localDesign(prompt, { prev = null, feedback = '' } = {}) {
 // ---------- 統一入口 ----------
 export async function design(prompt, { prev = null, feedback = '', signal } = {}) {
   const s = getSettings();
-  if (s.mode === 'demo' || (s.mode === 'cloud' && !s.apiKey) || (s.mode === 'proxy' && !s.proxyUrl)) {
+  if (s.mode === 'demo' || (s.mode === 'cloud' && !(s.auth === 'oauth' ? s.token : s.apiKey)) || (s.mode === 'proxy' && !s.proxyUrl)) {
     await new Promise(r => setTimeout(r, 900 + Math.random() * 600));
     return { spec: localDesign(prompt, { prev, feedback }), usage: null, model: '示範設計師（規則式）', source: 'local' };
   }

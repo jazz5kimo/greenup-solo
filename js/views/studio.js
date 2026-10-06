@@ -283,7 +283,8 @@ const DZ_PRESETS = ['日式侘寂，木質與米白，安靜有質感', '北歐�
 let dz = { prompt: '', spec: null, busy: false, err: '', feedback: '', model: '', usage: null, ctl: null };
 function renderDesigner(p) {
   const s = getSettings();
-  const keyState = s.mode === 'demo' ? ['示範模式（內建規則式設計師）', 'warn'] : s.mode === 'proxy' ? [s.proxyUrl ? '地端 n8n 代理' : '尚未填 n8n 網址', s.proxyUrl ? 'ok' : 'warn'] : [s.apiKey ? `金鑰 ${maskKey(s.apiKey)}` : '尚未填金鑰', s.apiKey ? 'ok' : 'warn'];
+  const oauth = s.auth === 'oauth';
+  const keyState = s.mode === 'demo' ? ['示範模式（內建規則式設計師）', 'warn'] : s.mode === 'proxy' ? [s.proxyUrl ? `地端 n8n 代理・${oauth ? '帳號登入' : 'API 金鑰'}` : '尚未填 n8n 網址', s.proxyUrl ? 'ok' : 'warn'] : oauth ? [s.token ? `帳號登入權杖 ${maskKey(s.token)}` : '尚未貼上登入權杖', s.token ? 'ok' : 'warn'] : [s.apiKey ? `金鑰 ${maskKey(s.apiKey)}` : '尚未填金鑰', s.apiKey ? 'ok' : 'warn'];
   const spec = dz.spec; const th = spec ? customTheme(toCustom(spec, dz.prompt)) : null;
   const hist = getHistory();
   p.innerHTML = `<div class="st-sec-h"><h3>${icon('bot', 16)} AI 設計師：一句話，Claude 幫你設計銷售網頁</h3><small>描述你想要的感覺，Claude（預設 Opus）會依店家、商品與業態設計配色、版面、裝飾與五語文案；本機再檢查一次對比度才套用。所有設計只影響這家店的前台。</small></div>
@@ -292,10 +293,15 @@ function renderDesigner(p) {
         <div class="st-dz-set">
           <select id="dzMode" aria-label="連線方式"><option value="demo" ${s.mode === 'demo' ? 'selected' : ''}>示範（不連線）</option><option value="cloud" ${s.mode === 'cloud' ? 'selected' : ''}>雲端：瀏覽器直接呼叫 Claude</option><option value="proxy" ${s.mode === 'proxy' ? 'selected' : ''}>地端：經由自己的 n8n</option></select>
           <select id="dzModel" aria-label="模型" ${s.mode === 'demo' ? 'disabled' : ''}>${MODELS.map(m => `<option value="${m.id}" ${s.model === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
-          ${s.mode === 'cloud' ? `<input id="dzKey" type="password" placeholder="Claude API 金鑰（只存在這台瀏覽器；正式上線請用地端模式）" value="${esc(s.apiKey || '')}" autocomplete="off">` : ''}
+          ${s.mode !== 'demo' ? `<select id="dzAuth" aria-label="認證方式"><option value="apikey" ${!oauth ? 'selected' : ''}>用 API 金鑰</option><option value="oauth" ${oauth ? 'selected' : ''}>用 Anthropic 帳號登入</option></select>` : ''}
+          ${s.mode === 'cloud' && !oauth ? `<input id="dzKey" type="password" placeholder="Claude API 金鑰（只存在這台瀏覽器；正式上線請用地端模式）" value="${esc(s.apiKey || '')}" autocomplete="off">` : ''}
+          ${s.mode === 'cloud' && oauth ? `<input id="dzToken" type="password" placeholder="貼上登入權杖（ant auth print-credentials --access-token）" value="${esc(s.token || '')}" autocomplete="off">` : ''}
           ${s.mode === 'proxy' ? `<input id="dzProxy" type="url" placeholder="https://你的網域/t/${TENANT_ID}/webhook/ai-design" value="${esc(s.proxyUrl || '')}">` : ''}
           <span class="chip-sm ${keyState[1]}">${esc(keyState[0])}</span>
         </div>
+        ${s.mode !== 'demo' && oauth ? `<div class="st-dz-help">用你的 Anthropic 帳號登入，不必建立 API 金鑰、也不用把密碼交給 GreenUP：<br>
+          ${s.mode === 'cloud' ? `1. 在電腦安裝 Anthropic CLI（<code>ant</code>）→ 2. 執行 <code>ant auth login</code>，瀏覽器會開 Anthropic 的登入頁 → 3. 執行 <code>ant auth print-credentials --access-token</code>，把印出的權杖貼到上面。權杖約 1 小時會過期，到時再貼一次；正式使用請改「地端」模式，由伺服器自動續期。` : `在伺服器執行 <code>greenup ai login</code>（會開 Anthropic 登入頁），之後權杖由伺服器每 30 分鐘自動續期，後台不需要再填任何東西。`}
+          <br><small>費用以 Anthropic Console 組織的額度計算，不是 claude.ai 的聊天訂閱（請以 Anthropic 官方說明為準）。</small></div>` : ''}
         <textarea id="dzPrompt" placeholder="例如：日式侘寂的感覺，木質、米白，安靜有質感，適合茶行；按鈕不要太搶眼">${esc(dz.prompt)}</textarea>
         <div class="st-dz-presets">${DZ_PRESETS.map(t => `<button data-preset="${esc(t)}">${esc(t)}</button>`).join('')}</div>
         <div class="st-dz-go"><button class="btn btn-primary" id="dzGo" ${dz.busy ? 'disabled' : ''}>${icon('sparkle', 16)} ${dz.busy ? '設計中…' : (s.mode === 'demo' ? '產生設計（示範）' : '用 Claude 設計')}</button>${dz.busy ? `<button class="btn btn-ghost btn-sm" id="dzStop">取消</button>` : ''}<small class="st-dz-src">${s.mode === 'demo' ? '示範模式不會連線；填入金鑰或 n8n 網址後改由 Claude 設計' : `模型：${esc(s.model)}・每次約 US$0.05–0.08（估計）`}</small></div>
@@ -333,6 +339,8 @@ function renderDesigner(p) {
   $('#dzMode', p).addEventListener('change', (e) => { saveSettings({ mode: e.target.value }); renderDesigner(p); });
   const mo = $('#dzModel', p); if (mo) mo.addEventListener('change', (e) => { saveSettings({ model: e.target.value }); renderDesigner(p); });
   const ki = $('#dzKey', p); if (ki) ki.addEventListener('change', (e) => { saveSettings({ apiKey: e.target.value.trim() }); renderDesigner(p); });
+  const au = $('#dzAuth', p); if (au) au.addEventListener('change', (e) => { saveSettings({ auth: e.target.value }); renderDesigner(p); });
+  const tk = $('#dzToken', p); if (tk) tk.addEventListener('change', (e) => { saveSettings({ token: e.target.value.trim() }); renderDesigner(p); });
   const pu = $('#dzProxy', p); if (pu) pu.addEventListener('change', (e) => { saveSettings({ proxyUrl: e.target.value.trim() }); renderDesigner(p); });
   $$('[data-preset]', p).forEach(b => b.addEventListener('click', () => { $('#dzPrompt', p).value = b.dataset.preset; dz.prompt = b.dataset.preset; }));
   $('#dzPrompt', p).addEventListener('input', (e) => { dz.prompt = e.target.value; });
