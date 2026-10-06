@@ -1,6 +1,7 @@
 // 網站設計工作室：選業主（50 種業態）、選風格（自動／手動、節慶排程、夜間）、產品顯示管理、AI 依 logo 色票產生風格；右側 iframe 即時預覽
 // 業主切換＝setTenant（重新載入，各業主資料隔離）；風格與產品設定寫入 shop-config（依業主分開），預覽 iframe 透過 BroadcastChannel 即時更新
 import { TENANT, TENANT_ID, TENANTS, setTenant } from '../tenant.js';
+import { design, toCustom, getSettings, saveSettings, maskKey, MODELS, getHistory, pushHistory, clearHistory } from '../ai-design.js';
 import { PRODUCTS, PRODUCT_MAP } from '../data.js';
 import { getShopConfig, setShopConfig, onShopConfig } from '../shop-config.js';
 import { THEMES, THEME_MAP, CORE_THEMES, FESTIVAL_THEMES, DEFAULT_SCHEDULE, DEFAULT_NIGHT, resolveTheme, themeName, themeThumb, customTheme, paletteToVars, contrast, styleOf, STYLE_AXES } from '../shop/themes.js';
@@ -51,7 +52,7 @@ export default {
       </div>
       <div class="st-main">
         <div class="st-left">
-          <div class="st-tabs glass anim-in">${[['merchant', '業主', 'store'], ['theme', '風格與排程', 'wand'], ['products', '商品顯示', 'box'], ['ai', 'AI 配色', 'sparkle']].map(([id, n, ic]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${icon(ic, 16)}<span>${n}</span></button>`).join('')}</div>
+          <div class="st-tabs glass anim-in">${[['merchant', '業主', 'store'], ['theme', '風格與排程', 'wand'], ['designer', 'AI 設計師', 'bot'], ['products', '商品顯示', 'box'], ['ai', 'AI 配色', 'sparkle']].map(([id, n, ic]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${icon(ic, 16)}<span>${n}</span></button>`).join('')}</div>
           <div class="st-panel glass anim-in" id="stPanel"></div>
         </div>
         <div class="st-right">
@@ -69,7 +70,7 @@ export default {
     $$('[data-dev]', section).forEach(b => b.addEventListener('click', () => { device = b.dataset.dev; $$('[data-dev]', section).forEach(x => x.classList.toggle('on', x === b)); fitFrame(); }));
     $('.st-reload', section).addEventListener('click', () => { const f = $('iframe', section); f.src = shopUrl(); });
     new ResizeObserver(fitFrame).observe($('#stWrap', section));
-    onShopConfig((c) => { cfg = c; renderNow(); if (tab !== 'products' && tab !== 'ai') renderPanel(false); });
+    onShopConfig((c) => { cfg = c; renderNow(); if (tab !== 'products' && tab !== 'ai' && tab !== 'designer') renderPanel(false); });
     renderPanel(false); renderNow(); fitFrame();
   },
   show() { cfg = getShopConfig(); renderPanel(false); renderNow(); fitFrame(); },
@@ -99,6 +100,7 @@ function renderPanel(animate) {
   if (tab === 'theme') renderThemes(p);
   if (tab === 'products') renderProducts(p);
   if (tab === 'ai') renderAI(p);
+  if (tab === 'designer') renderDesigner(p);
   if (animate) gsap.fromTo(p.children, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.03 });
 }
 
@@ -275,3 +277,69 @@ function renderAI(p) {
   const dc = $('#stDelCustom', p); if (dc) dc.addEventListener('click', () => { save({ custom: null, theme: cfg.theme === 'custom' ? 'auto' : cfg.theme }, '已移除自訂風格'); renderAI(p); });
 }
 void mix;
+
+// ---------------- AI 設計師：下一句 prompt，由 Claude 設計整個銷售網頁風格 ----------------
+const DZ_PRESETS = ['日式侘寂，木質與米白，安靜有質感', '北歐極簡，大量留白，一個亮橘色點綴', '粉嫩可愛，圓角、手寫感，適合送禮', '深色工業風，黑底配琥珀金，男性客群', '清爽海洋度假感，藍與沙色，夏天', '黑金精品感，高級、典雅、襯線字', '自然有機，森林綠與牛皮紙質感', '年輕街頭、鮮豔繽紛、海報感'];
+let dz = { prompt: '', spec: null, busy: false, err: '', feedback: '', model: '', usage: null, ctl: null };
+function renderDesigner(p) {
+  const s = getSettings();
+  const keyState = s.mode === 'demo' ? ['示範模式（內建規則式設計師）', 'warn'] : s.mode === 'proxy' ? [s.proxyUrl ? '地端 n8n 代理' : '尚未填 n8n 網址', s.proxyUrl ? 'ok' : 'warn'] : [s.apiKey ? `金鑰 ${maskKey(s.apiKey)}` : '尚未填金鑰', s.apiKey ? 'ok' : 'warn'];
+  const spec = dz.spec; const th = spec ? customTheme(toCustom(spec, dz.prompt)) : null;
+  const hist = getHistory();
+  p.innerHTML = `<div class="st-sec-h"><h3>${icon('bot', 16)} AI 設計師：一句話，Claude 幫你設計銷售網頁</h3><small>描述你想要的感覺，Claude（預設 Opus）會依店家、商品與業態設計配色、版面、裝飾與五語文案；本機再檢查一次對比度才套用。所有設計只影響這家店的前台。</small></div>
+    <div class="st-dz">
+      <div class="st-dz-l">
+        <div class="st-dz-set">
+          <select id="dzMode" aria-label="連線方式"><option value="demo" ${s.mode === 'demo' ? 'selected' : ''}>示範（不連線）</option><option value="cloud" ${s.mode === 'cloud' ? 'selected' : ''}>雲端：瀏覽器直接呼叫 Claude</option><option value="proxy" ${s.mode === 'proxy' ? 'selected' : ''}>地端：經由自己的 n8n</option></select>
+          <select id="dzModel" aria-label="模型" ${s.mode === 'demo' ? 'disabled' : ''}>${MODELS.map(m => `<option value="${m.id}" ${s.model === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+          ${s.mode === 'cloud' ? `<input id="dzKey" type="password" placeholder="Claude API 金鑰（只存在這台瀏覽器；正式上線請用地端模式）" value="${esc(s.apiKey || '')}" autocomplete="off">` : ''}
+          ${s.mode === 'proxy' ? `<input id="dzProxy" type="url" placeholder="https://你的網域/t/${TENANT_ID}/webhook/ai-design" value="${esc(s.proxyUrl || '')}">` : ''}
+          <span class="chip-sm ${keyState[1]}">${esc(keyState[0])}</span>
+        </div>
+        <textarea id="dzPrompt" placeholder="例如：日式侘寂的感覺，木質、米白，安靜有質感，適合茶行；按鈕不要太搶眼">${esc(dz.prompt)}</textarea>
+        <div class="st-dz-presets">${DZ_PRESETS.map(t => `<button data-preset="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+        <div class="st-dz-go"><button class="btn btn-primary" id="dzGo" ${dz.busy ? 'disabled' : ''}>${icon('sparkle', 16)} ${dz.busy ? '設計中…' : (s.mode === 'demo' ? '產生設計（示範）' : '用 Claude 設計')}</button>${dz.busy ? `<button class="btn btn-ghost btn-sm" id="dzStop">取消</button>` : ''}<small class="st-dz-src">${s.mode === 'demo' ? '示範模式不會連線；填入金鑰或 n8n 網址後改由 Claude 設計' : `模型：${esc(s.model)}・每次約 US$0.05–0.08（估計）`}</small></div>
+        ${dz.busy ? `<div class="st-dz-think"><i></i>${s.mode === 'demo' ? '示範設計師依描述挑選配色與版面…' : 'Claude 正在閱讀店家與商品資料、設計配色與文案（約 10–30 秒）…'}</div>` : ''}
+        ${dz.err ? `<div class="st-dz-err">${icon('alert', 14)} ${esc(dz.err)}</div>` : ''}
+        ${hist.length ? `<div class="st-dz-hist"><h4>歷史版本（${hist.length}）<button class="btn btn-ghost btn-sm" id="dzClear" style="margin-left:8px">清除</button></h4>${hist.map((h, i) => `<button class="st-dz-hi" data-hist="${i}"><span class="sw" style="background:linear-gradient(135deg, ${h.vars.cream} 0 45%, ${h.vars.gl} 45% 72%, ${h.vars.deep} 72%)"></span><span><b>${esc(h.name)}・${h.source === 'claude' ? 'Claude' : '示範'}</b><small>${esc(h.prompt)}</small></span></button>`).join('')}</div>` : ''}
+      </div>
+      <div class="st-dz-r">
+        ${spec ? `<div class="st-dz-res">
+          <h4>${esc(spec.name)}</h4><div class="st-dz-src">由 ${esc(dz.model || '')} 設計${dz.usage ? `・輸入 ${dz.usage.input_tokens} / 輸出 ${dz.usage.output_tokens} tokens` : ''}</div>
+          <div class="st-dz-thumb">${themeThumb(th, { merchant: TENANT, w: 360, h: 225 })}</div>
+          <div class="st-dz-pal">${[spec.vars.cream, spec.vars.cream2, spec.vars.g, spec.vars.gl, spec.vars.rose, spec.vars.ink, spec.vars.deep, spec.vars.btn].map(c => `<i style="background:${c}" title="${c}"></i>`).join('')}</div>
+          <div class="st-dz-concept">${esc(spec.concept)}</div>
+          <div class="st-dz-axes">${Object.entries(spec.style).map(([k, v]) => `<span>${k}<b>${v}</b></span>`).join('')}<span>deco<b>${spec.deco}</b></span><span>${spec.dark ? '深色底' : '淺色底'}</span></div>
+          <div class="st-dz-copy"><b>${esc(spec.copy.zh.title).replace(/\\n|\n/g, '<br>')}</b>\n${esc(spec.copy.zh.sub)}\n標語：${esc(spec.copy.zh.tagline)}・按鈕：${esc(spec.copy.zh.cta)}\nEN：${esc(spec.copy.en.title)} — ${esc(spec.copy.en.tagline)}</div>
+          ${spec.notes && spec.notes.length ? `<div class="st-dz-notes">本機檢查已修正：${spec.notes.map(esc).join('；')}</div>` : '<div class="st-dz-notes">本機檢查：文字對比與版面值全部合格</div>'}
+          <div class="st-row" style="margin-top:10px"><button class="btn btn-primary" id="dzApply">${icon('wand', 16)} 套用到銷售網頁</button>${cfg.theme === 'custom' && cfg.custom && cfg.custom.prompt === dz.prompt ? '<span class="chip-sm ok">目前使用中</span>' : ''}</div>
+          <div class="st-dz-iter"><input id="dzFb" placeholder="再調整：例如「更暗一點」「按鈕改圓角」「文案更俏皮」" value="${esc(dz.feedback)}"><button class="btn btn-ghost" id="dzIter" ${dz.busy ? 'disabled' : ''}>再改一版</button></div>
+        </div>` : `<div class="st-dz-res"><h4>還沒有設計</h4><div class="st-dz-concept">左邊輸入描述，或點一個範例，就會在這裡看到：風格縮圖、配色、版面六軸、五語文案與設計說明。滿意再按「套用到銷售網頁」，右邊的預覽會立刻換裝。</div>${cfg.custom && cfg.custom.prompt ? `<div class="st-dz-notes">目前自訂風格來自：「${esc(cfg.custom.prompt)}」</div>` : ''}</div>`}
+      </div>
+    </div>`;
+  const run = async (feedback = '') => {
+    const prompt = $('#dzPrompt', p).value.trim();
+    if (!prompt) { toast('先描述你想要的感覺', '例如：日式侘寂、木質、米白', { kind: 'warn', icon: icon('alert', 18) }); return; }
+    dz.prompt = prompt; dz.feedback = feedback; dz.busy = true; dz.err = ''; dz.ctl = new AbortController(); renderDesigner(p);
+    try {
+      const out = await design(prompt, { prev: feedback ? dz.spec : null, feedback, signal: dz.ctl.signal });
+      dz.spec = out.spec; dz.model = out.model; dz.usage = out.usage; dz.feedback = '';
+      pushHistory({ ...toCustom(out.spec, prompt), feedback });
+      toast(`${out.spec.name}`, out.source === 'claude' ? 'Claude 設計完成，預覽在右邊' : '示範設計完成，預覽在右邊', { icon: icon('sparkle', 18) });
+    } catch (e) { dz.err = e.name === 'AbortError' ? '已取消' : (e.message || String(e)); }
+    dz.busy = false; dz.ctl = null; renderDesigner(p);
+    const r = $('.st-dz-res', p); if (r && gsap) gsap.fromTo(r, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 });
+  };
+  $('#dzMode', p).addEventListener('change', (e) => { saveSettings({ mode: e.target.value }); renderDesigner(p); });
+  const mo = $('#dzModel', p); if (mo) mo.addEventListener('change', (e) => { saveSettings({ model: e.target.value }); renderDesigner(p); });
+  const ki = $('#dzKey', p); if (ki) ki.addEventListener('change', (e) => { saveSettings({ apiKey: e.target.value.trim() }); renderDesigner(p); });
+  const pu = $('#dzProxy', p); if (pu) pu.addEventListener('change', (e) => { saveSettings({ proxyUrl: e.target.value.trim() }); renderDesigner(p); });
+  $$('[data-preset]', p).forEach(b => b.addEventListener('click', () => { $('#dzPrompt', p).value = b.dataset.preset; dz.prompt = b.dataset.preset; }));
+  $('#dzPrompt', p).addEventListener('input', (e) => { dz.prompt = e.target.value; });
+  $('#dzGo', p).addEventListener('click', () => run(''));
+  const st = $('#dzStop', p); if (st) st.addEventListener('click', () => { if (dz.ctl) dz.ctl.abort(); });
+  const it = $('#dzIter', p); if (it) it.addEventListener('click', () => { const fb = $('#dzFb', p).value.trim(); if (!fb) { toast('先寫下想改什麼', '', { kind: 'warn', icon: icon('alert', 18) }); return; } run(fb); });
+  const ap = $('#dzApply', p); if (ap) ap.addEventListener('click', () => { save({ custom: toCustom(dz.spec, dz.prompt), theme: 'custom' }, `已套用「${dz.spec.name}」到銷售網頁`); renderDesigner(p); });
+  $$('[data-hist]', p).forEach(b => b.addEventListener('click', () => { const h = getHistory()[+b.dataset.hist]; if (!h) return; dz.spec = { ...h, notes: [] }; dz.prompt = h.prompt; dz.model = h.source === 'claude' ? 'Claude（歷史）' : '示範設計師（歷史）'; dz.usage = null; renderDesigner(p); }));
+  const cl = $('#dzClear', p); if (cl) cl.addEventListener('click', () => { clearHistory(); renderDesigner(p); });
+}

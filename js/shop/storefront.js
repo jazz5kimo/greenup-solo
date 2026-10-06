@@ -151,7 +151,15 @@ const PANEL = {
 };
 const fill = (s, v) => String(s).replace(/\{(\w+)\}/g, (_, k) => (v[k] ?? `{${k}}`));
 export const mName = (m, l) => (l === 'zh' ? m.name : m.en || m.name);
-const copyOf = (l) => (TENANT.copy && (TENANT.copy[l] || TENANT.copy.en)) || genCopy(l);
+// AI 設計師產生的文案（current.theme.copy）優先，再來是業主專屬文案，最後依業態產生
+function copyOf(l) {
+  const base = (TENANT.copy && (TENANT.copy[l] || TENANT.copy.en)) || genCopy(l);
+  const ai = current && current.theme && current.theme.copy && (current.theme.copy[l] || current.theme.copy.en);
+  if (!ai) return base;
+  const out = Object.assign({}, base);
+  for (const k of ['tagline', 'title', 'sub', 'cta']) if (ai[k]) out[k] = ai[k];
+  return out;
+}
 // 50 種業態中沒有專屬文案的業主：依業態大類與運送模式產生五語文案
 export const CAT_LABEL = {
   zh: CATS,
@@ -277,6 +285,9 @@ function paintTheme(theme) {
   const b = document.body, vs = themeVars(theme);
   for (const [k, v] of Object.entries(vs)) b.style.setProperty(k, v);
   b.dataset.theme = theme.id;
+  // AI 設計師的風格可以帶自己的版面六軸；其他風格沿用業主預設
+  const st = Object.assign({}, STYLE, theme.style || {});
+  for (const k of Object.keys(st)) { if (st[k]) b.setAttribute('data-sf-' + k, st[k]); else b.removeAttribute('data-sf-' + k); }
   b.classList.toggle('sf-dark', !!theme.dark);
   const meta = document.querySelector('meta[name="theme-color"]') || document.head.appendChild(Object.assign(document.createElement('meta'), { name: 'theme-color' }));
   meta.content = theme.vars.cream;
@@ -291,6 +302,9 @@ function applyTheme(next, animate) {
   if (changed) {
     if (animate && prev && gsap) curtain(next.theme, () => paintTheme(next.theme));
     else paintTheme(next.theme);
+    // AI 設計師的風格帶有自己的文案：風格變了，主視覺標題、標語與按鈕也要跟著換
+    const copyChanged = JSON.stringify((prev && prev.theme.copy) || null) !== JSON.stringify(next.theme.copy || null);
+    if (copyChanged && shopRef) { try { renderBrand(shopRef.lang); } catch { /* ignore */ } }
   }
   renderNow(); renderPanel();
   if (changed) emit('theme');

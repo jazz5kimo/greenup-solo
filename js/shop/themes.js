@@ -186,12 +186,15 @@ export function paletteToVars(colors) {
 }
 function hue(h) { const [r, g, b] = rgb(h).map(x => x / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; let x = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return (x * 60 + 360) % 360; }
 
+// c 可能來自「AI 依 logo 取色」（colors／vars）或「AI 設計師」（vars＋style＋deco＋hero＋copy，見 js/ai-design.js）
 export function customTheme(c) {
   const vars = c.vars || paletteToVars(c.colors || []);
-  const pal = (c.colors && c.colors.length ? c.colors : [vars.gl, vars.rose, vars.heroA]).slice(0, 6);
+  const pal = (c.hero && c.hero.pal && c.hero.pal.length ? c.hero.pal : (c.colors && c.colors.length ? c.colors : [vars.gl, vars.rose, vars.heroA])).slice(0, 6);
   while (pal.length < 6) pal.push(mix(pal[pal.length % Math.max(1, pal.length)] || '#ccc', '#ffffff', 0.4));
-  return { id: 'custom', kind: 'custom', name: N(c.name || 'AI 自訂風格', 'AI custom', 'AI カスタム', 'AI tùy chỉnh', 'AI tersuai'), deco: 'sparkle', vars,
-    hero: { pal, dots: [...pal.slice(0, 4), '#ffffff'], sky: '#ffffff', ground: vars.heroA, point: vars.rose } };
+  const hero = Object.assign({ pal, dots: [...pal.slice(0, 4), '#ffffff'], sky: '#ffffff', ground: vars.heroA, point: vars.rose }, c.hero || {}, { pal });
+  const name = c.name || 'AI 自訂風格';
+  return { id: 'custom', kind: 'custom', name: N(name, c.name || 'AI custom', c.name || 'AI カスタム', c.name || 'AI tùy chỉnh', c.name || 'AI tersuai'),
+    deco: c.deco === 'none' ? null : (c.deco || 'sparkle'), dark: !!c.dark, vars, hero, style: c.style || null, copy: c.copy || null, concept: c.concept || '' };
 }
 
 // 依風格產生迷你縮圖（後台卡片、展示面板用）

@@ -167,3 +167,46 @@
   .st-vars { grid-template-columns: 1fr; }
 }
 .st-p-price s { display: block; font-size: 11px; font-weight: 500; color: var(--txt3); text-align: right; }
+
+/* ---- AI 設計師（下 prompt → Claude 設計） ---- */
+.st-dz { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
+.st-dz-l, .st-dz-r { min-width: 0; }
+.st-dz-set { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.st-dz-set select, .st-dz-set input { background: var(--glass); border: 1px solid var(--line); color: var(--txt); border-radius: 9px; padding: 7px 10px; font: inherit; font-size: 12.5px; }
+.st-dz-set input { min-width: 220px; flex: 1; }
+.st-dz-set .chip-sm.warn { background: rgba(240,165,49,.18); color: #F0A531; }
+.st-dz-set .chip-sm.ok { background: rgba(45,182,116,.18); color: #2DB674; }
+.st-dz textarea { width: 100%; box-sizing: border-box; min-height: 92px; resize: vertical; background: var(--glass); border: 1px solid var(--line); color: var(--txt); border-radius: 12px; padding: 12px 14px; font: inherit; font-size: 14px; line-height: 1.6; }
+.st-dz textarea:focus { outline: none; border-color: var(--leaf); box-shadow: 0 0 0 3px rgba(45,182,116,.18); }
+.st-dz-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.st-dz-presets button { background: var(--glass); border: 1px solid var(--line); color: var(--txt2); border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 12px; cursor: pointer; }
+.st-dz-presets button:hover { border-color: var(--leaf); color: var(--txt); }
+.st-dz-go { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.st-dz-go .btn[disabled] { opacity: .6; cursor: progress; }
+.st-dz-think { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--glass); border: 1px dashed var(--line); font-size: 12.5px; color: var(--txt2); }
+.st-dz-think i { width: 10px; height: 10px; border-radius: 50%; background: var(--leaf); animation: dzPulse 1s ease-in-out infinite; }
+@keyframes dzPulse { 0%, 100% { transform: scale(.7); opacity: .5; } 50% { transform: scale(1.2); opacity: 1; } }
+.st-dz-err { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(236,106,85,.14); border: 1px solid rgba(236,106,85,.35); color: #ffb4a8; font-size: 12.5px; line-height: 1.6; }
+.st-dz-res { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: var(--glass); }
+.st-dz-res h4 { margin: 0 0 4px; font-size: 15px; }
+.st-dz-res .st-dz-src { font-size: 11px; color: var(--txt3); margin-bottom: 10px; }
+.st-dz-thumb svg { width: 100%; height: auto; border-radius: 12px; display: block; }
+.st-dz-concept { font-size: 13px; line-height: 1.7; color: var(--txt2); margin: 10px 0; }
+.st-dz-axes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.st-dz-axes span { font-size: 11px; padding: 3px 8px; border-radius: 7px; background: rgba(255,255,255,.06); color: var(--txt2); }
+.st-dz-axes span b { color: var(--txt); margin-left: 4px; font-weight: 600; }
+.st-dz-pal { display: flex; gap: 4px; margin: 8px 0; }
+.st-dz-pal i { flex: 1; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,.12); }
+.st-dz-copy { border-left: 3px solid var(--leaf); padding: 6px 10px; margin: 10px 0; font-size: 12.5px; line-height: 1.6; color: var(--txt2); white-space: pre-line; }
+.st-dz-copy b { color: var(--txt); font-size: 14px; }
+.st-dz-notes { font-size: 11px; color: var(--txt3); line-height: 1.6; margin-top: 6px; }
+.st-dz-iter { display: flex; gap: 8px; margin-top: 10px; }
+.st-dz-iter input { flex: 1; background: var(--glass); border: 1px solid var(--line); color: var(--txt); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 12.5px; }
+.st-dz-hist { margin-top: 14px; }
+.st-dz-hist h4 { font-size: 12px; color: var(--txt3); margin: 0 0 6px; font-weight: 600; }
+.st-dz-hist .st-dz-hi { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; color: inherit; cursor: pointer; text-align: left; font: inherit; margin-bottom: 6px; }
+.st-dz-hist .st-dz-hi:hover { border-color: var(--leaf); }
+.st-dz-hist .st-dz-hi .sw { width: 34px; height: 24px; border-radius: 6px; flex: none; }
+.st-dz-hist .st-dz-hi b { font-size: 12.5px; display: block; }
+.st-dz-hist .st-dz-hi small { font-size: 11px; color: var(--txt3); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1100px) { .st-dz { grid-template-columns: 1fr; } }

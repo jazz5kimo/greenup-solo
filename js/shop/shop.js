@@ -299,7 +299,7 @@ document.addEventListener('click', () => { $('#langMenu').hidden = true; });
 // ---------- 同步（後台下單、工作室調整商品時更新） ----------
 store.on('order', ({ remote }) => { if (remote) renderProducts(false); });
 store.on('reset', () => renderProducts(false));
-onStorefront((kind) => { if (kind === 'catalog') renderProducts(true); if (kind === 'slot') renderHeroExtra(); });
+onStorefront((kind) => { if (kind === 'catalog') renderProducts(true); if (kind === 'slot') renderHeroExtra(); if (kind === 'theme') applyI18n(false); /* AI 設計師的文案隨風格更新 */ });
 
 // ---------- 啟動 ----------
 applyI18n(false);
