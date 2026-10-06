@@ -1,6 +1,7 @@
 // 排班打卡：人員設定、班別、來客分布、AI 排班、打卡紀錄模擬（皆為示範資料）
 import { STAFF, RATES, payrollRow } from './ledger.js';
 import { mulberry32, startOfDay, addDays } from './data.js';
+import { TENANT_ID } from './tenant.js';
 
 export const DAY_NAMES = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
 export const H0 = 8, H1 = 21; // 班表時間軸 08:00–21:00
@@ -8,17 +9,33 @@ export const wdOf = (d) => (new Date(d).getDay() + 6) % 7; // 0=週一 … 6=週
 export const weekStart = (now = new Date()) => addDays(startOfDay(now), -wdOf(now));
 
 // 人員：沿用 ledger STAFF，補上排班所需欄位
+// 排班用固定「角色槽」：mei＝負責人、yun＝全職員工、jie＝兼職員工（各業主人數不同，可能只有負責人一人）
 const EXTRA = {
   阿美: { id: 'mei', color: '#5EE0C4', hire: new Date(2021, 2, 1), role: '店長・接單', def: 'mid', law: false },
   小芸: { id: 'yun', color: '#2E97D4', hire: new Date(2023, 3, 10), role: '烘焙・門市', def: 'early', law: true },
   小傑: { id: 'jie', color: '#DD5597', hire: new Date(2025, 7, 18), role: '包裝・出貨', def: 'short', law: true },
 };
-export const PEOPLE = STAFF.map(s => ({ ...s, ...EXTRA[s.name], pr: payrollRow(s) }));
+const SLOT = {
+  owner: { id: 'mei', color: '#5EE0C4', hire: new Date(2022, 4, 1), def: 'mid', law: false },
+  full: { id: 'yun', color: '#2E97D4', hire: new Date(2024, 1, 15), def: 'early', law: true },
+  part: { id: 'jie', color: '#DD5597', hire: new Date(2025, 2, 3), def: 'short', law: true },
+};
+const roleOf = (s) => s.kind === 'owner' ? '負責人・接單' : String(s.title || '').split('・')[0] || '門市';
+const used = new Set();
+export const PEOPLE = STAFF.map((s, i) => {
+  if (TENANT_ID === 'amei' && EXTRA[s.name]) return { ...s, ...EXTRA[s.name], pr: payrollRow(s) };
+  const base = SLOT[s.kind] || SLOT.part;
+  const id = used.has(base.id) ? `p${i}` : base.id; used.add(id);
+  return { ...s, ...base, id, role: roleOf(s), pr: payrollRow(s) };
+});
 export const PERSON = Object.fromEntries(PEOPLE.map(p => [p.id, p]));
+export const OWNER = PEOPLE[0];
+export const EMPS = PEOPLE.filter(p => p.kind !== 'owner');
+export const SOLO = !EMPS.length; // 只有負責人一人（AI 代班）
 
 // 班別
 export const SHIFT_TYPES = {
-  early: { name: '早班', s: 8, e: 17, color: '#F0A531', desc: '烘焙備料' },
+  early: { name: '早班', s: 8, e: 17, color: '#F0A531', desc: TENANT_ID === 'amei' ? '烘焙備料' : '開店備料' },
   mid: { name: '中班', s: 10, e: 19, color: '#2DB674', desc: '門市・接單' },
   late: { name: '晚班', s: 12, e: 21, color: '#7C62E6', desc: '晚間出貨' },
   short: { name: '短班', s: 13, e: 19, color: '#EC6A55', desc: '尖峰支援' },
@@ -52,32 +69,38 @@ export function bestWindow(row, len, lo = 11, hi = 20) {
 }
 
 const sh = (type, s, e) => ({ type, s: s ?? SHIFT_TYPES[type].s, e: e ?? SHIFT_TYPES[type].e });
-const emptyWeek = () => Array.from({ length: 7 }, () => ({ mei: null, yun: null, jie: null }));
+const emptyWeek = () => Array.from({ length: 7 }, () => Object.fromEntries(PEOPLE.map(p => [p.id, null])));
 const rankWeekdays = (tr) => [0, 1, 2, 3].sort((a, b) => tr.total[a] - tr.total[b]);
+const has = (id) => !!PERSON[id];
 
 // 手動草稿：阿美天天上班、小芸只休一天（做六休一）、小傑早上來錯過下午尖峰
+// （其他業主同理：負責人天天上班；只有負責人時，草稿為七天無休）
 export function draftSchedule(tr) {
   const [d1, d2, , d4] = rankWeekdays(tr);
   const w = emptyWeek();
   for (let d = 0; d < 7; d++) {
     w[d].mei = sh('mid');
-    w[d].yun = d === d4 ? null : (d === d1 || d === d2) ? sh('half') : sh('early');
-    w[d].jie = d >= 4 ? sh('short', 10, 16) : null;
+    if (has('yun')) w[d].yun = d === d4 ? null : (d === d1 || d === d2) ? sh('half') : sh('early');
+    if (has('jie')) w[d].jie = d >= 4 ? sh('short', 10, 16) : null;
   }
   return w;
 }
 
 // AI 排班：依來客曲線放人力、守一例一休、壓低加班；讓每天尖峰都有兩人
+// 沒有全職員工時：負責人排休那天由兼職顧店；只有負責人時：最低來客日店休，由 AI 代接訊息與預約
 export function aiSchedule(tr) {
   const [d1, d2, d3, d4] = rankWeekdays(tr);
   const w = emptyWeek();
   const jie = {};
   for (let d = 0; d < 7; d++) {
     w[d].mei = d === d1 ? null : d >= 4 ? sh('mid', 10, 20) : sh('mid');
-    w[d].yun = d === d2 || d === d3 ? null : d === d1 ? sh('mid') : sh('early');
-    let len = 0;
-    if (d >= 5) len = 6; else if (d === d1 || d === d2 || d === d3) len = 4;
-    if (len) { const s = bestWindow(tr.avg[d], len); w[d].jie = sh('short', s, s + len); jie[d] = s; }
+    if (has('yun')) w[d].yun = d === d2 || d === d3 ? null : d === d1 ? sh('mid') : sh('early');
+    if (has('jie')) {
+      let len = 0;
+      if (d >= 5) len = 6; else if (d === d1 || d === d2 || d === d3) len = 4;
+      if (!has('yun') && d === d1) w[d].jie = sh('mid');
+      else if (len) { const s = bestWindow(tr.avg[d], len); w[d].jie = sh('short', s, s + len); jie[d] = s; }
+    }
   }
   return { week: w, rank: { d1, d2, d3, d4 }, jie };
 }
@@ -133,6 +156,7 @@ export function genAttendance(now, histWeek, curWeek, leaves = []) {
   }
   // 小傑上月工時對齊 ledger（88 小時 × 時薪 200）
   const jie = PERSON.jie, pm = start.getMonth();
+  if (!jie || !jie.hours) return recs;
   const list = recs.filter(r => r.pid === 'jie' && r.date.getMonth() === pm && r.out != null);
   let diff = jie.hours - list.reduce((a, r) => a + r.hours, 0), i = 0, guard = 0;
   while (Math.abs(diff) > 0.01 && list.length && guard++ < 400) {

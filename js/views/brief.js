@@ -5,7 +5,8 @@ import { $, $$, el, gsap, esc, money, fmtTime, fmtDate, sleep, countUp, toast, s
 import { icon, chIcon } from '../icons.js';
 import { makeChart, fmtK } from '../charts.js';
 import { productArt } from '../art.js';
-import { WEATHER, LANGS, yesterdayStats, forecast, anomalies, goals, overnight, todos, summary, todayKey } from '../brief-data.js';
+import { WEATHER, LANGS, yesterdayStats, forecast, anomalies, goals, overnight, todos, summary, todayKey, IS_AMEI, VOC, ASSISTANT, measure } from '../brief-data.js';
+import { TENANT } from '../tenant.js';
 
 const echarts = window.echarts;
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -20,6 +21,10 @@ const KIND = {
   tax: ['tax', '#DD5597'], stock: ['alert', '#EC6A55'], meet: ['meeting', '#7C62E6'],
 };
 const PUNIT = { lemon: '盒', roll: '條', basque: '個', pound: '條', cookie: '盒', pineapple: '盒', canele: '盒' };
+// 其他業主：單位取「1 個」的量詞，否則用「份」
+const unitOf = (p) => PUNIT[p.id] || measure(p);
+const MAKE = IS_AMEI ? '生產' : VOC.make;
+const OWNER_NAME = IS_AMEI ? '阿美' : TENANT.owner;
 const LANG_TAG = { ja: '日', en: 'EN', vi: 'VI', ms: 'MS' };
 
 // ---------------- 掛載 ----------------
@@ -36,7 +41,7 @@ export default {
             <span class="demo-badge">示範資料</span>
           </div>
           <div class="bf-greet-row">
-            <h2 class="bf-greet">${greet(now)}，<span class="grad-txt">阿美</span></h2>
+            <h2 class="bf-greet">${greet(now)}，<span class="grad-txt">${OWNER_NAME}</span></h2>
             <div class="bf-weather" title="模擬天氣資料">
               ${weatherSvg()}
               <div class="bf-w-main"><b>${WEATHER.temp}°C</b><span>${WEATHER.city}・${WEATHER.text}</span></div>
@@ -96,8 +101,8 @@ export default {
           <div class="chart bf-fc-chart" id="bfFcChart"></div>
         </section>
         <section class="glass card bf-prod anim-in">
-          <div class="card-h"><h3>${icon('factory', 18)} AI 建議今日生產量</h3><button class="btn btn-sm btn-ghost" id="bfSched">${icon('calendar', 14)} 排入生產排程</button></div>
-          <div class="bf-prod-head"><span>商品</span><span>庫存／預估需求</span><span class="r">建議生產</span></div>
+          <div class="card-h"><h3>${icon('factory', 18)} AI 建議今日${MAKE}量</h3><button class="btn btn-sm btn-ghost" id="bfSched">${icon('calendar', 14)} 排入${MAKE}排程</button></div>
+          <div class="bf-prod-head"><span>商品</span><span>庫存／預估需求</span><span class="r">建議${MAKE}</span></div>
           <ul class="bf-prods" id="bfProds"></ul>
         </section>
       </div>
@@ -109,7 +114,8 @@ export default {
     $('#bfSched', section).addEventListener('click', (e) => {
       const b = e.currentTarget; b.disabled = true; b.innerHTML = `${icon('check', 14)} 已排入`;
       gsap.fromTo(b, { scale: 0.9 }, { scale: 1, duration: 0.5, ease: 'back.out(3)' });
-      toast('已排入今日生產排程', '已透過 LINE 通知小芸，09:00 上工後依序製作', { icon: icon('factory', 18) });
+      if (IS_AMEI) toast('已排入今日生產排程', '已透過 LINE 通知小芸，09:00 上工後依序製作', { icon: icon('factory', 18) });
+      else toast(`已排入今日${MAKE}排程`, ASSISTANT ? `已透過 LINE 通知${ASSISTANT.name}，09:00 上工後依序處理` : '已加入你的行事曆，AI 會在開工前提醒你', { icon: icon('factory', 18) });
     });
 
     renderStatic();
@@ -271,7 +277,7 @@ function updateTodoProg(animate) {
   const bar = $('#bfTodoBar', root);
   const w = all.length ? d / all.length * 100 : 0;
   if (animate) gsap.to(bar, { width: w + '%', duration: 0.6, ease: 'power3.out' }); else bar.style.width = w + '%';
-  if (animate && d === all.length && all.length) toast('今日待辦全部完成', '太棒了！剩下的交給 AI，好好做甜點吧', { icon: icon('sparkle', 18) });
+  if (animate && d === all.length && all.length) toast('今日待辦全部完成', IS_AMEI ? '太棒了！剩下的交給 AI，好好做甜點吧' : `太棒了！剩下的交給 AI，專心${VOC.focus}吧`, { icon: icon('sparkle', 18) });
 }
 function burst(node) {
   const r = node.getBoundingClientRect();
@@ -350,7 +356,7 @@ function renderProds() {
         </div>
         <small class="bf-pr-s">庫存 ${p.current}・今日需求約 ${p.demand.toFixed(1)}・安全 ${p.safety}</small>
       </div>
-      <div class="bf-pr-sug">${p.suggest ? `<b>+${p.suggest}</b><small>${PUNIT[p.id] || '份'}</small>` : '<span>免生產</span>'}</div>
+      <div class="bf-pr-sug">${p.suggest ? `<b>+${p.suggest}</b><small>${unitOf(p)}</small>` : `<span>免${MAKE}</span>`}</div>
     </li>`).join('');
 }
 

@@ -1,5 +1,12 @@
 // 資料搬家：CSV 解析、示範檔產生、AI 欄位對應、資料清理（純前端，所有示範資料皆為虛構）
 import { mulberry32, PRODUCTS, startOfDay, addDays } from './data.js';
+import { TENANT, TENANT_ID } from './tenant.js';
+import { STAFF } from './ledger.js';
+
+// 多業主：阿美維持原示範檔；其他業主用自己的商品與負責人名
+export const AMEI = TENANT_ID === 'amei';
+export const OWNER_NAME = AMEI ? '阿美' : ((STAFF[0] && STAFF[0].name) || TENANT.owner || '老闆');
+const PN = (i) => (PRODUCTS.length ? PRODUCTS[i % PRODUCTS.length].name : '商品');
 
 // ---------------------------------------------------------------- CSV 解析
 // 支援：UTF-8 BOM、雙引號包住的欄位、欄位內逗號與換行、"" 跳脫、CRLF、自動判斷分隔符（, Tab ;）
@@ -51,8 +58,10 @@ export function toCSV(headers, rows, bom = true) {
 const SUR = ['林', '陳', '王', '張', '李', '黃', '吳', '劉', '蔡', '楊', '許', '鄭', '謝', '郭', '洪', '曾', '邱', '廖', '賴', '周'];
 const GIV = ['佳蓉', '小美', '志明', '怡君', '雅婷', '冠宇', '淑芬', '家豪', '詩涵', '俊傑', '宜蓁', '承恩', '筱涵', '建宏', '珮瑜', '柏翰', '欣怡', '宗翰', '美玲', '育成', '思妤', '品妍', '振宇', '惠如', '子晴', '彥廷', '玉珍', '書豪', '心怡', '凱文'];
 const ROADS = [['台北市', '大安區', '復興南路一段'], ['台北市', '信義區', '松仁路'], ['新北市', '板橋區', '文化路二段'], ['新北市', '永和區', '中正路'], ['桃園市', '中壢區', '中山東路三段'], ['台中市', '西屯區', '河南路二段'], ['台中市', '南屯區', '公益路二段'], ['台南市', '東區', '崇學路'], ['高雄市', '左營區', '博愛二路'], ['新竹市', '東區', '光復路二段'], ['台北市', '中山區', '南京東路三段'], ['宜蘭縣', '羅東鎮', '興東路']];
-const LINE_IDS = ['amy_lin', 'jiarong.0501', 'mei~sweet', 'kevin_chen', 'yating88', 'shuhan_w', 'alice.tw', 'dessert_lover', 'momo_huang', 'peggy.liu', 'jjwu', 'cindy0312'];
-const NOTES = ['常買檸檬塔', '對"堅果"過敏', '公司下午茶，要統編', '生日蛋糕回頭客', '偏好少糖', '團購主揪', '', '', '', '喜歡"芋泥"系列', '週末自取', ''];
+const LINE_IDS = AMEI ? ['amy_lin', 'jiarong.0501', 'mei~sweet', 'kevin_chen', 'yating88', 'shuhan_w', 'alice.tw', 'dessert_lover', 'momo_huang', 'peggy.liu', 'jjwu', 'cindy0312']
+  : ['amy_lin', 'jiarong.0501', 'mei~shop', 'kevin_chen', 'yating88', 'shuhan_w', 'alice.tw', 'shop_lover', 'momo_huang', 'peggy.liu', 'jjwu', 'cindy0312'];
+const NOTES = AMEI ? ['常買檸檬塔', '對"堅果"過敏', '公司下午茶，要統編', '生日蛋糕回頭客', '偏好少糖', '團購主揪', '', '', '', '喜歡"芋泥"系列', '週末自取', '']
+  : [`常買${PN(0)}`, '要開"統編"', '公司團購，要統編', '老客人介紹', '喜歡簡單包裝', '團購主揪', '', '', '', `喜歡"${PN(1)}"`, '週末自取', ''];
 
 function phoneDigits(rng) { return '09' + String(Math.floor(rng() * 90) + 10) + String(Math.floor(rng() * 900000) + 100000); }
 function fmtPhoneStyle(d, s) {
@@ -87,7 +96,7 @@ export function demoCustomers(variant = 'excel') {
   rows[35].phoneOut = '0912-34-56';
   rows.splice(20, 0, { name: '', phoneOut: '0935-221-087', line: 'sweet_tooth', bday: '', addr: '台中市北區英才路 532 號', note: '只留電話，名字待問' });
   const H = variant === 'gsheet'
-    ? ['時間戳記', '您的大名', '手機號碼', 'LINE ID', '生日', '寄送地址', '想對阿美說的話']
+    ? ['時間戳記', '您的大名', '手機號碼', 'LINE ID', '生日', '寄送地址', `想對${OWNER_NAME}說的話`]
     : ['客戶姓名', '手機', 'LINE名稱', '生日', '地址', '備註'];
   const now = new Date();
   const data = rows.map((r, i) => {
@@ -98,13 +107,21 @@ export function demoCustomers(variant = 'excel') {
   return { name: variant === 'gsheet' ? 'Google 表單回覆（客戶資料）' : '客戶名單.csv', csv: toCSV(H, data) };
 }
 
-const EXTRA_PRODUCTS = [['抹茶費南雪', '6 入', 360, 120], ['蜂蜜瑪德蓮', '8 入', 320, 105], ['巧克力布朗尼', '4 入', 380, 140], ['焦糖布丁', '4 入', 300, 95], ['原味司康', '4 入', 260, 80], ['蔓越莓司康', '4 入', 280, 90],
+const AMEI_EXTRA = [['抹茶費南雪', '6 入', 360, 120], ['蜂蜜瑪德蓮', '8 入', 320, 105], ['巧克力布朗尼', '4 入', 380, 140], ['焦糖布丁', '4 入', 300, 95], ['原味司康', '4 入', 260, 80], ['蔓越莓司康', '4 入', 280, 90],
   ['生巧克力', '16 粒', 450, 170], ['檸檬糖霜蛋糕', '1 條', 380, 130], ['肉桂捲', '4 入', 340, 115], ['法式鹹派', '6 吋', 520, 210], ['提拉米蘇杯', '4 杯', 420, 160], ['千層蛋糕', '6 吋', 880, 360],
   ['蛋黃酥禮盒', '6 入', 450, 180], ['中秋綜合禮盒', '1 盒', 1280, 520], ['彌月蛋糕禮盒', '10 入', 1180, 470], ['客製生日蛋糕', '6 吋', 1450, 560], ['布丁塔', '6 入', 330, 110]];
+// 其他業主：由自家商品延伸出舊系統裡的組合、限定款與舊品項
+const r10 = (v) => Math.round(v / 10) * 10;
+const EXTRA_PRODUCTS = AMEI ? AMEI_EXTRA : PRODUCTS.flatMap(p => [
+  [`${p.name} 兩入組`, '1 組', r10(p.price * 1.9), r10(p.cost * 2)],
+  [`${p.name}（季節限定）`, p.unit, r10(p.price * 1.15), r10(p.cost * 1.2)],
+  [`${p.name}（舊款）`, p.unit, r10(p.price * 0.9), r10(p.cost)],
+]).slice(0, 17);
 export function demoProducts() {
   const rng = mulberry32(7702);
   const list = [...PRODUCTS.map(p => [p.name, p.unit, p.price, p.cost, p.stock]), ...EXTRA_PRODUCTS.map(p => [...p, Math.floor(rng() * 40) + 3])];
-  const cat = (n) => /禮盒/.test(n) ? '禮盒' : /蛋糕|巴斯克|捲|千層/.test(n) ? '蛋糕' : /司康|費南雪|瑪德蓮|可麗露|餅乾|酥/.test(n) ? '烘焙點心' : '冷藏甜點';
+  const cat = AMEI ? (n) => /禮盒/.test(n) ? '禮盒' : /蛋糕|巴斯克|捲|千層/.test(n) ? '蛋糕' : /司康|費南雪|瑪德蓮|可麗露|餅乾|酥/.test(n) ? '烘焙點心' : '冷藏甜點'
+    : (n) => /兩入組/.test(n) ? '組合' : /限定/.test(n) ? '季節限定' : /舊款/.test(n) ? '舊品項' : (TENANT.typeName || '商品');
   const money = (v, s) => [String(v), `${v.toLocaleString('en-US')}元`, `NT$${v.toLocaleString('en-US')}`, `$${v}`][s];
   const data = list.map(([n, u, price, cost, stock], i) => [n, u, money(price, Math.floor(rng() * 4)), i === 15 ? '待補' : money(cost, Math.floor(rng() * 3)), String(stock), cat(n)]);
   return { name: '商品清單.csv', csv: toCSV(['品名', '規格', '售價', '進貨成本', '庫存量', '分類'], data) };
@@ -149,13 +166,23 @@ export function demoOrders(variant = 'excel') {
   return { name: '過去3個月訂單.csv', csv: toCSV(H, rows.map(r => [r.date, r.buyer, r.item, r.qty, r.amt, r.ch, r.pay])) };
 }
 
-export const DEMO_LINE_TEXT = `【阿美的客人筆記】（LINE 記事本）
+const AMEI_LINE_TEXT = `【阿美的客人筆記】（LINE 記事本）
 王小美 0912-345-678 生日 5/3 住台北市大安區復興南路一段 100 號 愛吃芋泥
 林佳蓉小姐 0922 118 406 LINE: jiarong.0501 生日79/08/12
 陳志明 +886 935 667 102 公司在新北市板橋區文化路二段 88 號，要統編
 張雅婷 0988123456 生日 1992-11-2 少糖
 王 小美 0912345678 改寄高雄市左營區博愛二路 66 號
 吳詩涵 0933-552-901 LINE: shuhan_w 對堅果過敏
+黃淑芬 0910 727 334 生日 3月21日 台中市西屯區河南路二段 260 號
+劉宜蓁（團購主揪） 0921-660-115 LINE: peggy.liu`;
+
+export const DEMO_LINE_TEXT = AMEI ? AMEI_LINE_TEXT : `【${OWNER_NAME}的客人筆記】（LINE 記事本）
+王小美 0912-345-678 生日 5/3 住台北市大安區復興南路一段 100 號 常買${PN(0)}
+林佳蓉小姐 0922 118 406 LINE: jiarong.0501 生日79/08/12
+陳志明 +886 935 667 102 公司在新北市板橋區文化路二段 88 號，要統編
+張雅婷 0988123456 生日 1992-11-2 喜歡簡單包裝
+王 小美 0912345678 改寄高雄市左營區博愛二路 66 號
+吳詩涵 0933-552-901 LINE: shuhan_w 想訂${PN(1)}
 黃淑芬 0910 727 334 生日 3月21日 台中市西屯區河南路二段 260 號
 劉宜蓁（團購主揪） 0921-660-115 LINE: peggy.liu`;
 

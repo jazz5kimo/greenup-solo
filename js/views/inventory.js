@@ -8,15 +8,20 @@ import { productArt } from '../art.js';
 import { startOfDay, addDays } from '../data.js';
 import {
   PRODUCTS, PRODUCT_MAP, MATERIALS, MAT, SUPPLIERS, buildLots, bom, LEAD, BATCH, STEPS, RESOURCES, PRIORITY,
-  DAY_START, PACK_START, OVEN_WINDOW, LABOR_RATE, wasteLog,
+  DAY_START, PACK_START, OVEN_WINDOW, LABOR_RATE, wasteLog, RECIPES, IS_AMEI, IVL, IVX, KIT,
 } from '../inventory-data.js';
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
-const SHORT = { lemon: '檸檬塔', roll: '生乳捲', basque: '巴斯克', pound: '磅蛋糕', cookie: '餅乾', pineapple: '鳳梨酥', canele: '可麗露' };
+const SHORT = IS_AMEI ? { lemon: '檸檬塔', roll: '生乳捲', basque: '巴斯克', pound: '磅蛋糕', cookie: '餅乾', pineapple: '鳳梨酥', canele: '可麗露' }
+  : Object.fromEntries(PRODUCTS.map(p => [p.id, KIT.short(p)]));
+// 保存天數：阿美沿用商品主檔；其他業主依商品描述與業態推估（null＝不需效期）
+const shelfOf = (p) => IS_AMEI ? p.days : (KIT.shelfOf(p) ?? 9999);
+const BATCHW = IS_AMEI ? '整爐' : '整批';
+const shelfTxt = (d) => d >= 9999 ? '不需效期' : `保存 ${d} 天`;
 const CAT_COLOR = { 原料: '#2DB674', 包材: '#2E97D4', 人工: '#F0A531', 製造費用: '#7C62E6' };
 const DAY = 86400e3;
 
-let root = null, lots = [], waste = [], selPid = 'roll', override = {}, done = new Set();
+let root = null, lots = [], waste = [], selPid = IS_AMEI ? 'roll' : (IVX.ai?.pid || PRODUCTS[0]?.id), override = {}, done = new Set();
 let charts = null, shelf = null, ticker = 0, chartsReady = false;
 let take = { mode: false, posted: false, vals: {} };
 let lastPlan = null, modalEl = null;
@@ -46,15 +51,16 @@ function computePlan() {
     const avg = (s14[p.id] || 0) / 14;
     const trend = Math.min(1.25, Math.max(0.85, (s7[p.id] || 1) / (sp7[p.id] || 1)));
     const fc = avg * (0.6 + 0.4 * trend);
-    const fresh = p.days <= 4;
-    const cover = Math.min(LEAD[p.id] + (fresh ? 2 : 7), p.days);
+    const shelfD = shelfOf(p);
+    const fresh = shelfD <= 4;
+    const cover = Math.min(LEAD[p.id] + (fresh ? 2 : 7), shelfD);
     const target = Math.ceil(p.safety + fc * cover);
     const suggest = Math.max(0, target - p.current);
     const auto = suggest ? Math.ceil(suggest / BATCH[p.id]) * BATCH[p.id] : 0;
     const make = override[p.id] != null ? override[p.id] : auto;
     const days = fc ? p.current / fc : 99;
-    const status = make > 0 ? 'make' : days > p.days ? 'over' : 'ok';
-    return { ...p, shelf: p.days, avg, fc, trend, cover, target, suggest, auto, make, days, status, lead: LEAD[p.id] };
+    const status = make > 0 ? 'make' : days > shelfD ? 'over' : 'ok';
+    return { ...p, shelf: shelfD, avg, fc, trend, cover, target, suggest, auto, make, days, status, lead: LEAD[p.id] };
   });
   // 原料需求
   const onHand = {};
@@ -66,7 +72,7 @@ function computePlan() {
       if (!line) continue;
       daily += r.fc * line.qty; use += r.make * line.qty;
     }
-    const sup = SUPPLIERS[m.vendor];
+    const sup = SUPPLIERS[m.vendor] || { lead: 2 };
     const need = use + daily * (sup.lead + 2) + m.safety;
     const short = Math.max(0, need - (onHand[m.id] || 0));
     const packs = short > 0 ? Math.ceil(short / m.pack) : 0;
@@ -85,7 +91,7 @@ function buildSchedule(rows) {
     const make = rmap[pid].make, runs = Math.ceil(make / BATCH[pid]);
     const steps = [];
     STEPS[pid].forEach(([res, name, d]) => {
-      if (res === 'oven') for (let k = 0; k < runs; k++) steps.push({ res, name: runs > 1 ? `${name}・第 ${k + 1} 爐` : name, d, qty: Math.min(BATCH[pid], make - k * BATCH[pid]) });
+      if (res === 'oven') for (let k = 0; k < runs; k++) steps.push({ res, name: runs > 1 ? `${name}・第 ${k + 1} ${IS_AMEI ? "爐" : "批"}` : name, d, qty: Math.min(BATCH[pid], make - k * BATCH[pid]) });
       else steps.push({ res, name, d, qty: make });
     });
     return { pid, steps, i: 0, ready: DAY_START, ovenEnd: 0 };
@@ -117,14 +123,20 @@ function buildSchedule(rows) {
     else c.ready = end;
     c.i++;
   }
-  // 固定：明日可麗露麵糊（冷藏熟成 24 小時）
-  const prep = { id: 'canele-batter', pid: 'canele', res: 'bench', lane: 0, s: free.bench, d: 30, name: '明日可麗露麵糊', qty: 0 };
-  tasks.push(prep);
-  let end = Math.max(...tasks.map(t => t.s + t.d), 18 * 60);
-  end = Math.ceil(end / 60) * 60;
-  let lane = lanes.findIndex(f => f <= prep.s + 30); if (lane < 0) { lanes.push(0); lane = lanes.length - 1; }
-  lanes[lane] = end;
-  tasks.push({ id: 'canele-rest', pid: 'canele', res: 'fridge', lane, s: prep.s + 30, d: end - prep.s - 30, name: '麵糊熟成 → 明日', qty: 0, open: true });
+  // 固定：明日備料（阿美：可麗露麵糊冷藏熟成 24 小時；其他業主依業態）
+  const PREP = IS_AMEI ? { pid: 'canele', name: '明日可麗露麵糊', rest: '麵糊熟成 → 明日' } : IVX.prep;
+  let end;
+  if (PREP && PRODUCT_MAP[PREP.pid]) {
+    const prep = { id: 'prep-batter', pid: PREP.pid, res: 'bench', lane: 0, s: free.bench, d: 30, name: PREP.name, qty: 0 };
+    tasks.push(prep);
+    end = Math.max(...tasks.map(t => t.s + t.d), DAY_START + 11 * 60);
+    end = Math.ceil(end / 60) * 60;
+    let lane = lanes.findIndex(f => f <= prep.s + 30); if (lane < 0) { lanes.push(0); lane = lanes.length - 1; }
+    lanes[lane] = end;
+    tasks.push({ id: 'prep-rest', pid: PREP.pid, res: 'fridge', lane, s: prep.s + 30, d: end - prep.s - 30, name: PREP.rest, qty: 0, open: true });
+  } else {
+    end = Math.ceil(Math.max(DAY_START + 11 * 60, ...tasks.map(t => t.s + t.d)) / 60) * 60;
+  }
   const ovenMin = tasks.filter(t => t.oven).reduce((s, t) => s + t.d, 0);
   const ovenA = tasks.filter(t => t.res === 'ovenA').reduce((s, t) => s + t.d, 0);
   const ovenB = tasks.filter(t => t.res === 'ovenB').reduce((s, t) => s + t.d, 0);
@@ -186,7 +198,7 @@ export default {
         </div>
         <div class="glass card ivp-replen anim-in">
           <div class="card-h"><h3>${icon('sparkle', 18)} AI 補貨建議</h3><span class="chip-sm">近 14 天銷量 × 安全庫存 × 前置天數</span></div>
-          <div class="tbl-wrap ivp-tw"><table class="tbl ivp-plan"><thead><tr><th>商品</th><th class="r c-opt">預估日銷</th><th class="r">庫存／安全</th><th class="r c-opt">可售天數</th><th class="r c-opt">前置</th><th class="r">AI 建議生產</th></tr></thead><tbody id="ivpPlan"></tbody></table></div>
+          <div class="tbl-wrap ivp-tw"><table class="tbl ivp-plan"><thead><tr><th>商品</th><th class="r c-opt">預估日銷</th><th class="r">庫存／安全</th><th class="r c-opt">可售天數</th><th class="r c-opt">前置</th><th class="r">${IVL.suggest || 'AI 建議生產'}</th></tr></thead><tbody id="ivpPlan"></tbody></table></div>
           <div class="ivp-need" id="ivpNeed"></div>
         </div>
       </div>
@@ -214,11 +226,11 @@ export default {
       </div>
 
       <div class="glass card ivp-gantt anim-in">
-        <div class="card-h"><h3>${icon('calendar', 18)} 今日生產排程</h3><div class="ivp-gh-r"><span class="chip-sm">${icon('sparkle', 13)} AI 依預估需求自動排程</span><span class="chip-sm" id="ivpGDate"></span></div></div>
+        <div class="card-h"><h3>${icon('calendar', 18)} ${IS_AMEI ? '今日生產排程' : IVL.sched}</h3><div class="ivp-gh-r"><span class="chip-sm">${icon('sparkle', 13)} AI 依預估需求自動排程</span><span class="chip-sm" id="ivpGDate"></span></div></div>
         <div class="ivp-g-grid">
           <div class="ivp-g-scroll"><div class="ivp-g" id="ivpG"></div></div>
           <div class="ivp-g-side">
-            <div class="ivp-util"><div class="ivp-ring" id="ivpRing"><b id="ivpUtil">0%</b><small>烤箱使用率</small></div>
+            <div class="ivp-util"><div class="ivp-ring" id="ivpRing"><b id="ivpUtil">0%</b><small>${IS_AMEI ? '烤箱使用率' : IVL.util}</small></div>
               <div class="ivp-util-t" id="ivpUtilT"></div></div>
             <div class="ivp-prog"><div class="ivp-prog-h"><span>完成進度</span><b id="ivpProgT">0 / 0</b></div><div class="ivp-prog-bar"><i id="ivpProg"></i></div></div>
             <ul class="ivp-tasks" id="ivpTasks"></ul>
@@ -256,7 +268,7 @@ export default {
       if (bar && !e.target.closest('input')) { const id = bar.dataset.id; toggleTask(id, !done.has(id)); }
       const buy = e.target.closest('[data-act="po"]'); if (buy) openPO();
       const ai = e.target.closest('[data-act="ai-roll"]'); if (ai) applyAiRoll(ai);
-      const push = e.target.closest('[data-act="ai-push"]'); if (push) { gsap.fromTo(push, { scale: 0.92 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' }); toast('已排程 LINE 推播｜今日限定', '「草莓生乳捲 今日現做」推播給 LINE 會員（近 60 天買過生乳捲者優先）', { icon: chIcon('line', 18) }); }
+      const push = e.target.closest('[data-act="ai-push"]'); if (push) { gsap.fromTo(push, { scale: 0.92 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' }); pushToast(); }
     });
 
     renderAll(false);
@@ -319,7 +331,7 @@ function renderKpis(plan, flash) {
     if (delta) { d.textContent = delta[0]; d.className = 'kpi-delta ' + delta[1]; } else { d.textContent = ''; d.className = 'kpi-delta'; }
     if (flash) { card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
   };
-  set('fg', fg, { prefix: 'NT$ ' }, `7 品項・共 ${units} 件（成本價）`);
+  set('fg', fg, { prefix: 'NT$ ' }, `${inv.length} 品項・共 ${units} 件（成本價）`);
   set('raw', raw, { prefix: 'NT$ ' }, `${MATERIALS.length} 項原料包材・${lots.length} 個批號`);
   set('exp', ex.length, { suffix: ' 批' }, ex.length ? ex.map(l => MAT[l.mid].name).join('、') : '3 天內無到期批號', ex.length ? ['3 天內', 'down'] : null);
   set('low', fLow.length + mLow.length, { suffix: ' 項' }, `成品 ${fLow.length}（${fLow.map(p => p.name).join('、') || '無'}）・原料 ${mLow.length}`, fLow.length + mLow.length ? ['需補貨', 'warn'] : null);
@@ -333,10 +345,10 @@ function renderPlan(plan, flash) {
   tb.innerHTML = plan.rows.map(r => {
     const pct = Math.min(100, r.current / Math.max(r.safety * 2, 1) * 100);
     const act = r.status === 'make'
-      ? `<b class="ivp-make">+${r.make}</b><small>${r.make !== r.suggest ? `需 ${r.suggest}・${override[r.id] != null ? 'AI 加做' : '整爐'}` : '整爐'}</small>`
-      : r.status === 'over' ? `<span class="ivp-tag over">暫停生產</span><small>可售 ${r.days.toFixed(1)} 天 > 保存 ${r.shelf} 天</small>` : '<span class="ivp-tag ok">庫存足夠</span>';
+      ? `<b class="ivp-make">+${r.make}</b><small>${r.make !== r.suggest ? `需 ${r.suggest}・${override[r.id] != null ? 'AI 加做' : BATCHW}` : BATCHW}</small>`
+      : r.status === 'over' ? `<span class="ivp-tag over">暫停生產</span><small>可售 ${r.days.toFixed(1)} 天 > ${shelfTxt(r.shelf)}</small>` : '<span class="ivp-tag ok">庫存足夠</span>';
     return `<tr class="${r.low ? 'is-low' : ''}" data-pid="${r.id}">
-      <td><span class="ivp-pn">${productArt(r.id, 30)}<span><b>${r.name}</b><small>${r.unit}・保存 ${r.shelf} 天</small></span></span></td>
+      <td><span class="ivp-pn">${productArt(r.id, 30)}<span><b>${r.name}</b><small>${r.unit}・${shelfTxt(r.shelf)}</small></span></span></td>
       <td class="r c-opt">${r.fc.toFixed(1)}<small class="ivp-tr ${r.trend >= 1 ? 'up' : 'down'}">${r.trend >= 1 ? '▲' : '▼'}${Math.abs((r.trend - 1) * 100).toFixed(0)}%</small></td>
       <td class="r"><span class="ivp-stk ${r.low ? 'low' : ''}">${r.current}<em>／${r.safety}</em></span><span class="ivp-mini"><i style="width:${pct}%"></i><u style="left:50%"></u></span></td>
       <td class="r c-opt ${r.days < r.lead + 1 ? 'ivp-red' : ''}">${r.days >= 99 ? '—' : r.days.toFixed(1) + ' 天'}</td>
@@ -350,7 +362,7 @@ function renderPlan(plan, flash) {
   $('#ivpNeed', root).innerHTML = `
     <div class="ivp-need-t"><span>${icon('factory', 16)} 今日排產 <b>${makeN.length}</b> 品項・共 <b>${makeN.reduce((s, r) => s + r.make, 0)}</b> 份</span>
       <span>${icon('cart', 16)} 需採購原料 <b>${buys.length}</b> 項・<b>${vendors.size}</b> 家供應商・未稅 <b>${money(total)}</b></span></div>
-    <div class="ivp-need-chips">${buys.map(m => `<span class="ivp-nc" title="${esc(m.vendor)}"><i style="background:${SUPPLIERS[m.vendor].color}"></i>${m.name} ${fmtQ(m.qty, 2)} ${m.unit}</span>`).join('')}</div>
+    <div class="ivp-need-chips">${buys.map(m => `<span class="ivp-nc" title="${esc(m.vendor)}"><i style="background:${(SUPPLIERS[m.vendor] || {}).color || '#888'}"></i>${m.name} ${fmtQ(m.qty, 2)} ${m.unit}</span>`).join('')}</div>
     <button class="btn btn-primary ivp-po-btn" data-act="po">${icon('wand', 17)} 一鍵產生採購單</button>`;
   if (flash) gsap.fromTo($$('#ivpPlan tr', root), { backgroundColor: 'rgba(45,182,116,0.18)' }, { backgroundColor: 'rgba(45,182,116,0)', duration: 1.4, stagger: 0.04, clearProps: 'backgroundColor' });
 }
@@ -430,14 +442,15 @@ function selectProduct(pid) {
 function renderBom() {
   $$('.ivp-pill', root).forEach(b => b.classList.toggle('on', b.dataset.pid === selPid));
   const p = PRODUCT_MAP[selPid], b = bom(selPid);
-  const margin = (p.price / 1.05 - b.total) / (p.price / 1.05) * 100;
+  const lp = p.listPrice ?? p.price; // 標準售價（不含檔期特價）
+  const margin = (lp / 1.05 - b.total) / (lp / 1.05) * 100;
   const diff = b.total - b.ref;
   $('#ivpBomTbl', root).innerHTML = `
-    <div class="ivp-bom-hero">${productArt(selPid, 64)}<div><b>${p.name}</b><small>${p.unit}・售價 ${money(p.price)}・${b.note}</small></div></div>
+    <div class="ivp-bom-hero">${productArt(selPid, 64)}<div><b>${p.name}</b><small>${p.unit}・售價 ${money(lp)}・${b.note}</small></div></div>
     <div class="tbl-wrap ivp-tw"><table class="tbl ivp-btbl"><thead><tr><th>原料／包材</th><th class="r">用量</th><th class="r c-opt">單價</th><th class="r">成本小計</th></tr></thead><tbody>
       ${b.rows.map(r => `<tr><td><i class="ivp-dot" style="background:${r.cat === 'pack' ? CAT_COLOR.包材 : CAT_COLOR.原料}"></i>${r.name}</td><td class="r">${fmtQ(r.qty, 3)} ${r.unit}</td><td class="r c-opt">${r.price.toLocaleString()}／${r.unit}</td><td class="r">${r.sub.toFixed(1)}</td></tr>`).join('')}
       <tr class="ivp-sub"><td><i class="ivp-dot" style="background:${CAT_COLOR.人工}"></i>人工（${b.laborMin} 分鐘 × ${LABOR_RATE}）</td><td class="r"></td><td class="r c-opt"></td><td class="r">${b.labor.toFixed(1)}</td></tr>
-      <tr class="ivp-sub"><td><i class="ivp-dot" style="background:${CAT_COLOR.製造費用}"></i>製造費用（烤箱 ${b.oven} 分・冷藏・折舊）</td><td class="r"></td><td class="r c-opt"></td><td class="r">${b.mfg.toFixed(1)}</td></tr>
+      <tr class="ivp-sub"><td><i class="ivp-dot" style="background:${CAT_COLOR.製造費用}"></i>${IS_AMEI ? `製造費用（烤箱 ${b.oven} 分・冷藏・折舊）` : `製造費用（${IVL.equip} ${b.oven} 分・${IVL.mfgShort}）`}</td><td class="r"></td><td class="r c-opt"></td><td class="r">${b.mfg.toFixed(1)}</td></tr>
     </tbody></table></div>
     <div class="ivp-bom-tot">
       <div><small>BOM 成本合計</small><b>${money(b.total)}</b></div>
@@ -456,7 +469,7 @@ function sunOption() {
     { name: '原料', itemStyle: { color: CAT_COLOR.原料 }, children: raws.map((r, i) => ({ name: r.name, value: +r.sub.toFixed(1), itemStyle: { color: shade(CAT_COLOR.原料, i) } })) },
     { name: '包材', itemStyle: { color: CAT_COLOR.包材 }, children: packs.map(r => ({ name: r.name, value: +r.sub.toFixed(1), itemStyle: { color: '#5fb4e6' } })) },
     { name: '人工', itemStyle: { color: CAT_COLOR.人工 }, children: [{ name: `人工 ${b.laborMin} 分`, value: +b.labor.toFixed(1), itemStyle: { color: '#f5bd5f' } }] },
-    { name: '製造費用', itemStyle: { color: CAT_COLOR.製造費用 }, children: [{ name: '烤箱・冷藏・折舊', value: b.mfg, itemStyle: { color: '#9c88ee' } }] },
+    { name: '製造費用', itemStyle: { color: CAT_COLOR.製造費用 }, children: [{ name: IS_AMEI ? '烤箱・冷藏・折舊' : IVL.mfgShort, value: b.mfg, itemStyle: { color: '#9c88ee' } }] },
   ];
   return {
     animationDuration: 900,
@@ -516,7 +529,7 @@ function renderMaterials(filter = 'all') {
     const c = cd(l.exp);
     return `<tr class="${c.cls === 'red' ? 'ivp-exp-row' : ''}">
       <td>${first ? `<b class="ivp-mn">${m.name}</b>${low ? '<span class="ivp-tag low">低於安全</span>' : ''}<small class="ivp-mt">合計 ${fmtQ(total, 2)} ${m.unit}・安全 ${fmtQ(m.safety, 2)}・${m.store}</small>` : '<span class="ivp-sublot">↳ 同品項</span>'}</td>
-      <td class="mono">${l.batch}</td><td class="ivp-vd"><i style="background:${SUPPLIERS[m.vendor].color}"></i>${m.vendor}</td>
+      <td class="mono">${l.batch}</td><td class="ivp-vd"><i style="background:${(SUPPLIERS[m.vendor] || {}).color || '#888'}"></i>${m.vendor}</td>
       <td>${fmtMD(l.inDate)}</td><td>${fmtMD(l.exp)}</td>
       <td><span class="ivp-cd ${c.cls}" data-exp="${+l.exp}">${c.txt}</span></td>
       <td class="r"><b>${fmtQ(l.qty, 2)}</b> ${m.unit}</td>
@@ -530,13 +543,65 @@ function renderExp() {
   const list = lots.filter(l => +l.exp <= Date.now() + 7 * DAY).sort((a, b) => a.exp - b.exp);
   $('#ivpExp', root).innerHTML = list.map(l => {
     const m = MAT[l.mid], c = cd(l.exp);
-    const use = { cream: '草莓生乳捲・巴斯克', strawberry: '草莓生乳捲', milk: '伯爵可麗露', egg: '全品項' }[l.mid] || '—';
+    const use = IS_AMEI ? ({ cream: '草莓生乳捲・巴斯克', strawberry: '草莓生乳捲', milk: '伯爵可麗露', egg: '全品項' }[l.mid] || '—')
+      : (PRODUCTS.filter(p => (RECIPES[p.id]?.lines || []).some(x => x[0] === l.mid)).map(p => SHORT[p.id]).join('・') || '—');
     return `<div class="ivp-ex ${c.cls}"><div class="ivp-ex-l"><b>${m.name}</b><small class="mono">${l.batch}・${fmtQ(l.qty, 2)} ${m.unit}・${money(l.qty * m.cost)}</small><small>建議用於：${use}</small></div>
       <div class="ivp-ex-r"><span class="ivp-cd ${c.cls}" data-exp="${+l.exp}">${c.txt}</span><small>${fmtMD(l.exp)} 23:59 到期</small></div></div>`;
   }).join('');
 }
 
-function aiRollInfo() {
+// 其他業主：用即將到期的原料加做商品（IVX.ai 由 inventory-data 依業態產生）
+function aiInfo() {
+  const A = IVX.ai; if (!A) return null;
+  const P = PRODUCT_MAP[A.pid]; const b = bom(A.pid);
+  const ms = A.mats.map(mid => ({ m: MAT[mid], lot: lots.filter(l => l.mid === mid).sort((a, c) => a.exp - c.exp)[0], q: b.rows.find(r => r.mid === mid)?.qty || 1 })).filter(x => x.m && x.lot);
+  if (!ms.length) return null;
+  const n = Math.max(1, Math.min(...ms.map(x => Math.floor(x.lot.qty / x.q + 1e-6))));
+  const save = Math.round(ms.reduce((s2, x) => s2 + x.lot.qty * x.m.cost, 0));
+  return { P, ms, n, save, rev: n * P.price, unit: KIT.unitWord(P) };
+}
+function renderAi() {
+  if (IS_AMEI) return renderAiAmei();
+  const a = aiInfo();
+  if (!a) {
+    $('#ivpAi', root).innerHTML = `<div class="ivp-ai-glow"></div><div class="ivp-ai-h"><span class="ivp-ai-ic">${icon('sparkle', 18)}</span><div><small>AI 建議・減少報廢</small><b>近 3 天沒有即將到期的原料</b></div></div>
+      <div class="ivp-ai-body"><p>原料批號都在效期內，AI 會持續依先進先出（FIFO）提醒領料順序。</p></div>`;
+    return;
+  }
+  const cur = (lastPlan || computePlan()).rows.find(r => r.id === a.P.id)?.make || 0;
+  const applied = override[a.P.id] != null;
+  const rel = (d) => { const n = Math.round((startOfDay(d) - startOfDay(new Date())) / DAY); return n <= 0 ? '今天到期' : n === 1 ? '明天到期' : n === 2 ? '後天到期' : `${n} 天後到期`; };
+  const names = a.ms.map(x => x.m.name).join('、');
+  $('#ivpAi', root).innerHTML = `
+    <div class="ivp-ai-glow"></div>
+    <div class="ivp-ai-h"><span class="ivp-ai-ic">${icon('sparkle', 18)}</span><div><small>AI 建議・減少報廢</small><b>用即將到期的${esc(names)}加做${esc(a.P.name)}</b></div></div>
+    <div class="ivp-ai-body">
+      <div class="ivp-ai-flow">
+        ${a.ms.map(x => `<div><span>${esc(x.m.name)}</span><b>${fmtQ(x.lot.qty, 2)} ${x.m.unit}</b><small class="ivp-red">${rel(x.lot.exp)}</small></div>`).join('<i>＋</i>')}<i>→</i>
+        <div class="hl">${productArt(a.P.id, 40)}<b>${a.n} ${esc(a.unit)}</b><small>${esc(SHORT[a.P.id])}</small></div>
+      </div>
+      <p>批號 ${a.ms.map(x => `<span class="mono">${x.lot.batch}</span>`).join(' 與 ')} 依 FIFO 優先領用，${applied ? `今日排產已改為 <b>${cur} ${esc(a.unit)}</b>` : `今日排產由 <b>${cur} ${esc(a.unit)}</b>加做到 <b>${a.n} ${esc(a.unit)}</b>`}，最多可避免 <b>${money(a.save)}</b> 原料報廢，多出的量搭配 LINE「${KIT.cat === 'service' ? '平日優惠' : '今日限定'}」推播消化（${a.n} ${esc(a.unit)}預估營收 ${money(a.rev)}）。</p>
+    </div>
+    <div class="ivp-ai-act">${applied ? `<span class="ivp-ai-done">${icon('check', 16)} 已加入今日排程（${a.n} ${esc(a.unit)}）</span>` : `<button class="btn btn-primary btn-sm" data-act="ai-roll">${icon('plus', 15)} 加入今日排程</button>`}<button class="btn btn-ghost btn-sm" data-act="ai-push">${chIcon('line', 16)} 推播${KIT.cat === 'service' ? '平日優惠' : '今日限定'}</button></div>`;
+}
+function applyAiRoll(btn) {
+  if (IS_AMEI) return applyAiRollAmei(btn);
+  const a = aiInfo(); if (!a) return;
+  override[a.P.id] = Math.max(a.n, (lastPlan?.rows.find(r => r.id === a.P.id)?.auto) || 0);
+  gsap.fromTo(btn, { scale: 0.9 }, { scale: 1, duration: 0.3 });
+  const plan = computePlan();
+  renderPlan(plan, true); renderGantt(plan); renderAi();
+  toast(`已加入${IVL.sched}`, `${a.P.name}改為 ${override[a.P.id]} ${a.unit}，優先使用 ${a.ms.map(x => x.lot.batch).join('、')}；採購建議已重新計算`, { icon: icon('calendar', 18) });
+  gsap.fromTo($$(`.ivp-bar[data-pid="${a.P.id}"]`, root), { boxShadow: '0 0 0 2px #fff, 0 0 30px ' + a.P.color }, { boxShadow: '0 0 0 0 rgba(0,0,0,0)', duration: 1.6, delay: 0.1 });
+}
+function pushToast() {
+  if (IS_AMEI) return toast('已排程 LINE 推播｜今日限定', '「草莓生乳捲 今日現做」推播給 LINE 會員（近 60 天買過生乳捲者優先）', { icon: chIcon('line', 18) });
+  const a = aiInfo(); const P = a ? a.P : PRODUCTS[0];
+  const tag = KIT.cat === 'service' ? '平日優惠' : '今日限定';
+  toast(`已排程 LINE 推播｜${tag}`, `「${P.name} ${tag}」推播給 LINE 會員（近 60 天${KIT.cat === 'service' ? '預約過' : '買過'}者優先）`, { icon: chIcon('line', 18) });
+}
+
+function aiRollInfoAmei() {
   const cream = lots.filter(l => l.mid === 'cream').sort((a, b) => a.exp - b.exp)[0];
   const straw = lots.filter(l => l.mid === 'strawberry').sort((a, b) => a.exp - b.exp)[0];
   const b = bom('roll');
@@ -546,8 +611,8 @@ function aiRollInfo() {
   return { cream, straw, n, save, rev: n * PRODUCT_MAP.roll.price };
 }
 
-function renderAi() {
-  const a = aiRollInfo();
+function renderAiAmei() {
+  const a = aiRollInfoAmei();
   const cur = (lastPlan || computePlan()).rows.find(r => r.id === 'roll').make;
   const applied = override.roll != null;
   const rel = (d) => { const n = Math.round((startOfDay(d) - startOfDay(new Date())) / DAY); return n <= 0 ? '今天到期' : n === 1 ? '明天到期' : n === 2 ? '後天到期' : `${n} 天後到期`; };
@@ -565,8 +630,8 @@ function renderAi() {
     <div class="ivp-ai-act">${applied ? `<span class="ivp-ai-done">${icon('check', 16)} 已加入今日排程（${a.n} 條）</span>` : `<button class="btn btn-primary btn-sm" data-act="ai-roll">${icon('plus', 15)} 加入今日排程</button>`}<button class="btn btn-ghost btn-sm" data-act="ai-push">${chIcon('line', 16)} 推播今日限定</button></div>`;
 }
 
-function applyAiRoll(btn) {
-  const a = aiRollInfo();
+function applyAiRollAmei(btn) {
+  const a = aiRollInfoAmei();
   override.roll = Math.max(a.n, (lastPlan?.rows.find(r => r.id === 'roll')?.auto) || 0);
   gsap.fromTo(btn, { scale: 0.9 }, { scale: 1, duration: 0.3 });
   const plan = computePlan();
@@ -595,7 +660,7 @@ function renderGantt(plan) {
     ${rows.map(r => `<div class="ivp-g-row k-${r.kind}"><div class="ivp-g-name">${icon(r.kind === 'oven' ? 'factory' : r.kind === 'fridge' ? 'snow' : r.kind === 'pack' ? 'box' : 'user', 14)}<span>${r.name}</span></div>
       <div class="ivp-g-track">${hours.map(m => `<i class="ivp-g-tick" style="left:${x(m)}"></i>`).join('')}
         ${r.kind === 'oven' ? `<b class="ivp-g-win" style="left:${x(OVEN_WINDOW[0])};width:${((OVEN_WINDOW[1] - OVEN_WINDOW[0]) / span * 100).toFixed(2)}%"></b>` : ''}
-        ${r.kind === 'pack' ? `<b class="ivp-g-off" style="left:0;width:${((PACK_START - sc.start) / span * 100).toFixed(2)}%"><span>12:00 上班</span></b>` : ''}
+        ${r.kind === 'pack' && PACK_START > sc.start ? `<b class="ivp-g-off" style="left:0;width:${((PACK_START - sc.start) / span * 100).toFixed(2)}%"><span>${hm(PACK_START)} 上班</span></b>` : ''}
         ${sc.tasks.filter(t => t.res === r.id && t.lane === r.lane).map(t => {
           const p = PRODUCT_MAP[t.pid];
           const label = `${p.name}・${t.name}${t.qty ? ` ×${t.qty}` : ''}`;
@@ -610,10 +675,14 @@ function renderGantt(plan) {
   $('#ivpRing', root).style.setProperty('--p', Math.min(100, util).toFixed(1));
   countUp($('#ivpUtil', root), util, { suffix: '%', decimals: 0, duration: 1 });
   const kwh = sc.ovenMin / 60 * 6.5;
-  $('#ivpUtilT', root).innerHTML = `
+  const RA = RESOURCES.find(x => x.id === 'ovenA')?.name || '設備 A', RB = RESOURCES.find(x => x.id === 'ovenB')?.name || '設備 B';
+  $('#ivpUtilT', root).innerHTML = IS_AMEI ? `
     <div><span>旋風烤箱 A</span><b>${sc.ovenA} 分</b><em><i style="width:${(sc.ovenA / (sc.cap / 2) * 100).toFixed(0)}%"></i></em></div>
     <div><span>層爐 B</span><b>${sc.ovenB} 分</b><em><i style="width:${(sc.ovenB / (sc.cap / 2) * 100).toFixed(0)}%"></i></em></div>
-    <small>可用時段 ${hm(OVEN_WINDOW[0])}–${hm(OVEN_WINDOW[1])} × 2 台・預估用電 ${kwh.toFixed(0)} 度（約 ${money(kwh * 4.2)}），已計入製造費用</small>`;
+    <small>可用時段 ${hm(OVEN_WINDOW[0])}–${hm(OVEN_WINDOW[1])} × 2 台・預估用電 ${kwh.toFixed(0)} 度（約 ${money(kwh * 4.2)}），已計入製造費用</small>` : `
+    <div><span>${esc(RA)}</span><b>${sc.ovenA} 分</b><em><i style="width:${(sc.ovenA / (sc.cap / 2) * 100).toFixed(0)}%"></i></em></div>
+    <div><span>${esc(RB)}</span><b>${sc.ovenB} 分</b><em><i style="width:${(sc.ovenB / (sc.cap / 2) * 100).toFixed(0)}%"></i></em></div>
+    <small>可用時段 ${hm(OVEN_WINDOW[0])}–${hm(OVEN_WINDOW[1])} × 2 處・預估能耗約 ${money(kwh * 4.2)}，已計入製造費用</small>`;
   $('#ivpTasks', root).innerHTML = sc.tasks.map(t => {
     const p = PRODUCT_MAP[t.pid];
     return `<li class="${done.has(t.id) ? 'done' : ''}" data-id="${t.id}"><label><input type="checkbox" class="ivp-tk" data-id="${t.id}" ${done.has(t.id) ? 'checked' : ''}><span class="ivp-ck">${icon('check', 12)}</span>
@@ -646,16 +715,16 @@ function updateProgress() {
 }
 
 /* ---------------- 盤點 ---------------- */
-const TAKE_MATS = ['cream', 'strawberry', 'butter', 'milk', 'egg', 'cheese'];
+const TAKE_MATS = IS_AMEI ? ['cream', 'strawberry', 'butter', 'milk', 'egg', 'cheese'] : IVX.take;
 function takeRows() {
   const inv = store.inventory();
   const onHand = {}; for (const l of lots) onHand[l.mid] = (onHand[l.mid] || 0) + l.qty;
   return [
     ...inv.map(p => ({ k: p.id, name: p.name, kind: '成品', unit: '個', book: p.current, cost: p.cost, dp: 0 })),
-    ...TAKE_MATS.map(id => ({ k: id, name: MAT[id].name, kind: '原料', unit: MAT[id].unit, book: +onHand[id].toFixed(2), cost: MAT[id].cost, dp: MAT[id].dp })),
+    ...TAKE_MATS.filter(id => MAT[id]).map(id => ({ k: id, name: MAT[id].name, kind: '原料', unit: MAT[id].unit, book: +(onHand[id] || 0).toFixed(2), cost: MAT[id].cost, dp: MAT[id].dp })),
   ];
 }
-const DEMO_TAKE = { lemon: -1, roll: 0, basque: -1, pound: 0, cookie: -1, pineapple: 0, canele: -2, cream: -0.3, strawberry: -0.2, butter: 0, milk: -0.2, egg: -6, cheese: 0 };
+const DEMO_TAKE = IS_AMEI ? { lemon: -1, roll: 0, basque: -1, pound: 0, cookie: -1, pineapple: 0, canele: -2, cream: -0.3, strawberry: -0.2, butter: 0, milk: -0.2, egg: -6, cheese: 0 } : IVX.demoTake;
 
 function renderTake() {
   const rows = takeRows();

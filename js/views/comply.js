@@ -4,7 +4,7 @@ import { $, $$, el, gsap, esc, countUp, toast, sleep } from '../util.js';
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { startOfDay, addDays } from '../data.js';
-import { CATS, CAT_MAP, CHECKS, LAST_SCORES, KIND, DISCLAIMER, COMPANY, buildDocs, buildTimeline, guessDoc, fmt } from '../comply-data.js';
+import { CATS, CAT_MAP, CHECKS, LAST_SCORES, KIND, DISCLAIMER, COMPANY, buildDocs, buildTimeline, guessDoc, fmt, SHORT_TL as SHORT_TL_D, MAIN_VENDOR, MAIN_SHORT, LABEL } from '../comply-data.js';
 
 // 模組內自用 inline SVG
 const SV = (d, s = 16, extra = '') => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
@@ -17,12 +17,12 @@ const I = {
   doc: (s) => SV('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>', s),
 };
 const STATUS = { pass: { name: '通過', icon: 'check' }, warn: { name: '注意', icon: 'alert' }, todo: { name: '待辦', icon: 'clock' } };
-const SHORT = { tax: '稅務發票', labor: '勞動保險', food: '食品安全', ecom: '電商消保', privacy: '個資資安', corp: '公司登記' };
+const SHORT = { tax: '稅務發票', labor: '勞動保險', food: CAT_MAP.food.name === '食品安全與標示' ? '食品安全' : CAT_MAP.food.name.replace(/與.*$/, ''), ecom: '電商消保', privacy: '個資資安', corp: '公司登記' };
 const LANE = [['lease', '租約', 'store'], ['insurance', '保險', 'shield'], ['contract', '合約', 'file'], ['license', '證照', 'check']];
 const LANE_OF = (k) => (k === 'lease' || k === 'insurance' || k === 'contract') ? k : 'license';
 const LANE_COLOR = { lease: KIND.lease.color, insurance: KIND.insurance.color, contract: KIND.contract.color, license: KIND.license.color };
 const REMIND_OPTS = [7, 14, 30, 45, 60, 90];
-const SHORT_TL = { ins: '產品責任險', dairy: '北海乳品供貨合約', lease: '店面租約' };
+const SHORT_TL = SHORT_TL_D;
 
 let root, go, now, today, checks, docs, tl, radar = null, firstShow = true;
 let fCat = 'all', fStatus = 'open', fKind = 'all', fQuery = '', selDoc = 'dairy', typeTok = 0, upSeq = 0, scoreShown = -1;
@@ -42,7 +42,7 @@ export default {
     now = new Date(); today = startOfDay(now);
     checks = CHECKS.map(c => ({ ...c }));
     const since = +addDays(today, -91);
-    const dairy = store.purchases.filter(p => p.vendor === '北海乳品貿易' && p.ts >= since).reduce((s, p) => s + p.total, 0) * 4;
+    const dairy = store.purchases.filter(p => p.vendor === MAIN_VENDOR && p.ts >= since).reduce((s, p) => s + p.total, 0) * 4;
     docs = buildDocs(now, Math.round(dairy / 1000) * 1000);
     tl = buildTimeline(now).map(t => ({ ...t, cal: false })).sort((a, b) => a.date - b.date);
 
@@ -101,7 +101,7 @@ export default {
         <div class="glass card cp-cab anim-in" id="cpCab">
           <div class="card-h"><h3>${icon('book', 18)} 文件櫃</h3><span class="chip-sm">${icon('lock', 12)} 加密保存・示範</span></div>
           <div class="cp-cab-tools">
-            <label class="cp-search">${I.search(15)}<input id="cpQ" type="search" placeholder="搜尋：租約、保險、北海…" autocomplete="off"></label>
+            <label class="cp-search">${I.search(15)}<input id="cpQ" type="search" placeholder="搜尋：租約、保險、${esc(MAIN_SHORT)}…" autocomplete="off"></label>
             <div class="cp-kinds" id="cpKinds">${[['all', '全部'], ['lease', '租約'], ['contract', '合約'], ['insurance', '保險'], ['cert', '證照與登記']].map(([k, t]) => `<button class="cp-kind-b ${k === fKind ? 'on' : ''}" data-k="${k}">${t}</button>`).join('')}</div>
           </div>
           <label class="cp-drop" id="cpDrop">
@@ -288,9 +288,9 @@ function checkHTML(c) {
   </article>`;
 }
 function labelGrid(fixed) {
-  const P = [['檸檬塔', 1], ['草莓生乳捲', 1], ['芋泥巴斯克', 1], ['烏龍茶磅蛋糕', 1], ['手工餅乾禮盒', 'a'], ['鳳梨酥禮盒', 'm'], ['伯爵可麗露', 1]];
-  const F = [['品名', 'n'], ['成分', 'i'], ['過敏原', 'a'], ['有效日期', 'e'], ['廠商', 'm']];
-  return `<div class="cp-lbl"><div class="cp-lbl-h"><span></span>${F.map(f => `<span>${f[0]}</span>`).join('')}</div>${P.map(([n, miss]) => `<div class="cp-lbl-r"><span>${n}</span>${F.map(f => { const bad = !fixed && miss === f[1]; return `<i class="${bad ? 'bad' : 'ok'}">${icon(bad ? 'x' : 'check', 11)}</i>`; }).join('')}</div>`).join('')}</div>`;
+  const P = LABEL ? LABEL.rows : [['檸檬塔', 1], ['草莓生乳捲', 1], ['芋泥巴斯克', 1], ['烏龍茶磅蛋糕', 1], ['手工餅乾禮盒', 'a'], ['鳳梨酥禮盒', 'm'], ['伯爵可麗露', 1]];
+  const F = LABEL ? LABEL.fields : [['品名', 'n'], ['成分', 'i'], ['過敏原', 'a'], ['有效日期', 'e'], ['廠商', 'm']];
+  return `<div class="cp-lbl"><div class="cp-lbl-h"><span></span>${F.map(f => `<span>${f[0]}</span>`).join('')}</div>${P.map(([n, miss]) => `<div class="cp-lbl-r"><span>${esc(n)}</span>${F.map(f => { const bad = !fixed && miss === f[1]; return `<i class="${bad ? 'bad' : 'ok'}">${icon(bad ? 'x' : 'check', 11)}</i>`; }).join('')}</div>`).join('')}</div>`;
 }
 
 function filtered() {
@@ -417,7 +417,7 @@ async function addFiles(files) {
     d.kind = g.kind; d.sum = g.sum; d.scanning = false; d.pages = 1 + d.seed % 14;
     if (g.sum.expire) {
       tl.push({ id: 'tl-' + d.id, kind: LANE_OF(g.kind), title: d.name, party: g.sum.parties.split('／')[0], date: g.sum.expire, remind: 30, autoRenew: /自動續約/.test(g.sum.autoRenew) && !/未找到/.test(g.sum.autoRenew), notice: 0, action: '確認續約或更新文件', doc: d.id, cal: false,
-        msg: `您好，我是${COMPANY.brand}的阿美。關於「${d.name}」，將於 {date} 到期，想跟您確認後續續約或更新的安排，謝謝！` });
+        msg: `您好，我是${COMPANY.brand}的${COMPANY.owner}。關於「${d.name}」，將於 {date} 到期，想跟您確認後續續約或更新的安排，謝謝！` });
     }
   }
   tl.sort((a, b) => a.date - b.date);

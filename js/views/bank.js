@@ -4,6 +4,7 @@ import { $, $$, el, gsap, esc, money, fmtMD, fmtTime, sleep, countUp, typeText, 
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { startOfDay } from '../data.js';
+import { TENANT } from '../tenant.js';
 import { PROVIDERS, buildRecon, accountCards, payoutTimeline, cashForecast, b2bReceivables, dunningMessage, LANG_NAME, einvoiceStats } from '../bank-data.js';
 
 let root, recon, accts, charts = null;
@@ -107,7 +108,7 @@ export default {
           <div class="card-h"><h3>${icon('bot', 17)} AI 催款訊息</h3><div class="bnk-app"><button class="seg" data-app="line">${lineIcon(14)} LINE</button><button class="seg" data-app="wa">${waIcon(14)} WhatsApp</button></div></div>
           <div class="bnk-dun-who" id="bnkDunWho"></div>
           <div class="bnk-phone" id="bnkPhone">
-            <div class="bnk-ph-top"><span class="bnk-ph-av">美</span><div><b>阿美手作甜點</b><small id="bnkPhSub">官方帳號</small></div></div>
+            <div class="bnk-ph-top"><span class="bnk-ph-av">${esc(TENANT.avatar || TENANT.name.slice(0, 1))}</span><div><b>${esc(TENANT.name)}</b><small id="bnkPhSub">官方帳號</small></div></div>
             <div class="bnk-ph-body" id="bnkPhBody"></div>
           </div>
           <div class="bnk-dun-act">
@@ -562,7 +563,7 @@ function renderForecast() {
   const minLbl = `${f.min.date.getMonth() + 1} 月${f.min.date.getDate() <= 10 ? '上旬' : f.min.date.getDate() <= 20 ? '中' : '下旬'}`;
   const minEvs = ev.filter(e => e.amt >= 30000 && e.date <= f.min.date && e.date > new Date(f.min.date - 8 * 864e5)).map(e => e.name);
   const safe = f.min.v >= f.safe;
-  $('#bnkFcNote', root).innerHTML = `<span class="bnk-ai-ic">${icon('sparkle', 15)}</span><p><b>AI 提醒：</b>${minLbl}（${fmtMD(f.min.date)}${minEvs.length ? '，' + esc(minEvs.join('、')) + '後' : ''}）現金最低點仍有 <b class="hl">NT$ ${(f.min.v / 10000).toFixed(1)} 萬</b>，高於安全水位 ${wan(f.safe)}（約 2 個月薪資＋租金），<b class="${safe ? 'ok' : 'bad'}">${safe ? '安全' : '需注意'}</b>。年節備料可如期下單，閒置資金約 ${wan(Math.max(0, f.min.v - f.safe))} 可考慮轉存定存。</p>`;
+  $('#bnkFcNote', root).innerHTML = `<span class="bnk-ai-ic">${icon('sparkle', 15)}</span><p><b>AI 提醒：</b>${minLbl}（${fmtMD(f.min.date)}${minEvs.length ? '，' + esc(minEvs.join('、')) + '後' : ''}）現金最低點仍有 <b class="hl">NT$ ${(f.min.v / 10000).toFixed(1)} 萬</b>，高於安全水位 ${wan(f.safe)}（約 2 個月${TENANT.staff && TENANT.staff.length > 1 ? '薪資' : '董事酬勞'}＋租金），<b class="${safe ? 'ok' : 'bad'}">${safe ? '安全' : '需注意'}</b>。${TENANT.id === 'amei' ? '年節備料' : '年節檔期備貨'}可如期下單，閒置資金約 ${wan(Math.max(0, f.min.v - f.safe))} 可考慮轉存定存。</p>`;
   const lo = f.pts.map(p => p.lo), band = f.pts.map(p => p.hi - p.lo);
   const idx = (d) => f.pts.findIndex(p => +startOfDay(p.date) === +d);
   charts.fc.setOption({

@@ -6,6 +6,8 @@ import { makeChart, trendOption, channelOption, productOption, heatmapOption } f
 import { createHero } from '../three-hero.js';
 import { startOfDay, addDays } from '../data.js';
 import { mountThree, renderThree } from './dash-three.js';
+import { TENANT } from '../tenant.js';
+import { IS_AMEI, VOC } from '../brief-data.js';
 
 let root, charts = null, hero = null;
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -43,9 +45,9 @@ export default {
     <div class="dash">
       <div class="hero glass anim-in">
         <div class="hero-txt">
-          <span class="kicker">${icon('sparkle', 14)} 早安，阿美 · ${fmtDate(now)} 星期${WEEK[now.getDay()]}</span>
+          <span class="kicker">${icon('sparkle', 14)} 早安，${IS_AMEI ? '阿美' : esc(TENANT.owner)} · ${fmtDate(now)} 星期${WEEK[now.getDay()]}</span>
           <h2>今天 AI 已經幫你處理了 <b class="grad-txt" id="hTotal">0</b> 件事</h2>
-          <p>多語言自動回覆、接單、開發票、記帳、對帳都在背景完成。你只需要專心做甜點。</p>
+          <p>多語言自動回覆、接單、開發票、記帳、對帳都在背景完成。你只需要專心${IS_AMEI ? '做甜點' : VOC.focus}。</p>
           <div class="hero-stats">
             <div><b id="hMsgs">0</b><span>則訊息自動回覆</span></div>
             <div><b id="hOnline">0</b><span>筆訂單自動建立</span></div>

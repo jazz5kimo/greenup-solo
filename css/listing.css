@@ -447,3 +447,6 @@
   .ls-lr > :nth-child(5)::before { content: '轉換率'; font-size: 11px; color: var(--txt3); }
   .ls-lv .ls-spark { display: none; }
 }
+
+/* 節日特價（promo.js） */
+.ls-promo { color: #ffb3a6; font-weight: 700; }

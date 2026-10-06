@@ -5,6 +5,8 @@ import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { addDays, startOfDay } from '../data.js';
 import { renderExtra } from './tax-extra.js';
+import { vatPeriod } from '../ledger.js';
+import { TENANT } from '../tenant.js';
 
 let root, chart = null, cdTimer = 0, submitted = false;
 
@@ -18,12 +20,9 @@ function period(now = new Date()) {
 }
 
 function compute() {
-  const p = period();
-  const sales = store.ordersBetween(p.start, p.end);
-  const buys = store.purchases.filter(x => x.ts >= +p.start && x.ts < +p.end);
-  const salesNet = store.sum(sales, 'net'), outTax = store.sum(sales, 'tax');
-  const buyNet = buys.reduce((s, b) => s + b.net, 0), inTax = buys.reduce((s, b) => s + b.tax, 0);
-  return { p, sales, buys, salesNet, outTax, buyNet, inTax, payable: Math.max(0, outTax - inTax) };
+  // 與總覽、老闆的錢共用 ledger.vatPeriod：進項含所有附發票的進貨與費用
+  const v = vatPeriod();
+  return { p: period(), sales: v.sales, buys: v.ins, salesNet: v.salesNet, outTax: v.outTax, buyNet: v.buyNet, inTax: v.inTax, payable: v.payable };
 }
 
 export default {
@@ -59,7 +58,7 @@ export default {
         </div>
         <div class="glass card form401 anim-in">
           <div class="f-h"><div><b>營業人銷售額與稅額申報書（401）</b><small>預覽・示範用，格式簡化</small></div><span class="stamp">試算</span></div>
-          <div class="f-meta"><span>營業人名稱：阿美手作甜點（示範）</span><span>統一編號：＊＊＊＊＊＊＊＊</span><span>所屬年月：${p.roc} 年 ${p.label}</span></div>
+          <div class="f-meta"><span>營業人名稱：${TENANT.name}（示範）</span><span>統一編號：＊＊＊＊＊＊＊＊</span><span>所屬年月：${p.roc} 年 ${p.label}</span></div>
           <table class="f-tbl" id="f401"></table>
           <div class="f-actions">
             <button class="btn btn-primary btn-lg" id="taxGo">${icon('shield', 18)} 本人確認後送出</button>

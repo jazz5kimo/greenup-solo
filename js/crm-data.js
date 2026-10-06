@@ -2,6 +2,60 @@
 // 真實會員＝store.orders 中非門市顧客的線上客人（依名稱彙整）；
 // 另以固定種子補足歷史會員到約 1,2xx 位，讓分眾與活動估算有合理規模。
 import { mulberry32, PRODUCTS, PRODUCT_MAP, startOfDay, addDays } from './data.js';
+import { TENANT } from './tenant.js';
+import { pName, pDesc } from './i18n.js';
+import { IS_AMEI, CAT, HAS_BEANS } from './brief-data.js';
+
+// ---------- 其他業主：依業態大類的會員備註、評論關鍵字與評論情境（商品取自目前業主） ----------
+const P_ = (i) => PRODUCTS[Math.min(i, PRODUCTS.length - 1)];
+const BY_PRICE = [...PRODUCTS].sort((a, b) => a.price - b.price);
+export const GIFT_P = [...PRODUCTS].sort((a, b) => b.price - a.price).find(p => p.price <= 1500) || BY_PRICE[0];
+export const NEW_P = PRODUCTS[PRODUCTS.length - 1];
+const CATX = {
+  dessert: { notes: ['對堅果過敏', '偏好少糖', '乳糖不耐（少量可）', '送禮為主・需附提袋與卡片'],
+    kw: ['口感很好', '包裝精美', '甜度剛好', '想要少糖版', '運送時間'], praise: '口感很好、甜度剛好',
+    issue: (b) => `這次的${b}收到時外盒有點壓到，感覺運送途中被碰撞……有點可惜，之前都很好。`,
+    fix: ['我們已改用加厚緩衝包材，並為您補寄一份新的', '這次訂單將全額退款，補寄費用由我們負擔'],
+    wish: (a) => `${a}很好吃，長輩也喜歡！請問可以做少糖的版本嗎？`, wishR: ['少糖版本正在試做中，已幫您登記搶先通知', '目前可以客製減糖 30%，需提前 2 天預訂'] },
+  drink: { notes: HAS_BEANS ? ['不喝含咖啡因飲品（偏好低因）', '偏好淺焙果酸', '使用手沖・需中細研磨', '送禮為主・需附提袋與卡片'] : ['不喝含咖啡因飲品', '偏好少糖', '偏好常溫保存品項', '送禮為主・需附提袋與卡片'],
+    kw: HAS_BEANS ? ['風味乾淨', '包裝精美', '烘焙新鮮', '想要小包裝', '運送時間'] : ['風味很好', '包裝精美', '新鮮度高', '想要小包裝', '運送時間'],
+    praise: HAS_BEANS ? '香氣很乾淨，袋子上有烘焙日期很安心' : '風味很好、很新鮮',
+    issue: (b) => `這次的${b}收到時包裝袋邊緣破了一個小洞……有點可惜，之前都很好。`,
+    fix: ['我們已改用加厚外箱，並為您補寄一份新的', '這次訂單將全額退款，也想邀請您再給我們一次機會'],
+    wish: (a) => `${a}很喜歡！請問可以出小包裝嗎？想多試幾種。`, wishR: ['小包裝試飲組正在規劃中，已幫您登記搶先通知', '目前可以用掛耳／小份量組合搭配，要幫您安排嗎？'] },
+  food: { notes: ['不吃辣', '對花生過敏', '對甲殼類海鮮過敏', '素食（蛋奶素）'],
+    kw: ['味道道地', '份量足', '出餐快', '想要更多口味', '外送保溫'], praise: '味道很道地、份量也足',
+    issue: (b) => `這次外送的${b}送到時已經不太熱了，湯也有點灑出來……有點可惜，之前都很好吃。`,
+    fix: ['我們已更換保溫袋並調整外送路線，下次為您補一份同品項', '這次餐點將全額退款，並送您一張外送免運券'],
+    wish: (a) => `${a}很好吃！可以加辣或多加配料嗎？`, wishR: ['下單時備註辣度與加料即可，我們都會照做', '加料選項正在上架中，已幫您登記上架通知'] },
+  craft: { notes: ['偏好深色系', '送禮為主・需刻字與禮盒', '對金屬鎳過敏', '左撇子・需調整設計'],
+    kw: ['做工細緻', '包裝精美', '刻字漂亮', '想要更多顏色', '交期較長'], praise: '做工很細緻，刻字也很漂亮',
+    issue: (b) => `${b}等了比預期久，到貨時盒子有點壓到……東西本身很好，只是有點可惜。`,
+    fix: ['我們已為您更換新的禮盒，並延長保固一年', '這次訂單運費全額退還，之後交期都會先跟您確認'],
+    wish: (a) => `${a}很喜歡！請問會出其他顏色嗎？`, wishR: ['新色正在打樣中，已幫您登記搶先通知', '目前可以客製顏色，需多 7 個工作天'] },
+  flower: { notes: ['對花粉較敏感（避免百合）', '偏好白綠色系', '送禮為主・需附卡片', '只收平日白天配送'],
+    kw: ['花材新鮮', '包裝精美', '配色漂亮', '想要小束款', '配送時段'], praise: '花材很新鮮，配色也很漂亮',
+    issue: (b) => `這次的${b}比約定時段晚了一個多小時才送到，收花的人已經下班了……有點可惜。`,
+    fix: ['我們已為您補送一束新鮮花禮，並調整配送路線', '這次訂單將全額退款，之後會提前來電確認時段'],
+    wish: (a) => `${a}很漂亮！可以出小一點的款式嗎？想放辦公桌。`, wishR: ['桌上小花款正在設計中，已幫您登記搶先通知', '目前可以客製縮小版本，價格依花材調整'] },
+  service: { notes: ['皮膚較敏感・需先做測試', '偏好平日晚上時段', '希望安靜少聊天', '需要停車資訊'],
+    kw: ['技術細緻', '環境乾淨', '準時不用等', '想要更多時段', '改期規則'], praise: '技術很細緻，環境也很乾淨',
+    issue: () => '這次改期被收了費用，事前好像沒有說清楚……服務本身很好，只是有點可惜。',
+    fix: ['這次的改期費用已全額退還，並在預約確認訊息加上改期規則說明', '已退還費用並送您一次加購服務，之後改期都會先提醒'],
+    wish: (a) => `${a}很滿意！請問可以多開週末早上的時段嗎？`, wishR: ['週末早上時段下個月開放，已幫您登記優先預約', '可以先幫您排候補，有空檔會第一時間通知'] },
+  retail: { notes: ['偏好簡約包裝', '送禮為主・需附提袋與卡片', '偏好門市自取', '只收平日晚上配送'],
+    kw: ['品質很好', '包裝精美', '選品有質感', '想要更多款式', '運送時間'], praise: '品質很好，選品很有質感',
+    issue: (b) => `這次的${b}收到時外盒有點壓到……東西本身沒問題，只是有點可惜。`,
+    fix: ['我們已改用加厚緩衝包材，並為您補寄新的外盒', '這次訂單運費全額退還，也想邀請您再給我們一次機會'],
+    wish: (a) => `${a}很喜歡！請問會進其他款式嗎？`, wishR: ['新款下個月到貨，已幫您登記搶先通知', '可以先幫您預留，到貨後第一時間通知'] },
+  farm: { notes: ['偏好無農藥栽培', '送禮為主・需附提袋與卡片', '家中有長輩・偏好軟質', '只收平日白天配送'],
+    kw: ['新鮮好吃', '包裝用心', '產地直送', '想要小份量', '運送時間'], praise: '很新鮮，產地直送吃得出來',
+    issue: (b) => `這次的${b}有幾個在運送途中碰傷了……有點可惜，之前都很好。`,
+    fix: ['我們已改用分隔緩衝包裝，並為您補寄一份新的', '這次訂單將全額退款，也想邀請您再給我們一次機會'],
+    wish: (a) => `${a}很好吃！請問可以出小份量嗎？家裡人少吃不完。`, wishR: ['小份量包裝正在規劃中，已幫您登記搶先通知', '目前可以拆半出貨，價格依份量計算'] },
+};
+export const CX = CATX[CAT] || CATX.retail;
+
 
 const DAY = 86400e3;
 
@@ -57,13 +111,16 @@ const VI_GIVEN = ['Thị Lan', 'Minh Anh', 'Thu Hà', 'Quốc Bảo', 'Ngọc H�
 const MS_FIRST = ['Aisyah', 'Nurul', 'Farah', 'Siti', 'Ahmad', 'Hafiz', 'Amirah', 'Syafiq', 'Izzati', 'Aiman'];
 const MS_LAST = ['Rahman', 'Ismail', 'Hassan', 'Yusof', 'Abdullah', 'Kamal', 'Osman'];
 
-const ALLERGY = [
+const ALLERGY = IS_AMEI ? [
   { w: 52, text: '' },
   { w: 12, text: '對堅果過敏', avoid: ['cookie'] },
   { w: 10, text: '乳糖不耐（少量可）', avoid: [] },
   { w: 14, text: '偏好少糖', avoid: [] },
   { w: 6, text: '麩質敏感', avoid: ['lemon', 'roll', 'pound', 'cookie', 'pineapple', 'canele'] },
   { w: 6, text: '送禮為主・需附提袋與卡片', avoid: [], note: true },
+] : [
+  { w: 52, text: '' },
+  ...CX.notes.map((t, i) => ({ w: [14, 12, 10, 6][i] || 6, text: t, avoid: [], note: /送禮|時段|配送|自取|停車|聊天/.test(t) })),
 ];
 
 function hashStr(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -71,7 +128,7 @@ const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 function pickW(rng, list) { const t = list.reduce((s, x) => s + x.w, 0); let r = rng() * t; for (const x of list) { r -= x.w; if (r <= 0) return x; } return list[list.length - 1]; }
 
 function romanOf(name, lang) {
-  if (lang === 'zh') { const s = name.replace(/(小姐|先生|太太|媽媽)$/, ''); return ROMA[s[0]] || 'amei'; }
+  if (lang === 'zh') { const s = name.replace(/(小姐|先生|太太|媽媽)$/, ''); return ROMA[s[0]] || (IS_AMEI ? 'amei' : 'member'); }
   if (lang === 'ja') { const s = name.split(' ')[0]; return ROMA[s] || 'jp'; }
   return name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '') || 'member';
 }
@@ -218,7 +275,7 @@ export function memberTimeline(m, limit = 6) {
     const n = 1 + (rng() < 0.35 ? 1 : 0);
     const items = [];
     for (let k = 0; k < n; k++) {
-      const f = m.favs[Math.floor(rng() * m.favs.length)] || { pid: 'lemon' };
+      const f = m.favs[Math.floor(rng() * m.favs.length)] || { pid: PRODUCTS[0].id };
       if (!items.find(x => x.pid === f.pid)) items.push({ pid: f.pid, qty: 1 + (rng() < 0.25 ? 1 : 0), price: PRODUCT_MAP[f.pid].price });
     }
     const total = items.reduce((s, it) => s + it.qty * it.price, 0) + (rng() < 0.5 ? 150 : 0);
@@ -229,16 +286,21 @@ export function memberTimeline(m, limit = 6) {
 }
 
 // ---------- AI 行銷文案範本 ----------
-export const PURPOSES = [
+export const PURPOSES = IS_AMEI ? [
   { id: 'new', name: '新品上市', pid: 'canele', code: 'CANELE90', disc: 0.9 },
   { id: 'bday', name: '生日禮', pid: 'basque', code: 'BDAY150', disc: 150 },
   { id: 'winback', name: '喚回', pid: 'lemon', code: 'MISSU85', disc: 0.85 },
   { id: 'festival', name: '節慶', pid: 'cookie', code: 'HALLO120', disc: 120 },
+] : [
+  { id: 'new', name: '新品上市', pid: NEW_P.id, code: 'NEW90', disc: 0.9 },
+  { id: 'bday', name: '生日禮', pid: GIFT_P.id, code: 'BDAY150', disc: 150 },
+  { id: 'winback', name: '喚回', pid: PRODUCTS[0].id, code: 'MISSU85', disc: 0.85 },
+  { id: 'festival', name: '節慶', pid: P_(3).id, code: 'HALLO120', disc: 120 },
 ];
 export const PURPOSE_MAP = Object.fromEntries(PURPOSES.map(p => [p.id, p]));
 export const CAMP_CHANNELS = [['line', 'LINE'], ['whatsapp', 'WhatsApp'], ['zalo', 'Zalo'], ['ig', 'IG']];
 
-export const PNAME = {
+export const PNAME = !IS_AMEI ? Object.fromEntries(['zh', 'ja', 'en', 'vi', 'ms'].map(l => [l, Object.fromEntries(PRODUCTS.map(p => [p.id, l === 'zh' ? p.name : pName(l, p.id)]))])) : {
   zh: Object.fromEntries(PRODUCTS.map(p => [p.id, p.name])),
   ja: { lemon: 'レモンタルト', roll: 'いちご生クリームロール', basque: 'タロイモ・バスクチーズケーキ', pound: '烏龍茶パウンドケーキ', cookie: '手作りクッキーギフトボックス', pineapple: 'パイナップルケーキ', canele: 'アールグレイ・カヌレ' },
   en: { lemon: 'Lemon Tart', roll: 'Strawberry Cream Roll', basque: 'Taro Basque Cheesecake', pound: 'Oolong Pound Cake', cookie: 'Handmade Cookie Gift Box', pineapple: 'Pineapple Cake Gift Box', canele: 'Earl Grey Canelé' },
@@ -253,7 +315,14 @@ const DISC_TXT = {
   festival: { zh: '滿 NT$1,000 折 NT$120', ja: 'NT$1,000以上でNT$120引き', en: 'NT$120 off orders over NT$1,000', vi: 'giảm NT$120 cho đơn từ NT$1.000', ms: 'potongan NT$120 untuk pesanan melebihi NT$1,000' },
 };
 
-export const UI_TXT = {
+const SVC = CAT === 'service';
+export const UI_TXT = !IS_AMEI ? {
+  zh: { shop: TENANT.name, coupon: '會員優惠券', cta: SVC ? '立即預約' : '立即預訂', until: '有效至', hi: '親愛的會員', today: '今天' },
+  ja: { shop: TENANT.en || TENANT.name, coupon: '会員クーポン', cta: SVC ? '今すぐ予約' : '今すぐ注文', until: '有効期限', hi: 'お客', today: '今日' },
+  en: { shop: TENANT.en || TENANT.name, coupon: 'Member coupon', cta: SVC ? 'Book now' : 'Order now', until: 'Valid until', hi: 'there', today: 'Today' },
+  vi: { shop: TENANT.en || TENANT.name, coupon: 'Phiếu ưu đãi', cta: SVC ? 'Đặt lịch ngay' : 'Đặt ngay', until: 'Hạn dùng', hi: 'bạn', today: 'Hôm nay' },
+  ms: { shop: TENANT.en || TENANT.name, coupon: 'Kupon ahli', cta: SVC ? 'Tempah slot' : 'Tempah sekarang', until: 'Sah sehingga', hi: 'anda', today: 'Hari ini' },
+} : {
   zh: { shop: '阿美手作甜點', coupon: '會員優惠券', cta: '立即預訂', until: '有效至', hi: '親愛的會員', today: '今天' },
   ja: { shop: 'アメイ手作りスイーツ', coupon: '会員クーポン', cta: '今すぐ予約', until: '有効期限', hi: 'お客', today: '今日' },
   en: { shop: 'Amei Handmade Desserts', coupon: 'Member coupon', cta: 'Order now', until: 'Valid until', hi: 'there', today: 'Today' },
@@ -261,6 +330,39 @@ export const UI_TXT = {
   ms: { shop: 'Amei Handmade Desserts', coupon: 'Kupon ahli', cta: 'Tempah sekarang', until: 'Sah sehingga', hi: 'anda', today: 'Hari ini' },
 };
 
+// 其他業主的多語文案範本（{shop} 店名、{desc} 商品介紹）
+const TPL_GEN = {
+  zh: {
+    new: '{name}您好！{shop}本週推出新品「{product}」：{desc}身為我們的會員，搶先享{discount}，結帳輸入優惠碼 {code} 即可使用（{expiry} 前有效）。數量有限，想要記得早點預訂喔！',
+    bday: '{name}生日快樂！謝謝您一直以來支持{shop}。我們準備了一份小小的生日禮：{discount}，搭配您喜歡的「{product}」剛剛好。優惠碼 {code}，生日當月都能使用。祝您有個美好的一年！',
+    winback: '{name}好久不見！最近過得好嗎？您之前最喜歡的「{product}」還在等您。我們特別為您保留一張{discount}回饋券，優惠碼 {code}，{expiry} 前有效。直接回覆「預訂」，AI 小幫手馬上幫您安排。',
+    festival: '萬聖節快到了！「{product}」推出萬聖節限定活動，送朋友、犒賞自己都適合。{name}專屬優惠：{discount}，優惠碼 {code}（{expiry} 前有效）。10/28 前預訂，節前就幫您安排好。',
+  },
+  ja: {
+    new: '{name}様、こんにちは！{shop}から新商品「{product}」のお知らせです。会員様限定で{discount}、クーポンコード {code} をご利用ください（{expiry}まで有効）。数量限定です。',
+    bday: '{name}様、お誕生日おめでとうございます！いつも{shop}をご愛顧いただきありがとうございます。ささやかなプレゼントとして{discount}のバースデークーポンをお贈りします。お気に入りの「{product}」と一緒にどうぞ。コード：{code}（誕生月中有効）',
+    winback: '{name}様、お久しぶりです！以前お気に入りいただいた「{product}」がお待ちしています。{name}様だけに{discount}クーポンをご用意しました。コード {code}（{expiry}まで）。「予約」とご返信いただければ、AIがすぐに手配します。',
+    festival: 'ハロウィン限定企画で「{product}」がお得に！{name}様限定：{discount}、コード {code}（{expiry}まで有効）。10/28までのご予約でハロウィン前にご用意します。',
+  },
+  en: {
+    new: 'Hi {name}! Something new from {shop}: {product}. {desc} As a member you get {discount} with code {code} (valid until {expiry}). Limited quantities, so order early!',
+    bday: 'Happy birthday, {name}! Thank you for being part of the {shop} family. Here\'s a little gift: {discount} birthday credit, perfect with your favourite {product}. Use code {code} any time this month.',
+    winback: 'Hi {name}, we\'ve missed you! Your favourite {product} is waiting for you. We\'ve saved a {discount} voucher just for you: code {code}, valid until {expiry}. Reply "ORDER" and our AI assistant will set it up.',
+    festival: 'Halloween is coming! Enjoy a limited-time Halloween offer on {product}. Your member offer: {discount} with code {code} (until {expiry}). Order by 28 Oct and we\'ll have it ready before Halloween.',
+  },
+  vi: {
+    new: 'Chào {name}! {shop} vừa ra mắt sản phẩm mới: {product}. Thành viên được ưu đãi {discount} với mã {code} (hạn đến {expiry}). Số lượng có hạn!',
+    bday: 'Chúc mừng sinh nhật {name}! Cảm ơn bạn đã luôn ủng hộ {shop}. Tặng bạn món quà nhỏ: {discount} mừng sinh nhật, dùng kèm {product} bạn yêu thích. Mã {code}, dùng được trong tháng sinh nhật.',
+    winback: 'Chào {name}, lâu rồi không gặp! {product} bạn thích vẫn đang chờ bạn. Shop dành riêng cho bạn phiếu {discount}: mã {code}, hạn đến {expiry}. Trả lời "ĐẶT" để trợ lý AI hỗ trợ ngay nhé.',
+    festival: 'Halloween sắp đến! Ưu đãi Halloween cho {product}. Dành cho {name}: {discount}, mã {code} (đến {expiry}). Đặt trước 28/10 để kịp lễ.',
+  },
+  ms: {
+    new: 'Hai {name}! {shop} baru melancarkan produk baharu: {product}. Ahli menikmati {discount} dengan kod {code} (sah sehingga {expiry}). Kuantiti terhad!',
+    bday: 'Selamat hari jadi, {name}! Terima kasih kerana menyokong {shop}. Ini hadiah kecil untuk anda: kredit hari jadi {discount}, sesuai dengan {product} kegemaran anda. Guna kod {code} sepanjang bulan ini.',
+    winback: 'Hai {name}, lama tak jumpa! {product} kegemaran anda masih menanti. Kami simpan baucar {discount} khas untuk anda: kod {code}, sah sehingga {expiry}. Balas "TEMPAH" dan pembantu AI kami akan uruskan.',
+    festival: 'Halloween hampir tiba! Tawaran Halloween untuk {product}. Tawaran ahli untuk {name}: {discount} dengan kod {code} (sehingga {expiry}). Tempah sebelum 28 Okt.',
+  },
+};
 const TPL = {
   zh: {
     new: '{name}您好！阿美手作甜點本週推出新品「{product}」：外殼焦脆、內裡是濕潤的伯爵茶香。身為我們的會員，搶先享{discount}，結帳輸入優惠碼 {code} 即可使用（{expiry} 前有效）。每天現烤、數量有限，想吃記得早點預訂喔！',
@@ -320,8 +422,10 @@ export function composeMessage({ purpose, lang, name, pid }) {
     discount: DISC_TXT[purpose][lang],
     code: p.code,
     expiry: fmtLangDate(exp, lang),
+    shop: UI_TXT[lang].shop,
+    desc: lang === 'zh' ? (PRODUCT_MAP[p.pid].desc || '') : lang === 'en' ? (pDesc('en', p.pid) || '') : '',
   };
-  const text = TPL[lang][purpose].replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+  const text = (IS_AMEI ? TPL : TPL_GEN)[lang][purpose].replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
   return { text, vars, product: PRODUCT_MAP[p.pid], productName: vars.product, code: p.code, discount: vars.discount, expiry: vars.expiry, ui: UI_TXT[lang] };
 }
 
@@ -332,9 +436,11 @@ export function seedCoupons(now = new Date()) {
     { code: 'WELCOME100', name: '新會員見面禮', disc: '折 NT$100', ch: ['line', 'whatsapp', 'zalo', 'web'], issued: 486, used: 301, exp: d(60), color: '#2DB674', auto: true },
     { code: 'BDAY150', name: '生日禮金（10 月壽星）', disc: '折 NT$150', ch: ['line', 'whatsapp', 'zalo'], issued: 104, used: 37, exp: new Date(now.getFullYear(), now.getMonth() + 1, 0), color: '#DD5597', auto: true },
     { code: 'MISSU85', name: '沉睡會員喚回', disc: '85 折', ch: ['line', 'whatsapp'], issued: 318, used: 49, exp: d(5), color: '#7C62E6', auto: true },
-    { code: 'FREESHIP', name: '冷藏宅配免運', disc: '免運費', ch: ['line', 'web', 'messenger'], issued: 380, used: 212, exp: d(41), color: '#2E97D4' },
+    IS_AMEI ? { code: 'FREESHIP', name: '冷藏宅配免運', disc: '免運費', ch: ['line', 'web', 'messenger'], issued: 380, used: 212, exp: d(41), color: '#2E97D4' }
+      : CAT === 'service' ? { code: 'FRIEND100', name: '揪好友同行優惠', disc: '折 NT$100', ch: ['line', 'web', 'messenger'], issued: 380, used: 212, exp: d(41), color: '#2E97D4' }
+        : { code: 'FREESHIP', name: CAT === 'food' ? '外送免運' : '宅配免運', disc: '免運費', ch: ['line', 'web', 'messenger'], issued: 380, used: 212, exp: d(41), color: '#2E97D4' },
     { code: 'REVIEW50', name: '評論感謝回饋', disc: '折 NT$50', ch: ['line', 'web'], issued: 152, used: 96, exp: d(25), color: '#F0A531' },
-    { code: 'MOON2026', name: '中秋禮盒早鳥', disc: '滿千折 200', ch: ['line', 'whatsapp', 'web', 'pos'], issued: 650, used: 517, exp: d(-8), color: '#EC6A55' },
+    { code: 'MOON2026', name: IS_AMEI ? '中秋禮盒早鳥' : '中秋檔期早鳥', disc: '滿千折 200', ch: ['line', 'whatsapp', 'web', 'pos'], issued: 650, used: 517, exp: d(-8), color: '#EC6A55' },
   ];
 }
 
@@ -345,12 +451,49 @@ export const SENTI = [
   { id: 'neg', name: '負面', color: '#EC6A55', count: 9 },
 ];
 export const STAR_DIST = [[5, 161], [4, 38], [3, 13], [2, 6], [1, 4]];
-export const KEYWORDS = [
+export const KEYWORDS = !IS_AMEI ? [
+  [CX.kw[0], 'pos', 64], [CX.kw[1], 'pos', 51], [CX.kw[2], 'pos', 47], ['回覆很快', 'pos', 39], ['適合送禮', 'pos', 36],
+  ['多語客服', 'pos', 18], ['價格偏高', 'neu', 11], [CX.kw[3], 'neu', 9], [CX.kw[4], 'neg', 6], ['付款連結', 'neg', 3],
+] : [
   ['口感綿密', 'pos', 64], ['包裝精美', 'pos', 51], ['甜度剛好', 'pos', 47], ['回覆很快', 'pos', 39], ['適合送禮', 'pos', 36],
   ['多語客服', 'pos', 18], ['價格偏高', 'neu', 11], ['想要低糖版', 'neu', 9], ['冷藏運送', 'neg', 6], ['付款連結', 'neg', 3],
 ];
 
+function genericReviews(now) {
+  const h = (n) => +now - n * 3600e3;
+  const A = PRODUCTS[0], B = P_(1), C = P_(2), W = P_(3), G = GIFT_P;
+  const O = TENANT.owner, K = CX.kw, SV = CAT === 'service';
+  const used = SV ? '利用' : '購入';
+  return [
+    { id: 'r1', src: 'google', author: 'Iris C.', stars: 5, lang: 'zh', senti: 'pos', ts: h(3), tags: [K[0], '適合送禮'],
+      text: `${A.name}真的很讚！${CX.praise}。整體服務也很用心，已經回購第三次。`,
+      replies: ['Iris 您好，謝謝您第三次回購！能被您喜歡真的很開心。下次報上會員手機，我們再送您一份小禮物，期待再為您服務！', `Iris 謝謝這麼用心的評論！歡迎下次試試本週新品「${NEW_P.name}」，也很適合送禮喔！`] },
+    { id: 'r2', src: 'line', author: '張小姐', stars: 0, lang: 'zh', senti: 'neg', ts: h(5), tags: [K[4]], urgent: true,
+      text: CX.issue(B.name),
+      replies: [`張小姐非常抱歉讓您失望了！${CX.fix[0]}，並附上 NT$100 購物金，再次向您致歉。`, `張小姐真的很抱歉！${CX.fix[1]}。${O}會親自跟進，謝謝您告訴我們。`] },
+    { id: 'r3', src: 'google', author: '佐藤 ゆき', stars: 5, lang: 'ja', senti: 'pos', ts: h(9), tags: ['多語客服', '適合送禮'],
+      text: `台湾旅行中に「${pName('ja', C.id)}」を${used}しました。とても満足です。LINEで日本語で丁寧に対応してくれて、とても助かりました。`,
+      replies: ['佐藤様、素敵なレビューをありがとうございます！ご満足いただけて嬉しいです。またいつでもLINEでお気軽にご連絡ください。', '佐藤様、ありがとうございます！次回のご旅行の際も、ぜひお立ち寄りください。お待ちしております。'] },
+    { id: 'r4', src: 'google', author: 'Kevin L.', stars: 3, lang: 'en', senti: 'neu', ts: h(20), tags: ['價格偏高'],
+      text: `The ${pName('en', B.id)} was good, but a little pricey for me. Decent overall, would consider again.`,
+      replies: [`Hi Kevin, thanks for the honest feedback! If you'd like something lighter on the wallet, try our ${pName('en', [...PRODUCTS].sort((a, b) => a.price - b.price)[0].id)}. Our AI assistant can suggest options for any budget.`, 'Thanks Kevin! Next time, use code REVIEW50 for NT$50 off, and let our AI assistant know your budget, we\'ll find a good fit.'] },
+    { id: 'r5', src: 'line', author: '林小姐', stars: 0, lang: 'zh', senti: 'neu', ts: h(26), tags: [K[3]],
+      text: CX.wish(W.name),
+      replies: [`林小姐您好，謝謝您的喜歡！${CX.wishR[0]}，有消息會第一時間 LINE 給您！`, `林小姐謝謝詢問！${CX.wishR[1]}。要幫您直接安排嗎？`] },
+    { id: 'r6', src: 'google', author: 'Nguyễn Thị Lan', stars: 5, lang: 'vi', senti: 'pos', ts: h(31), tags: ['多語客服', '回覆很快'],
+      text: `Mình rất hài lòng với ${pName('vi', A.id)}. Nhân viên trả lời tin nhắn Zalo rất nhanh bằng tiếng Việt. Chắc chắn sẽ quay lại!`,
+      replies: ['Cảm ơn chị Lan rất nhiều! Rất vui vì chị hài lòng. Lần sau nhắn qua Zalo, chị nhớ dùng mã WELCOME100 để được giảm NT$100 nhé!', 'Cảm ơn chị Lan! Chúc chị một ngày vui vẻ, hẹn gặp lại chị!'] },
+    { id: 'r7', src: 'google', author: 'Daniel T.', stars: 2, lang: 'en', senti: 'neg', ts: h(44), tags: ['付款連結'], urgent: true,
+      text: `${SV ? 'Booked' : 'Ordered'} via WhatsApp, but the payment link expired before I could pay and nobody followed up for a whole day. The ${SV ? 'service' : 'products'} look great though.`,
+      replies: ['Hi Daniel, we\'re really sorry about this. The payment link has now been extended to 72 hours, and our AI assistant will send a reminder before it expires. Thank you for letting us know!', 'Sorry Daniel, that shouldn\'t have happened. We\'ve fixed the follow-up rule so unpaid orders get a reminder within 2 hours. A NT$100 credit has been applied, just reply on WhatsApp to confirm.'] },
+    { id: 'r8', src: 'line', author: '黃小姐', stars: 0, lang: 'zh', senti: 'pos', ts: h(52), tags: ['適合送禮', K[1]],
+      text: `公司上次用「${G.name}」${SV ? '當員工福利' : '送客戶'}，大家都很喜歡！年底還想再訂 30 份，可以開統編嗎？`,
+      replies: [`黃小姐謝謝您的支持！30 份企業訂單沒問題，可以開立統編電子發票，並享企業團購 95 折。AI 已幫您建立報價單草稿，稍後由${O}親自與您確認細節！`, '黃小姐您好，謝謝推薦！30 份以上可加印公司 logo 卡片並享免運。請提供統編與日期，我們馬上幫您保留名額。'] },
+  ];
+}
+
 export function seedReviews(now = new Date()) {
+  if (!IS_AMEI) return genericReviews(now);
   const h = (n) => +now - n * 3600e3;
   return [
     { id: 'r1', src: 'google', author: 'Iris C.', stars: 5, lang: 'zh', senti: 'pos', ts: h(3), tags: ['口感綿密', '適合送禮'],
@@ -382,6 +525,12 @@ export function seedReviews(now = new Date()) {
 
 export function seedSchedules(now = new Date()) {
   const d = (n, h = 20, mi = 30) => { const x = addDays(startOfDay(now), n); x.setHours(h, mi); return +x; };
+  if (!IS_AMEI) return [
+    { name: '萬聖節限定活動預告', seg: 'loyal', ch: 'line', lang: 'zh', ts: d(3), reach: 186, status: 'sched' },
+    { name: '10 月壽星生日禮（自動）', seg: 'bday', ch: 'line', lang: 'zh', ts: d(0, 9, 0), reach: 104, status: 'running' },
+    { name: `Weekend ${pName('en', PRODUCTS[0].id)}`, seg: 'champ', ch: 'whatsapp', lang: 'en', ts: d(-2, 19, 0), reach: 41, status: 'done', orders: 9, rev: Math.round(PRODUCTS[0].price * 9 * 1.3 / 10) * 10 },
+    { name: '中秋檔期感謝回饋', seg: 'all', ch: 'line', lang: 'zh', ts: d(-14, 20, 0), reach: 812, status: 'done', orders: 71, rev: Math.round(PRODUCTS[0].price * 71 * 1.4 / 10) * 10 },
+  ];
   return [
     { name: '萬聖節限定禮盒預購', seg: 'loyal', ch: 'line', lang: 'zh', ts: d(3), reach: 186, status: 'sched' },
     { name: '10 月壽星生日禮（自動）', seg: 'bday', ch: 'line', lang: 'zh', ts: d(0, 9, 0), reach: 104, status: 'running' },

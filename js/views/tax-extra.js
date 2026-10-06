@@ -3,6 +3,9 @@ import { $, $$, gsap, money, fmtDate, countUp, toast } from '../util.js';
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { month, monthList, annualEstimate, withholdings, taxCalendar, RATES } from '../ledger.js';
+import { TENANT, TENANT_ID } from '../tenant.js';
+const TX_AMEI = TENANT_ID === 'amei';
+const TX_EQUIP = TX_AMEI ? '烘焙設備' : (TENANT.fixed?.equip || '營業設備');
 
 const n0 = (v) => Math.round(v).toLocaleString('en-US');
 let citChart = null;
@@ -49,7 +52,7 @@ function cit(pane) {
         <ul class="checks cit-checks">
           ${[
             `交際費全年約 ${n0(e.entertain)} 元，未超過限額 ${n0(e.entertainLimit)} 元（銷貨淨額 4.5‰）`,
-            '烘焙設備依固定資產耐用年數表 5 年提列折舊',
+            TX_AMEI ? '烘焙設備依固定資產耐用年數表 5 年提列折舊' : `${TX_EQUIP}依固定資產耐用年數表提列折舊（年限以會計師確認為準）`,
             '店面租金已扣繳 10% 並繳納二代健保補充保費，扣繳憑單（51）將於 1 月自動產生',
             '薪資、董事酬勞已入帳且有薪資單；勞健保、勞退提繳與繳款單一致',
             '進項發票皆有統一編號，與電子發票平台比對無異常（模擬）',
@@ -57,7 +60,7 @@ function cit(pane) {
             '申報書（營所稅結算申報書）草稿於次年 4 月自動產生，交會計師／記帳士複核',
           ].map(t => `<li>${icon('check', 14)}${t}</li>`).join('')}
         </ul>
-        <div class="callout-mini">${icon('sparkle', 14)} 建議：預估全年稅前淨利 ${money(e.income)}，若年底前購置節能烤箱，可依法提列折舊並評估適用節能設備投資抵減。</div>
+        <div class="callout-mini">${icon('sparkle', 14)} 建議：預估全年稅前淨利 ${money(e.income)}，若年底前購置${TX_AMEI ? '節能烤箱，可依法提列折舊並評估適用節能設備投資抵減。' : `節能${TX_EQUIP}，可依法提列折舊並評估適用節能設備投資抵減（以主管機關公告與會計師意見為準）。`}</div>
       </div>
     </div>`;
   [e.rev, e.cost, e.opex, e.other, e.income].forEach((v, i) => countUp($(`[data-cit="${i}"]`, pane), v, { prefix: 'NT$ ', from: 0 }));

@@ -1,6 +1,7 @@
 // 共用狀態 + 事件匯流排（後台 index.html 與銷售網頁 shop.html 共用）
 // 歷史訂單由種子 PRNG 產生；示範中新增的「即時訂單」存在 localStorage，
 // 並以 BroadcastChannel（或 storage 事件）讓兩個分頁即時同步。
+import { promoInfo } from './promo.js';
 import { generateHistory, generatePurchases, PRODUCTS, PRODUCT_MAP, priceOrder, nextInvoice, fmtYMD, startOfDay, addDays, setInvoiceSeq } from './data.js';
 
 const LS_ORDERS = 'greenup-solo:live-orders:v1';
@@ -75,7 +76,8 @@ class Store {
   // tendered 收取金額、change 找零、payments 分開付款明細 [{method, amount}]、items[].note 單品備註
   createOrder({ channel, customer, lang = 'zh', items, payment = '信用卡', status = 'paid', conv = null, note = '', region = '', pickup = false,
     discount = 0, buyerTaxId = '', carrier = null, donate = '', member = null, tendered = null, change = null, payments = null }) {
-    const full = items.map(it => ({ pid: it.pid, qty: it.qty, price: PRODUCT_MAP[it.pid].price, ...(it.note ? { note: it.note } : {}) }));
+    // 價格依當下節日特價（promo.js）；特價品記下原價與檔期，收據與帳務可顯示
+    const full = items.map(it => { const p = PRODUCT_MAP[it.pid], pi = promoInfo(p); return { pid: it.pid, qty: it.qty, price: p.price, ...(pi ? { list: pi.list, promo: pi.badge } : {}), ...(it.note ? { note: it.note } : {}) }; });
     const money = priceOrder(full, channel);
     const setShip = (fee) => { money.shipping = fee; money.total = money.subtotal + fee; money.net = Math.round(money.total / 1.05); money.tax = money.total - money.net; };
     if (pickup) setShip(0);
@@ -95,7 +97,7 @@ class Store {
     const order = {
       id: `SO-${fmtYMD(new Date(ts))}-${String(this.seq).padStart(4, '0')}`,
       ts, channel, lang, customer, items: full, ...money, payment, status,
-      invoice: nextInvoice(), source: 'live', conv, note, region,
+      invoice: nextInvoice(), source: 'live', conv, note, region, ...(pickup ? { pickup: true } : {}),
       paidAt: status === 'paid' ? ts : null, createdPending: status === 'pending', ...extra,
     };
     this.live.push(order); this._rebuild();

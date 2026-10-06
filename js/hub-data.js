@@ -1,5 +1,15 @@
 // 整合與協作：模擬資料（所有服務、會計師、客戶皆為示範，不代表真實合作或串接）
-import { mulberry32 } from './data.js';
+import { mulberry32, PRODUCTS } from './data.js';
+import { TENANT, TENANT_ID } from './tenant.js';
+import { pName, pUnit } from './i18n.js';
+
+const AMEI = TENANT_ID === 'amei';
+const SUP = TENANT.suppliers || [];
+const supAt = (i, fb) => (SUP.length ? SUP[Math.min(i, SUP.length - 1)] : null) || fb;
+// 示範商品（多國設定的價格與語言預覽）：阿美為檸檬塔；其他業主取第一個商品
+const P0 = PRODUCTS[0] || { id: 'x', name: '商品', unit: '1 個', price: 420 };
+export const DEMO_ITEM = AMEI ? { zh: '檸檬塔（4 入）', price: 420 } : { zh: `${P0.name}（${P0.unit}）`, price: P0.price || 420 };
+const itemIn = (lang) => `${pName(lang, P0.id)}（${pUnit(lang, P0.id) || P0.unit}）`;
 
 export const CATS = [
   { id: 'channel', name: '接單通路', color: '#2DB674' },
@@ -30,7 +40,7 @@ export const SERVICES = [
   { id: 'card', cat: 'pay', name: '信用卡收單', ab: 'CC', on: true, pay: 'card', desc: '門市刷卡機與 Apple Pay 收單', scopes: ['交易明細', '請款撥款報表'] },
   { id: 'einv', cat: 'invoice', name: '財政部電子發票整合服務平台', short: '電子發票平台', ab: '財', on: true, inv: true, desc: '發票上傳、載具歸戶、中獎清冊', scopes: ['上傳 B2C 發票', '下載進項發票'] },
   { id: 'vac', cat: 'invoice', name: '加值中心', ab: '加', on: true, inv: true, desc: '電子發票開立、作廢、折讓', scopes: ['開立發票', '作廢／折讓'] },
-  { id: 'tcat', cat: 'logistics', name: '黑貓宅急便', ab: '貓', on: true, ship: true, desc: '冷藏宅配託運單、配送追蹤', scopes: ['建立託運單', '貨態查詢'] },
+  { id: 'tcat', cat: 'logistics', name: '黑貓宅急便', ab: '貓', on: true, ship: true, desc: AMEI || ['food', 'dessert', 'flower', 'farm'].includes(TENANT.cat) ? '冷藏宅配託運單、配送追蹤' : '宅配託運單、配送追蹤', scopes: ['建立託運單', '貨態查詢'] },
   { id: 'seven', cat: 'logistics', name: '7-ELEVEN 交貨便', ab: '7', on: false, desc: '超商取貨、寄件代碼', scopes: ['產生寄件代碼', '取貨狀態'] },
   { id: 'family', cat: 'logistics', name: '全家店到店', ab: 'FM', on: false, desc: '超商店到店寄取', scopes: ['產生寄件代碼', '取貨狀態'] },
   { id: 'esun', cat: 'bank', name: '玉山銀行 API', ab: '玉', on: true, desc: '帳戶明細、入帳通知、自動對帳', scopes: ['查詢帳戶明細', '入帳即時通知'] },
@@ -68,23 +78,23 @@ export const EVENT_TPL = {
 export const REVIEW_QUEUE = [
   { id: 'JE-1009-031', date: '10/02', acct: '交際費', vendor: '晶華軒餐廳', amt: 12800, flag: '金額異常的交際費', level: 'high',
     why: '本月交際費平均 NT$ 1,800，此筆為 7.1 倍；且交際費有年度列支限額。', ai: '建議確認是否為客戶餐敘，並補上與會客戶名稱。' },
-  { id: 'JE-1003-012', date: '10/03', acct: '原料', vendor: '大湖果園合作社', amt: 3450, flag: '無統編的進項', level: 'mid',
+  { id: 'JE-1003-012', date: '10/03', acct: AMEI ? '原料' : '進貨', vendor: AMEI ? '大湖果園合作社' : String(supAt(2, { vendor: '在地小農（虛構）' }).vendor), amt: 3450, flag: '無統編的進項', level: 'mid',
     why: '憑證為收據，未載明買受人統一編號，進項稅額不得扣抵。', ai: '建議以免用統一發票收據入帳，費用照列、不扣抵進項稅額。' },
-  { id: 'JE-0928-044', date: '09/28', acct: '修繕費', vendor: '冷鏈設備行', amt: 86000, flag: '應資本化的支出', level: 'high',
-    why: '商用冷藏櫃單價逾 NT$ 80,000 且耐用 2 年以上，依規定應列資產。', ai: '建議改列「生財器具」，按 5 年提列折舊。' },
+  { id: 'JE-0928-044', date: '09/28', acct: '修繕費', vendor: AMEI ? '冷鏈設備行' : '設備行（虛構）', amt: 86000, flag: '應資本化的支出', level: 'high',
+    why: AMEI ? '商用冷藏櫃單價逾 NT$ 80,000 且耐用 2 年以上，依規定應列資產。' : `${TENANT.fixed?.equip || '營業設備'}單價逾 NT$ 80,000 且耐用 2 年以上，依規定應列資產。`, ai: '建議改列「生財器具」，按 5 年提列折舊。' },
   { id: 'JE-1004-007', date: '10/04', acct: '雜項費用', vendor: '量販店', amt: 2180, flag: '疑似私人支出', level: 'mid',
     why: '週日消費、品項含生鮮與日用品，與營業無直接關聯。', ai: '建議剔除或改列業主往來。' },
   { id: 'JE-1001-003', date: '10/01', acct: '廣告費', vendor: 'Meta Platforms', amt: 36000, flag: '跨期費用', level: 'low',
     why: '一次支付 12 個月廣告方案，受益期間跨年度。', ai: '建議轉列預付費用，按月攤提 NT$ 3,000。' },
   { id: 'JE-0930-058', date: '09/30', acct: '銷貨收入', vendor: 'WhatsApp 跨境訂單', amt: 1640, flag: '外幣收款匯差', level: 'low',
     why: '以 MYR 收款，入帳日與撥款日匯率不同，差額 NT$ 23。', ai: '建議認列兌換損失 NT$ 23。' },
-  { id: 'JE-1002-019', date: '10/02', acct: '進項稅額', vendor: '綠紙包裝設計', amt: 11520, flag: '疑似重複入帳', level: 'high',
+  { id: 'JE-1002-019', date: '10/02', acct: '進項稅額', vendor: AMEI ? '綠紙包裝設計' : String(supAt(1, { vendor: '包裝材料行（虛構）' }).vendor), amt: AMEI ? 11520 : Math.round((supAt(1, { base: 11520 }).base || 11520) / 10) * 10, flag: '疑似重複入帳', level: 'high',
     why: '同一張發票號碼於 9/30 與 10/2 各入帳一次。', ai: '建議刪除 10/2 這筆重複分錄。' },
 ];
 
 // 林記帳士事務所的 10 家示範客戶（虛構）
 export const CLIENTS = [
-  { name: '阿美手作甜點', ind: '烘焙甜點', plan: '一人公司版', done: 96, filing: 'ok', risk: 'g', joined: 0, me: true },
+  { name: AMEI ? '阿美手作甜點' : TENANT.name, ind: AMEI ? '烘焙甜點' : TENANT.typeName, plan: '一人公司版', done: 96, filing: 'ok', risk: 'g', joined: 0, me: true },
   { name: '小島咖啡工作室', ind: '咖啡烘豆', plan: '一人公司版', done: 88, filing: 'ok', risk: 'g', joined: 1 },
   { name: '青禾花藝', ind: '花藝設計', plan: '一人公司版', done: 74, filing: 'wait', risk: 'y', joined: 1 },
   { name: '木子設計接案', ind: '平面設計', plan: '一人公司版', done: 100, filing: 'ok', risk: 'g', joined: 2 },
@@ -105,25 +115,25 @@ export const COUNTRIES = [
     taxNote: '每兩個月申報一次（401），進項稅額可扣抵。',
     einv: { name: '電子發票', local: '統一發票・電子發票', body: '財政部電子發票整合服務平台', pts: ['B2C 載具歸戶與自動對獎', '開立後 48 小時內上傳', '捐贈碼、統編、手機條碼'] },
     channels: ['LINE', '官網', 'Facebook Messenger', '電話語音', 'Instagram'],
-    lang: { label: '繁體中文', hello: '您好！今天想來點什麼甜點呢？', order: '訂單已成立', thanks: '感謝您的購買，我們會盡快為您出貨。', item: '檸檬塔（4 入）', total: '合計（含稅）', btn: '確認付款' } },
+    lang: { label: '繁體中文', hello: AMEI ? '您好！今天想來點什麼甜點呢？' : '您好！今天想找什麼呢？', order: '訂單已成立', thanks: TENANT.cat === 'service' ? '感謝您的預約，期待為您服務。' : '感謝您的購買，我們會盡快為您出貨。', item: AMEI ? '檸檬塔（4 入）' : itemIn('zh'), total: '合計（含稅）', btn: '確認付款' } },
   { id: 'vn', code: 'VN', name: '越南', sub: '東南亞擴展', color: '#EC6A55', cur: 'VND', sym: '₫', rate: 830, locale: 'vi-VN', dec: 0,
     taxes: [['VAT 標準稅率', '10%', '一般商品與服務'], ['VAT 減徵稅率', '8%', '部分商品適用，依當年政策']],
     taxNote: '減徵措施有期限，需依當年政府公告調整。',
     einv: { name: 'e-invoice', local: 'hóa đơn điện tử', body: '越南稅務總局（GDT）', pts: ['發票需取得稅務機關驗證碼', '開立後即時傳送稅務機關', '保存電子資料備查'] },
     channels: ['Zalo', 'Facebook Messenger', 'TikTok Shop', '官網'],
-    lang: { label: 'Tiếng Việt', hello: 'Xin chào! Hôm nay bạn muốn dùng món bánh nào?', order: 'Đơn hàng đã được tạo', thanks: 'Cảm ơn bạn đã mua hàng, chúng tôi sẽ giao sớm nhất.', item: 'Bánh tart chanh (4 cái)', total: 'Tổng cộng (gồm VAT)', btn: 'Xác nhận thanh toán' } },
+    lang: { label: 'Tiếng Việt', hello: AMEI ? 'Xin chào! Hôm nay bạn muốn dùng món bánh nào?' : 'Xin chào! Hôm nay bạn cần gì ạ?', order: 'Đơn hàng đã được tạo', thanks: 'Cảm ơn bạn đã mua hàng, chúng tôi sẽ giao sớm nhất.', item: AMEI ? 'Bánh tart chanh (4 cái)' : itemIn('vi'), total: 'Tổng cộng (gồm VAT)', btn: 'Xác nhận thanh toán' } },
   { id: 'my', code: 'MY', name: '馬來西亞', sub: '東南亞擴展', color: '#2E97D4', cur: 'MYR', sym: 'RM', rate: 0.14, locale: 'ms-MY', dec: 2,
     taxes: [['SST 銷售稅', '5% / 10%', '依商品類別'], ['SST 服務稅', '8%', '一般應稅服務']],
     taxNote: '銷售稅與服務稅分開計算，部分商品免稅。',
     einv: { name: 'e-Invoice', local: 'MyInvois', body: '馬來西亞內陸稅收局（LHDN）', pts: ['依營業額分階段實施', '透過 MyInvois 入口或 API 驗證', '驗證後產生 QR Code'] },
     channels: ['WhatsApp', 'Facebook Messenger', 'Instagram', '官網'],
-    lang: { label: 'Bahasa Melayu', hello: 'Hai! Kek apa yang anda mahu hari ini?', order: 'Pesanan telah dibuat', thanks: 'Terima kasih atas pembelian anda, kami akan menghantar secepat mungkin.', item: 'Tart lemon (4 biji)', total: 'Jumlah (termasuk cukai)', btn: 'Sahkan pembayaran' } },
+    lang: { label: 'Bahasa Melayu', hello: AMEI ? 'Hai! Kek apa yang anda mahu hari ini?' : 'Hai! Apa yang boleh kami bantu hari ini?', order: 'Pesanan telah dibuat', thanks: 'Terima kasih atas pembelian anda, kami akan menghantar secepat mungkin.', item: AMEI ? 'Tart lemon (4 biji)' : itemIn('ms'), total: 'Jumlah (termasuk cukai)', btn: 'Sahkan pembayaran' } },
   { id: 'jp', code: 'JP', name: '日本', sub: '跨境販售', color: '#7C62E6', cur: 'JPY', sym: '¥', rate: 4.7, locale: 'ja-JP', dec: 0, calc: 1,
     taxes: [['消費稅 標準稅率', '10%', '一般商品'], ['消費稅 輕減稅率', '8%', '食品（外帶、宅配）']],
     taxNote: '跨境販售：由台灣出貨寄送日本，需留意進口關稅與消費稅負擔方式。',
     einv: { name: '適格請求書', local: 'インボイス制度', body: '日本國稅廳', pts: ['登錄號碼載於請求書', '依稅率分別記載稅額', '電子帳簿保存法對應'] },
     channels: ['LINE', 'Instagram', '官網（日文）'],
-    lang: { label: '日本語', hello: 'こんにちは！今日はどのスイーツにしますか？', order: 'ご注文を承りました', thanks: 'ご購入ありがとうございます。できるだけ早く発送いたします。', item: 'レモンタルト（4個入）', total: '合計（税込）', btn: 'お支払いを確定' } },
+    lang: { label: '日本語', hello: AMEI ? 'こんにちは！今日はどのスイーツにしますか？' : 'こんにちは！本日は何をお探しですか？', order: 'ご注文を承りました', thanks: 'ご購入ありがとうございます。できるだけ早く発送いたします。', item: AMEI ? 'レモンタルト（4個入）' : itemIn('ja'), total: '合計（税込）', btn: 'お支払いを確定' } },
 ];
 
 // 角色權限

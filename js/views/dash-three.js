@@ -4,15 +4,10 @@ import { $, $$, gsap, countUp, money, fmtTime, fmtDate } from '../util.js';
 import { icon } from '../icons.js';
 import { PRODUCT_MAP, CHANNEL_MAP, startOfDay, addDays } from '../data.js';
 import { productArt } from '../art.js';
+import { vatPeriod } from '../ledger.js';
 
 let host, go;
 const CH = { line: 'LINE', web: '官網', pos: '門市', phone: '電話', whatsapp: 'WhatsApp', zalo: 'Zalo', messenger: 'Messenger' };
-
-function vatPeriod(now = new Date()) {
-  const m = now.getMonth(), sm = m - (m % 2);
-  const start = new Date(now.getFullYear(), sm, 1), end = new Date(now.getFullYear(), sm + 2, 1);
-  return { start, end, deadline: new Date(now.getFullYear(), sm + 2, 15, 23, 59), label: `${sm + 1}–${sm + 2} 月` };
-}
 
 export function mountThree(el, goFn) {
   host = el; go = goFn;
@@ -74,10 +69,9 @@ export function renderThree(live) {
   const nonCash = paid.filter(o => o.payment !== '現金').reduce((s, o) => s + o.total, 0);
   $('#t3Payout', host).innerHTML = `${icon('clock', 13)} 信用卡與行動支付 ${money(nonCash)} 預計明天撥款到銀行，到帳後 AI 自動對帳。`;
 
-  const p = vatPeriod(now);
-  const sales = store.ordersBetween(p.start, p.end);
-  const buys = store.purchases.filter(x => x.ts >= +p.start && x.ts < +p.end);
-  const outTax = store.sum(sales, 'tax'), inTax = buys.reduce((s, b) => s + b.tax, 0);
+  const v = vatPeriod(now), p = v;
+  const sales = v.sales, buys = v.ins;
+  const outTax = v.outTax, inTax = v.inTax;
   const days = Math.ceil((p.deadline - now) / 864e5);
   $('#t3TaxSub', host).textContent = `${p.label}營業稅・${fmtDate(p.deadline)} 截止（剩 ${days} 天）`;
   countUp($('#t3Pay', host), Math.max(0, outTax - inTax), { prefix: 'NT$ ' });

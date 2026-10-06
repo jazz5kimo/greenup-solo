@@ -1,10 +1,12 @@
 // 報價與請款：模擬資料（企業客戶、案件、定期供貨、對帳單、催款語氣）
 // 所有客戶名稱、統編、地址皆為虛構，僅供示範。
-import { mulberry32, startOfDay, addDays } from './data.js';
+import { mulberry32, startOfDay, addDays, PRODUCTS } from './data.js';
+import { TENANT } from './tenant.js';
+import { IS_AMEI, CAT, KIT } from './inventory-data.js';
 
 export const TAX_RATE = 0.05;
 
-export const SELLER = {
+const A_SELLER = {
   name: '阿美手作甜點', legal: '阿美手作甜點有限公司', taxId: '90418826', owner: '阿美',
   addr: '台北市大安區溫州街 ○○ 號 1 樓', phone: '02-2365-○○20', email: 'hello@amei-sweets.example',
   bank: '示範銀行 大安分行', acct: '0123-○○○-456789',
@@ -16,7 +18,7 @@ export const TERMS = {
   net7: '出貨後 7 日內付清（信用卡／ATM 虛擬帳號）',
 };
 
-export const CUSTOMERS = [
+const A_CUSTOMERS = [
   { id: 'chenguang', name: '晨光設計有限公司', short: '晨光設計', alias: ['晨光設計', '晨光'], taxId: '54318826', contact: '林佳蓉', title: '行政經理', phone: '02-2797-○○18', email: 'admin@chenguang.example', addr: '台北市內湖區瑞光路 ○○ 號 8 樓', terms: 'monthly', color: '#2E97D4', since: 2023 },
   { id: 'forest', name: '森林小屋咖啡', short: '森林小屋', alias: ['森林小屋咖啡', '森林小屋', '森林'], taxId: '83620417', contact: '王子豪', title: '店長', phone: '02-2368-○○61', email: 'forest.cafe@example.com', addr: '台北市大安區師大路 ○○ 巷 6 號', terms: 'monthly', color: '#2DB674', since: 2024 },
   { id: 'goodday', name: '好日子選物', short: '好日子', alias: ['好日子選物', '好日子'], taxId: '42587731', contact: '陳怡君', title: '採購', phone: '04-2301-○○75', email: 'buy@goodday.example', addr: '台中市西區忠信街 ○○ 號', terms: 'monthly', color: '#F0A531', since: 2024 },
@@ -28,10 +30,10 @@ export const CUSTOMERS = [
   { id: 'everyday', name: '日常咖啡研究室', short: '日常咖啡', alias: ['日常咖啡研究室', '日常咖啡', '日常'], taxId: '73045182', contact: '劉品妤', title: '負責人', phone: '02-2766-○○84', email: 'daily.lab@example.com', addr: '台北市信義區永吉路 ○○ 巷 12 號', terms: 'monthly', color: '#8BD3A8', since: 2025 },
   { id: 'shanlan', name: '山嵐戶外有限公司', short: '山嵐戶外', alias: ['山嵐戶外', '山嵐'], taxId: '64410937', contact: '周家豪', title: '活動企劃', phone: '02-2709-○○66', email: 'event@shanlan.example', addr: '台北市大安區復興南路二段 ○○ 號', terms: 'net7', color: '#2E97D4', since: 2026 },
 ];
-export const CUST = Object.fromEntries(CUSTOMERS.map(c => [c.id, c]));
+
 
 // 企業報價品項（未稅單價；成本供 AI 毛利試算）
-export const CATALOG = {
+const A_CATALOG = {
   giftbox: { name: '綜合禮盒（鳳梨酥 6 入＋手工餅乾 12 片）', unit: '盒', price: 560, cost: 205, cap: 60 },
   pineapple: { name: '鳳梨酥禮盒 10 入', unit: '盒', price: 420, cost: 170, cap: 80 },
   cookie: { name: '手工餅乾禮盒 24 片', unit: '盒', price: 460, cost: 180, cap: 70 },
@@ -45,6 +47,133 @@ export const CATALOG = {
   card: { name: '客製感謝卡（含印刷）', unit: '張', price: 12, cost: 4 },
   ship: { name: '冷藏專車配送', unit: '趟', price: 1200, cost: 900 },
 };
+
+// ───────── 其他業主：依業態大類與商品主檔產生企業客戶、報價品項、案件與定期供貨（全部虛構） ─────────
+const POP = IS_AMEI ? [] : KIT.byPop();
+const pk = (i) => POP[i % Math.max(1, POP.length)];
+const r10q = (n) => Math.max(10, Math.round(n / 10) * 10);
+const lp = (p) => (p.listPrice ?? p.price);
+const QX = {
+  food: { gw: '餐盒', tea: '會議便當・團體餐盒', teaW: '午餐會', wed: '婚宴迷你點心盒', sleeve: 'LOGO 客製貼紙', ship: '保溫專車配送', note: '餐點於交期當日現做，收到後請盡快食用。', focus: '料理', teaRe: /便當|餐盒|午餐|團膳|會議/ },
+  drink: { gw: '禮盒', tea: '會議咖啡茶飲外送（10 杯）', teaW: '咖啡時光', wed: '婚禮小物・迷你包', sleeve: 'LOGO 客製包裝貼', ship: '宅配（多箱）', note: '包裝標示製作日期，建議開封後盡快飲用。', focus: '好喝的飲品', teaRe: /外送|會議|咖啡時光|茶飲/ },
+  dessert: { gw: '禮盒', tea: '茶會點心盒（6 款小點）', teaW: '茶會', wed: '婚禮小物・迷你禮盒', sleeve: 'LOGO 燙金腰封', ship: '冷藏專車配送', note: '常溫禮盒保存期限依包裝標示，冷藏品項請收貨後立即冷藏。', focus: '糕點', teaRe: /點心|茶會|下午茶/ },
+  retail: { gw: '禮盒', tea: '員工福利選物組', teaW: '福利選物', wed: '婚禮小物・迷你選物', sleeve: 'LOGO 客製包裝', ship: '宅配（多箱）', note: '商品享 7 天鑑賞期，企業採購可另議換貨。', focus: '選品', teaRe: /福利|員工|選物組/ },
+  craft: { gw: '刻字禮', tea: '企業刻字小禮', teaW: '刻字小禮', wed: '婚禮小物・刻字小件', sleeve: 'LOGO 燙印／刻字', ship: '宅配（多箱）', note: '手工製作約需 7–14 個工作天，刻字內容請於下單時確認。', focus: '作品', teaRe: /刻字|小禮|贈品/ },
+  flower: { gw: '花禮', tea: '活動桌花', teaW: '桌花佈置', wed: '婚禮胸花・小花束', sleeve: 'LOGO 客製緞帶', ship: '花禮專車配送', note: '花材依季節調整，主色調與款式不變；交期當日配送。', focus: '花', teaRe: /桌花|佈置|會場|胸花/ },
+  service: { gw: '體驗券', tea: '員工福利體驗券', teaW: '福利體驗', wed: '新娘・伴娘團體預約（每人）', sleeve: 'LOGO 客製禮券卡', ship: '到點服務交通費', note: '體驗券效期一年，請持券預約，可轉贈。', focus: '服務', teaRe: /福利|體驗|員工/ },
+  farm: { gw: '禮盒', tea: '企業蔬果箱', teaW: '蔬果箱', wed: '婚禮小物・迷你果醬', sleeve: 'LOGO 客製外箱貼', ship: '冷鏈專車配送', note: '依採收狀況出貨，到貨請冷藏並盡快食用。', focus: '農事', teaRe: /蔬果箱|團購|福利/ },
+}[CAT];
+export const QUOTE_CAT = QX;
+const G_CATALOG = IS_AMEI ? null : (() => {
+  const c = {};
+  const u = (p) => KIT.unitWord(p);
+  const p0 = pk(0), p1 = pk(1);
+  c.giftbox = { name: `企業綜合${QX.gw}（${KIT.short(p0)}＋${KIT.short(p1)}）`, unit: CAT === 'service' ? '張' : '組', price: r10q((lp(p0) + lp(p1)) * 0.85), cost: Math.round(p0.cost + p1.cost), cap: 40 };
+  ['pineapple', 'cookie', 'pound', 'canele', 'lemon', 'basque'].forEach((k, i) => { const p = pk(i); c[k] = { name: `${p.name}（企業價）`, unit: u(p), price: r10q(lp(p) * 0.88), cost: p.cost, cap: Math.max(20, Math.round((p.stock || 20) * 1.5)), pid: p.id }; });
+  const cheap = KIT.byPrice()[0] || p0;
+  const mid = KIT.byPrice()[Math.floor(PRODUCTS.length / 2)] || p0;
+  c.wedding = CAT === 'service' ? { name: QX.wed, unit: '位', price: r10q(lp(p0) * 0.9), cost: Math.round(p0.cost), cap: 12 } : { name: QX.wed, unit: '份', price: Math.max(30, r10q(lp(cheap) * 0.35)), cost: Math.max(10, Math.round(cheap.cost * 0.35)), cap: 300 };
+  c.tea = { name: QX.tea, unit: CAT === 'service' ? '張' : CAT === 'flower' ? '組' : '份', price: r10q(lp(mid) * 0.9), cost: Math.round(mid.cost * 0.9), cap: 80 };
+  c.sleeve = { name: QX.sleeve, unit: '張', price: CAT === 'craft' ? 60 : 15, cost: CAT === 'craft' ? 20 : 6 };
+  c.card = { name: '客製感謝卡（含印刷）', unit: '張', price: 12, cost: 4 };
+  c.ship = { name: QX.ship, unit: '趟', price: 1200, cost: 900 };
+  return c;
+})();
+export const CATALOG = IS_AMEI ? A_CATALOG : G_CATALOG;
+const CUST_RENAME = {
+  food: { forest: ['森林小屋共享辦公室', '森林小屋', '行政'], everyday: ['日常設計工作室', '日常設計', '負責人'], mile: ['米樂親子館', '米樂親子', '店經理'] },
+  drink: { forest: ['森林小屋早午餐', '森林小屋', '店長'], everyday: ['日常早午餐研究室', '日常早午餐', '負責人'] },
+  retail: { forest: ['森林小屋選物店', '森林小屋', '店長'], everyday: ['日常生活選品', '日常選品', '負責人'] },
+  craft: { forest: ['森林小屋選物店', '森林小屋', '店長'], everyday: ['日常生活選品', '日常選品', '負責人'] },
+  service: { forest: ['森林小屋共享辦公室', '森林小屋', '行政'], everyday: ['日常設計工作室', '日常設計', '負責人'], mile: ['米樂親子館', '米樂親子', '店經理'] },
+  farm: { forest: ['森林小屋餐廳', '森林小屋', '主廚'] },
+}[CAT] || {};
+export const CUSTOMERS = IS_AMEI ? A_CUSTOMERS : A_CUSTOMERS.map(c => { const x = CUST_RENAME[c.id]; return x ? { ...c, name: x[0], short: x[1], alias: [x[0], x[1], x[1].slice(0, 2)], title: x[2] } : c; });
+export const CUST = Object.fromEntries(CUSTOMERS.map(c => [c.id, c]));
+const reg = String(TENANT.region || '');
+const regCity = (reg.match(/^(.{2,3}?[市縣])/) || [])[1] || '台北市';
+const area = { 台北市: '02', 新北市: '02', 桃園市: '03', 新竹市: '03', 台中市: '04', 台南市: '06', 高雄市: '07' }[regCity] || '0X';
+export const SELLER = IS_AMEI ? A_SELLER : {
+  name: TENANT.name, legal: /有限公司|工作室$/.test(TENANT.name) ? TENANT.name : `${TENANT.name}有限公司`, taxId: String(52000000 + (String(TENANT.id || '').split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 9999999)).slice(0, 8), owner: KIT.owner,
+  addr: `${reg || '台北市'}○○路 ○○ 號 1 樓`, phone: `${area}-2○○○-○○${String((TENANT.name || '').length * 13).slice(-2).padStart(2, '0')}`, email: `hello@${KIT.slug}.example`,
+  bank: `示範銀行 ${(reg.slice(regCity.length) || '總').replace(/[區鄉鎮]$/, '')}分行`, acct: '0123-○○○-456789',
+};
+// 一句話解析：品項關鍵字（依目前業主商品名）
+const escRe = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const G_RULES = IS_AMEI ? null : [
+  { re: /婚禮|小物|喜餅|謝禮|新娘/, pid: 'wedding' },
+  { re: QX.teaRe, pid: 'tea' },
+  ...['pineapple', 'cookie', 'pound', 'canele', 'lemon', 'basque'].map((k, i) => { const p = pk(i); const sh = KIT.short(p); return { re: new RegExp(`${escRe(sh)}|${escRe(sh.slice(0, 2))}`), pid: k }; }),
+  { re: /禮盒|伴手禮|中秋|年節|尾牙|春節|綜合|禮券|花禮/, pid: 'giftbox' },
+];
+// 範例句
+export const PROMPT_EX = IS_AMEI ? null : (() => {
+  const g = CATALOG.giftbox, a = CATALOG.pineapple, b = CATALOG.canele;
+  return { gw: QX.gw, gu: g.unit, aShort: KIT.short(pk(0)), aUnit: a.unit, bShort: KIT.short(pk(3)), bUnit: b.unit };
+})();
+// 數量依單價縮放（高單價品項企業單數量較少）
+function gQ(k, q) {
+  if (['ship', 'card', 'sleeve'].includes(k) || (CAT === 'service' && k === 'wedding')) return q;
+  const step = q >= 20 ? 5 : 1;
+  return Math.max(1, Math.round(q * Math.min(1, 450 / Math.max(1, CATALOG[k].price)) / step) * step);
+}
+function G_seedDeals(now = new Date()) {
+  const T = startOfDay(now);
+  const D = (n, h = 10) => +addDays(T, n) + h * 3600e3;
+  const monthStart = +new Date(T.getFullYear(), T.getMonth(), 1);
+  const inMonth = (t) => Math.max(t, monthStart + 9 * 3600e3);
+  const hoursAgo = (h) => Math.min(+now - h * 3600e3, +now);
+  const C = CATALOG, X = PROMPT_EX;
+  const sh = (k) => KIT.short(PRODUCTS.find(p => p.id === C[k].pid) || pk(0));
+  // 數量依單價縮放（高單價品項企業單數量較少）
+  const Q = gQ;
+  const L = (k, q, extra) => ({ pid: k, qty: Q(k, q), price: C[k].price, ...(extra || {}) });
+  const tw = QX.teaW;
+  const list = [
+    { cid: 'chenguang', stage: 'inquiry', ch: 'phone', title: `週年慶${QX.gw} ${Q('giftbox', 120)} ${C.giftbox.unit}`, items: [L('giftbox', 120, { name: `週年慶${C.giftbox.name}` })], discount: 0.9, created: hoursAgo(1.5), estimate: true,
+      prompt: `晨光設計 週年慶${QX.gw} ${Q('giftbox', 120)} ${C.giftbox.unit} ${md(addDays(T, 21))} 送到內湖，打 9 折` },
+    { cid: 'hefeng', stage: 'inquiry', ch: 'line', title: `尾牙伴手禮 ${Q('pineapple', 200)} ${C.pineapple.unit}`, items: [L('pineapple', 200)], discount: 0.95, created: hoursAgo(5), estimate: true,
+      prompt: `禾豐科技 尾牙伴手禮 ${X.aShort} ${Q('pineapple', 200)} ${C.pineapple.unit} ${md(addDays(T, 45))} 送到新竹，打 95 折` },
+    { cid: 'daydream', stage: 'inquiry', ch: 'email', title: `婚禮小物 ${CAT === 'service' ? 8 : Q('wedding', 180)} ${C.wedding.unit}`, items: [L('wedding', CAT === 'service' ? 8 : 180), L('card', CAT === 'service' ? 8 : Q('wedding', 180))], discount: 1, created: D(-1, 16), estimate: true,
+      prompt: `白日夢婚禮 婚禮小物 ${CAT === 'service' ? 8 : Q('wedding', 180)} ${C.wedding.unit} ${md(addDays(T, 26))} 送到中山區，附感謝卡` },
+    { cid: 'shiguang', stage: 'quoted', ch: 'email', title: `客房迎賓・${sh('canele')}（下月）`, items: [L('canele', 60), L('lemon', 30)], discount: 0.95, created: D(-4), quoted: inMonth(D(-2, 11)), views: 2, delivery: D(9) },
+    { cid: 'qingtian', stage: 'quoted', ch: 'line', title: `員工${tw} 4 場`, items: [L('tea', 140)], discount: 0.92, created: D(-6), quoted: inMonth(D(-4, 15)), views: 3, delivery: D(4) },
+    { cid: 'mile', stage: 'quoted', ch: 'line', title: '店內試賣組', items: [L('pound', 10), L('basque', 6), L('ship', 1)], discount: 1, created: D(-8), quoted: D(-6, 14), views: 0, delivery: D(6) },
+    { cid: 'goodday', stage: 'signed', ch: 'line', title: `寄賣補貨：${sh('pineapple')}＋${sh('cookie')}`, items: [L('pineapple', 40), L('cookie', 24)], discount: 0.88, created: D(-5), quoted: inMonth(D(-3, 10)), signed: D(-1, 18), delivery: D(2) },
+    { cid: 'chenguang', stage: 'signed', ch: 'email', title: `新進員工迎新${tw}`, items: [L('tea', 45)], discount: 1, created: D(-6), quoted: D(-5, 10), signed: D(-2, 14), delivery: D(3) },
+    { cid: 'forest', stage: 'shipped', ch: 'sub', title: `${md(T)} 週一定期供貨`, items: [L('pound', 6, { price: r10q(C.pound.price * 0.93) }), L('canele', 4, { price: r10q(C.canele.price * 0.93) })], discount: 1, created: D(-7), quoted: D(-60), signed: D(-58), shipped: D(0, 7.5) },
+    { cid: 'shanlan', stage: 'shipped', ch: 'phone', title: `戶外活動${tw} ${Q('tea', 60)} ${C.tea.unit}`, items: [L('tea', 60), L('ship', 1)], discount: 1, created: D(-9), quoted: D(-8), signed: D(-7), shipped: D(-1, 9) },
+    { cid: 'chenguang', stage: 'billed', ch: 'line', title: `中秋${QX.gw}團購 ${Q('giftbox', 30)} ${C.giftbox.unit}`, items: [L('giftbox', 30, { name: `中秋${C.giftbox.name}` })], discount: 1, created: D(-24), quoted: D(-23), signed: D(-21), shipped: D(-16), billed: D(-15, 9), due: D(15), inv: 'AB-30416127' },
+    { cid: 'goodday', stage: 'billed', ch: 'line', title: '9 月寄賣結算', items: [L('pineapple', 18), L('cookie', 10)], discount: 0.88, created: D(-32), quoted: D(-31), signed: D(-30), shipped: D(-28), billed: D(-27, 9), due: D(3), inv: 'AB-30415580' },
+    { cid: 'qingtian', stage: 'billed', ch: 'phone', title: `9 月員工${tw}`, items: [L('canele', 5), L('lemon', 3)], discount: 1, created: D(-16), quoted: D(-15), signed: D(-14), shipped: D(-13), billed: D(-12, 14), due: D(-5), inv: 'AB-30416893' },
+    { cid: 'mile', stage: 'billed', ch: 'line', title: '中秋限定試用組', items: [L('giftbox', 12, { name: `中秋${C.giftbox.name}` }), L('canele', 8)], discount: 1, created: D(-30), quoted: D(-29), signed: D(-27), shipped: D(-26), billed: D(-25, 11), due: D(-18), inv: 'AB-30415204' },
+    { cid: 'forest', stage: 'paid', ch: 'sub', title: '9 月月結（自動扣款）', items: [L('pound', 24, { price: r10q(C.pound.price * 0.93) }), L('canele', 16, { price: r10q(C.canele.price * 0.93) })], discount: 1, created: D(-36), quoted: D(-90), signed: D(-88), shipped: D(-8), billed: D(-35, 9), due: D(-5), paid: D(-31, 9), inv: 'AB-30414502' },
+    { cid: 'shiguang', stage: 'paid', ch: 'email', title: `9 月迎賓・${sh('canele')}`, items: [L('canele', 40), L('lemon', 20)], discount: 0.95, created: D(-20), quoted: D(-19), signed: D(-18), shipped: D(-12), billed: D(-11), due: D(-4), paid: D(-6, 15), inv: 'AB-30416540' },
+    { cid: 'daydream', stage: 'paid', ch: 'email', title: `婚禮小物 ${CAT === 'service' ? 6 : Q('wedding', 150)} ${C.wedding.unit}`, items: [L('wedding', CAT === 'service' ? 6 : 150), L('card', CAT === 'service' ? 6 : Q('wedding', 150))], discount: 1, created: D(-34), quoted: D(-33), signed: D(-31), shipped: D(-16), billed: D(-16), due: D(-9), paid: D(-10, 11), inv: 'AB-30416011' },
+  ];
+  const seq = {};
+  return list.map((d) => {
+    const base = new Date(d.quoted || d.created);
+    const k = ymd(base); const sk = (d.quoted ? 'QT' : 'IQ') + k; seq[sk] = (seq[sk] || 0) + 1;
+    const c = CUST[d.cid];
+    return { id: `${d.quoted ? 'QT' : 'IQ'}-${k}-${String(seq[sk]).padStart(2, '0')}`, ...d, terms: c.terms, location: c.addr, valid: d.quoted ? +addDays(new Date(d.quoted), 14) : null };
+  });
+}
+function G_seedSubs() {
+  const C = CATALOG;
+  const L = (k, q, extra) => ({ pid: k, qty: gQ(k, q), price: C[k].price, ...(extra || {}) });
+  const n = (k, q) => gQ(k, q);
+  const sh = (k) => KIT.short(PRODUCTS.find(p => p.id === C[k].pid) || pk(0));
+  const pr = (k, f) => r10q(C[k].price * f);
+  return [
+    { id: 'SUB-0101', cid: 'forest', title: `${sh('pound')} ${n('pound', 6)} ${C.pound.unit}＋${sh('canele')} ${n('canele', 4)} ${C.canele.unit}`, items: [L('pound', 6, { price: pr('pound', 0.93) }), L('canele', 4, { price: pr('canele', 0.93) })], weekday: 1, every: 1, shipAt: '07:30', billDay: 5, pay: '信用卡定期扣款', active: true, since: '2024/11' },
+    { id: 'SUB-0102', cid: 'everyday', title: `${sh('lemon')} ${n('lemon', 5)} ${C.lemon.unit}＋${sh('basque')} ${n('basque', 2)} ${C.basque.unit}`, items: [L('lemon', 5, { price: pr('lemon', 0.95) }), L('basque', 2, { price: pr('basque', 0.95) })], weekday: 4, every: 1, shipAt: '08:00', billDay: 5, pay: 'ATM 虛擬帳號', active: true, since: '2025/06' },
+    { id: 'SUB-0103', cid: 'chenguang', title: `週五${C.tea.name} ${n('tea', 30)} ${C.tea.unit}`, items: [L('tea', 30, { price: pr('tea', 0.95) })], weekday: 5, every: 1, shipAt: '14:00', billDay: 5, pay: '月結轉帳', active: true, since: '2026/03', monthlyOnly: 'first' },
+    { id: 'SUB-0104', cid: 'goodday', title: `寄賣補貨：${sh('pineapple')} ${n('pineapple', 20)} ${C.pineapple.unit}`, items: [L('pineapple', 20, { price: pr('pineapple', 0.9) })], weekday: 1, every: 2, shipAt: '09:00', billDay: 10, pay: 'ATM 虛擬帳號', active: false, since: '2025/09', pausedNote: '店休整修，10 月底恢復' },
+  ];
+}
+export function seedDeals(now = new Date()) { return IS_AMEI ? A_seedDeals(now) : G_seedDeals(now); }
+export function seedSubs() { return IS_AMEI ? A_seedSubs() : G_seedSubs(); }
 
 export const STAGES = [
   { id: 'inquiry', name: '詢價', color: '#9B86F0', icon: 'chat', act: 'AI 報價', actIc: 'wand' },
@@ -72,7 +201,7 @@ const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
 const ymd = (d) => `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 
 // 看板上的案件（日期皆相對於今天）
-export function seedDeals(now = new Date()) {
+function A_seedDeals(now = new Date()) {
   const T = startOfDay(now);
   const D = (n, h = 10) => +addDays(T, n) + h * 3600e3;
   const monthStart = +new Date(T.getFullYear(), T.getMonth(), 1);
@@ -153,7 +282,7 @@ export function monthlyRevenue(now = new Date()) {
 }
 
 // 定期供貨（訂閱）
-export function seedSubs() {
+function A_seedSubs() {
   return [
     { id: 'SUB-0101', cid: 'forest', title: '烏龍茶磅蛋糕 6 條＋伯爵可麗露 4 盒', items: [L('pound', 6, { price: 270 }), L('canele', 4, { price: 310 })], weekday: 1, every: 1, shipAt: '07:30', billDay: 5, pay: '信用卡定期扣款', active: true, since: '2024/11' },
     { id: 'SUB-0102', cid: 'everyday', title: '檸檬塔 5 盒＋芋泥巴斯克 2 個', items: [L('lemon', 5, { price: 340 }), L('basque', 2, { price: 550 })], weekday: 4, every: 1, shipAt: '08:00', billDay: 5, pay: 'ATM 虛擬帳號', active: true, since: '2025/06' },
@@ -205,9 +334,12 @@ export function statementRows(cid, deals, subs, now = new Date()) {
     }
   }
   if (cid === 'goodday') {
-    const extra = [
+    const extra = IS_AMEI ? [
       { d: -18, items: [L('pineapple', 12)], desc: '寄賣補貨・鳳梨酥禮盒 12 盒' },
       { d: -9, items: [L('cookie', 8)], desc: '寄賣補貨・手工餅乾禮盒 8 盒' },
+    ] : [
+      { d: -18, items: [L('pineapple', 12)], desc: `寄賣補貨・${CATALOG.pineapple.name} 12 ${CATALOG.pineapple.unit}` },
+      { d: -9, items: [L('cookie', 8)], desc: `寄賣補貨・${CATALOG.cookie.name} 8 ${CATALOG.cookie.unit}` },
     ];
     for (const e of extra) {
       const dt = addDays(T, e.d);
@@ -226,7 +358,7 @@ export function statementRows(cid, deals, subs, now = new Date()) {
 
 // ===== AI 一句話解析 =====
 const CN_NUM = { 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
-const PRODUCT_RULES = [
+const A_PRODUCT_RULES = [
   { re: /婚禮|小物|喜餅|謝禮/, pid: 'wedding' },
   { re: /下午茶|點心盒|茶點/, pid: 'tea' },
   { re: /鳳梨酥/, pid: 'pineapple' },
@@ -258,12 +390,12 @@ export function parsePrompt(text, now = new Date()) {
   tokens.push({ k: 'cust', label: '客戶', text: custText });
   // 品項
   let pid = 'giftbox', prodText = '';
-  for (const r of PRODUCT_RULES) { const m = t.match(r.re); if (m) { pid = r.pid; prodText = m[0]; break; } }
+  for (const r of (IS_AMEI ? A_PRODUCT_RULES : G_RULES)) { const m = t.match(r.re); if (m) { pid = r.pid; prodText = m[0]; break; } }
   let name = CATALOG[pid].name;
   if (pid === 'giftbox') {
     const p = BOX_PREFIX.find(([re]) => re.test(t));
-    name = `${p ? p[1] : '企業'}綜合禮盒（鳳梨酥 6 入＋手工餅乾 12 片）`;
-    const m = t.match(/([一-龥]{0,3}(?:禮盒|伴手禮))/); if (m) prodText = m[1];
+    name = IS_AMEI ? `${p ? p[1] : '企業'}綜合禮盒（鳳梨酥 6 入＋手工餅乾 12 片）` : `${p ? p[1] : ''}${CATALOG.giftbox.name}`;
+    const m = t.match(/([一-龥]{0,3}(?:禮盒|伴手禮|綜合組|禮券|花禮|餐盒))/); if (m) prodText = m[1];
   }
   tokens.push({ k: 'prod', label: '品項', text: prodText || CATALOG[pid].name });
   // 數量
@@ -308,7 +440,7 @@ export function buildQuote(p, now = new Date(), seqNo = 1) {
   const c = p.cust;
   const items = [{ pid: p.pid, name: p.name, qty: p.qty, price: CATALOG[p.pid].price }];
   const isBox = ['giftbox', 'pineapple', 'cookie'].includes(p.pid);
-  if (isBox && p.qty >= 100) items.push({ pid: 'sleeve', name: CATALOG.sleeve.name, qty: p.qty, price: 0, note: '滿 100 盒贈送' });
+  if (isBox && p.qty >= 100) items.push({ pid: 'sleeve', name: CATALOG.sleeve.name, qty: p.qty, price: 0, note: IS_AMEI ? '滿 100 盒贈送' : `滿 100 ${CATALOG[p.pid].unit}贈送` });
   if (p.card) items.push({ pid: 'card', name: CATALOG.card.name, qty: p.qty, price: CATALOG.card.price });
   const pre = calc(items, p.discount);
   const far = p.loc && /新竹|台中|桃園|台南|高雄|宜蘭/.test(p.loc);
@@ -318,8 +450,9 @@ export function buildQuote(p, now = new Date(), seqNo = 1) {
   if (p.loc && !addr.includes(p.loc.replace(/區$/, ''))) addr = /[市縣]/.test(p.loc) ? p.loc : `${p.loc}（詳細地址待客戶提供）`;
   const terms = c.terms || 'deposit';
   const notes = [
-    '常溫禮盒保存期限 30 天，冷藏品項請收貨後立即冷藏。',
-    isBox && p.qty >= 100 ? 'LOGO 腰封請於交期 7 日前提供 AI／PDF 向量檔。' : '如需客製腰封或卡片，請於交期 7 日前告知。',
+    IS_AMEI ? '常溫禮盒保存期限 30 天，冷藏品項請收貨後立即冷藏。' : QX.note,
+    IS_AMEI ? (isBox && p.qty >= 100 ? 'LOGO 腰封請於交期 7 日前提供 AI／PDF 向量檔。' : '如需客製腰封或卡片，請於交期 7 日前告知。')
+      : (isBox && p.qty >= 100 ? `${CATALOG.sleeve.name}請於交期 7 日前提供 AI／PDF 向量檔。` : `如需${CATALOG.sleeve.name}或卡片，請於交期 7 日前告知。`),
     '本報價單經客戶線上簽回即視為訂單成立。',
   ];
   return {
@@ -342,8 +475,8 @@ export function quoteInsights(q, p) {
   const cap = (CATALOG[main.pid] && CATALOG[main.pid].cap) || 60;
   const days = Math.max(1, Math.ceil(main.qty / cap));
   const start = addDays(new Date(q.delivery), -(days + 1));
-  out.push({ k: 'ok', t: `${main.qty} ${CATALOG[main.pid].unit}約需 ${days} 個生產日（每日產能 ${cap}），已預排 ${start.getMonth() + 1}/${start.getDate()} 開工，小芸當週排班足夠。` });
-  if (q.items.some(i => i.pid === 'sleeve')) out.push({ k: 'ok', t: '數量達 100 盒，已自動加入「LOGO 燙金腰封」贈品，提高成交率。' });
+  out.push({ k: 'ok', t: `${main.qty} ${CATALOG[main.pid].unit}約需 ${days} 個生產日（每日產能 ${cap}），已預排 ${start.getMonth() + 1}/${start.getDate()} 開工，${IS_AMEI ? '小芸' : (KIT.helper || KIT.owner)}當週排班足夠。` });
+  if (q.items.some(i => i.pid === 'sleeve')) out.push({ k: 'ok', t: IS_AMEI ? '數量達 100 盒，已自動加入「LOGO 燙金腰封」贈品，提高成交率。' : `數量達 100 ${CATALOG[q.items[0].pid].unit}，已自動加入「${CATALOG.sleeve.name}」贈品，提高成交率。` });
   if (q.dateNote) out.push({ k: 'warn', t: q.dateNote + '。' });
   return out;
 }
@@ -364,10 +497,10 @@ export function dunningText(deal, tone, overdue, now = new Date()) {
   const greet = who ? `${who}您好` : '您好';
   if (tone === 'polite') {
     return overdue > 0
-      ? `${greet}，我是阿美手作甜點的阿美～謝謝${c.short}一直以來的支持！想跟您確認一下「${deal.title}」的款項 ${amt}（發票 ${deal.inv}），原訂 ${dueS} 到期，目前系統還沒看到入帳，可能是作業上剛好錯過了。方便的話可以直接點下方付款連結，信用卡或 ATM 都可以。如果已經匯出，再麻煩告訴我末五碼，我這邊幫您對帳，謝謝您！`
-      : `${greet}，我是阿美手作甜點的阿美～「${deal.title}」的請款單與電子發票 ${deal.inv} 已寄到信箱，金額 ${amt}，付款期限是 ${dueS}。附上付款連結（信用卡／ATM 虛擬帳號），有任何問題都可以直接回覆我，謝謝！`;
+      ? `${greet}，我是${SELLER.name}的${SELLER.owner}～謝謝${c.short}一直以來的支持！想跟您確認一下「${deal.title}」的款項 ${amt}（發票 ${deal.inv}），原訂 ${dueS} 到期，目前系統還沒看到入帳，可能是作業上剛好錯過了。方便的話可以直接點下方付款連結，信用卡或 ATM 都可以。如果已經匯出，再麻煩告訴我末五碼，我這邊幫您對帳，謝謝您！`
+      : `${greet}，我是${SELLER.name}的${SELLER.owner}～「${deal.title}」的請款單與電子發票 ${deal.inv} 已寄到信箱，金額 ${amt}，付款期限是 ${dueS}。附上付款連結（信用卡／ATM 虛擬帳號），有任何問題都可以直接回覆我，謝謝！`;
   }
-  return `${c.name || c.short} ${c.contact || ''}${c.title || ''} 您好：\n\n本公司於 ${fmtD(deal.billed)} 開立之請款單（${deal.id.replace('QT', 'BL')}）及電子發票 ${deal.inv}，金額 ${amt}（含 5% 營業稅），付款期限為 ${fmtD(deal.due)}${overdue > 0 ? `，截至今日已逾期 ${overdue} 天` : ''}。\n\n敬請於 ${fmtD(+addDays(startOfDay(now), 5))} 前完成付款（付款連結與 ATM 虛擬帳號如附）。若貴公司已付款，請回覆匯款日期與帳號末五碼以利沖帳；如對帳款有疑義，亦請於期限內告知。\n\n阿美手作甜點 敬上`;
+  return `${c.name || c.short} ${c.contact || ''}${c.title || ''} 您好：\n\n本公司於 ${fmtD(deal.billed)} 開立之請款單（${deal.id.replace('QT', 'BL')}）及電子發票 ${deal.inv}，金額 ${amt}（含 5% 營業稅），付款期限為 ${fmtD(deal.due)}${overdue > 0 ? `，截至今日已逾期 ${overdue} 天` : ''}。\n\n敬請於 ${fmtD(+addDays(startOfDay(now), 5))} 前完成付款（付款連結與 ATM 虛擬帳號如附）。若貴公司已付款，請回覆匯款日期與帳號末五碼以利沖帳；如對帳款有疑義，亦請於期限內告知。\n\n${SELLER.name} 敬上`;
 }
 const fmtD = (t) => { const d = new Date(t); return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; };
 

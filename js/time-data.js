@@ -1,7 +1,18 @@
 // 老闆的時間：休假模式、勿擾時段、工時健康、AI 省時（皆為示範資料，固定種子）
-import { mulberry32, startOfDay, addDays, CHANNEL_MAP, PRODUCT_MAP } from './data.js';
+import { mulberry32, startOfDay, addDays, CHANNEL_MAP, PRODUCT_MAP, PRODUCTS } from './data.js';
+import { TENANT, TENANT_ID } from './tenant.js';
+import { STAFF } from './ledger.js';
 
-export const OWNER = '阿美';
+// 多業主：阿美維持原劇本；其他業主依 STAFF、PRODUCTS、TENANT.suppliers 與業態大類（TENANT.cat）帶入
+const AMEI = TENANT_ID === 'amei';
+const CAT = TENANT.cat || 'retail';
+const SVC = CAT === 'service';
+const pn = (i) => (PRODUCTS.length ? PRODUCTS[i % PRODUCTS.length] : { name: '商品', price: 300 });
+const topP = [...PRODUCTS].sort((a, b) => (b.pop || 0) - (a.pop || 0))[0] || pn(0);
+export const OWNER = AMEI ? '阿美' : ((STAFF[0] && STAFF[0].name) || TENANT.owner || '老闆');
+export const AVATAR = AMEI ? '美' : (TENANT.avatar || TENANT.name.slice(0, 1));
+// 回來要處理的「客製需求」說法
+export const CUSTOM_TXT = AMEI ? '客製蛋糕' : ({ food: '包場與外燴', drink: '客製禮盒', dessert: '客製訂單', retail: '客製選物', craft: '客製刻字', flower: '婚禮佈置', service: '特殊造型', farm: '團購配送' }[CAT] || '客製需求');
 export const WD = ['一', '二', '三', '四', '五', '六', '日'];
 export const wdOf = (d) => (new Date(d).getDay() + 6) % 7; // 0=週一 … 6=週日
 export const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
@@ -85,7 +96,7 @@ export function savedTime(orders, purchases, wm, now = new Date()) {
     { id: 'books', name: '記帳', icon: 'book', color: '#2E97D4', min: (wo.length + wp.length) * 1.1, detail: `${wo.length + wp.length} 筆收入與進貨自動入帳` },
     { id: 'recon', name: '對帳', icon: 'bank', color: '#7C62E6', min: online * 1.4 + 20, detail: `${online} 筆線上收款自動比對銀行與金流` },
     { id: 'invoice', name: '開發票', icon: 'receipt', color: '#F0A531', min: wo.length * 0.9, detail: `自動開立 ${wo.length} 張電子發票` },
-    { id: 'shift', name: '排班', icon: 'calendar', color: '#DD5597', min: 85, detail: '3 人班表與工時自動排好、算好' },
+    { id: 'shift', name: '排班', icon: 'calendar', color: '#DD5597', min: STAFF.length > 1 ? 85 : 25, detail: AMEI ? '3 人班表與工時自動排好、算好' : STAFF.length > 1 ? `${STAFF.length} 人班表與工時自動排好、算好` : '負責人工時與 AI 代班時段自動排好' },
     { id: 'tax', name: '報稅整理', icon: 'tax', color: '#5EE0C4', min: 70, detail: '營業稅進銷項自動歸檔（每週攤提）' },
   ].map(r => ({ ...r, h: r1(r.min / 60) }));
   const total = r1(rows.reduce((s, r) => s + r.h, 0));
@@ -123,23 +134,45 @@ export function nightSample(o) {
 }
 
 // 供應商（與進貨資料一致；生鮮類需要暫停）
-export const SUPPLIERS = [
+export const SUPPLIERS = AMEI ? [
   { name: '北海乳品貿易', item: '發酵奶油、鮮奶油', fresh: true },
   { name: '大湖果園合作社', item: '當季水果', fresh: true },
   { name: '綠野冷鏈物流', item: '冷藏宅配收件', fresh: true },
-];
+] : ((TENANT.suppliers || []).slice(0, 3).map(x => ({ name: String(x.vendor).replace(/（虛構）/g, ''), item: x.item, fresh: true })).concat((TENANT.suppliers || []).length ? [] : [{ name: '主要供應商（示範）', item: '固定進貨', fresh: true }]));
 
 // 急件規則
+const SAFETY = AMEI ? ['過敏反應、食安問題', '客人說吃了不舒服、過敏'] : ({
+  food: ['過敏反應、食安問題', '客人說吃了不舒服、過敏'], drink: ['過敏反應、食安問題', '客人說喝了不舒服、過敏'], dessert: ['過敏反應、食安問題', '客人說吃了不舒服、過敏'], farm: ['食安問題', '客人說吃了不舒服'],
+  service: ['過敏或皮膚不適', '客人說服務後紅腫、刺痛'], flower: ['過敏或商品安全', '客人說接觸後過敏、起疹子'],
+}[CAT] || ['商品安全問題', '客人說商品瑕疵造成受傷']);
 export const URGENT = [
-  { id: 'allergy', name: '過敏反應、食安問題', desc: '客人說吃了不舒服、過敏', icon: 'alert', lock: true, on: true },
+  { id: 'allergy', name: SAFETY[0], desc: SAFETY[1], icon: 'alert', lock: true, on: true },
   { id: 'complaint', name: '客訴', desc: '情緒強烈、要求找老闆本人', icon: 'heart', on: true },
   { id: 'refund', name: '退款／退貨', desc: '需要你同意才能退錢', icon: 'coins', on: true },
   { id: 'big', name: '大額訂單', desc: '單筆超過門檻', icon: 'cart', on: true, amount: 10000 },
-  { id: 'b2b', name: '企業／團購詢價', desc: '50 盒以上或需要報價', icon: 'users', on: false },
+  { id: 'b2b', name: '企業／團購詢價', desc: AMEI ? '50 盒以上或需要報價' : '大量訂購或需要報價', icon: 'users', on: false },
 ];
 
 // 休假中的一天（模擬訊息流）
-export const DAY_SIM = [
+const BIG_N = Math.max(5, Math.min(60, Math.round(19200 / Math.max(50, topP.price || 300))));
+const SAFETY_MSG = {
+  food: `昨天買的${pn(2).name}，小孩吃完嘴巴腫起來…`, drink: `昨天買的${pn(2).name}，喝完一直心悸不舒服…`, dessert: `昨天買的${pn(2).name}，小孩吃完嘴巴腫起來…`, farm: `昨天買的${pn(2).name}，吃完肚子不舒服…`,
+  service: `昨天做完${pn(2).name}，手指一直紅腫刺痛…`, flower: '收到花束後家人一直打噴嚏、起疹子…',
+}[CAT] || `收到的${pn(2).name}有尖角，刮傷手了…`;
+const TENANT_DAY = [
+  { t: '08:12', ch: 'line', who: '林小姐', msg: SVC ? `${pn(0).name}這週還有時段嗎？` : `${pn(0).name}現在訂什麼時候會到？`, kind: 'ai', ai: SVC ? '告知休假期間，改約回來後的時段並收訂金' : '告知休假期間，訂單於回來後第一天出貨，已成立預購' },
+  { t: '09:40', ch: 'zalo', who: 'Trần Minh Anh', msg: SVC ? 'Tuần này còn lịch hẹn không ạ?' : 'Shop có giao hàng trong tuần này không?', kind: 'ai', ai: SVC ? '用越南文說明休假期間與恢復預約日' : '用越南文說明休假期間與恢復出貨日' },
+  { t: '11:05', ch: 'web', who: '陳先生', msg: SVC ? `想預約週六的${pn(1).name}` : `想訂${pn(1).name}，週六門市取`, kind: 'ai', ai: '門市休假中，改約回來後的時段並收訂金' },
+  { t: '13:28', ch: 'line', who: '王太太', msg: SAFETY_MSG, kind: 'urgent', rule: 'allergy', ai: '先安撫並請客人就醫，立即推播給你' },
+  { t: '15:50', ch: 'whatsapp', who: 'Daniel Tan', msg: SVC ? 'Can we buy 20 gift vouchers for our team?' : 'Can we order 30 sets for our office?', kind: 'ai', ai: '提供企業報價單，回來後由你確認', rule: 'b2b' },
+  { t: '17:16', ch: 'messenger', who: '蔡小姐', msg: SVC ? '預約被改期兩次，我要退訂金' : '收到的商品壓壞了，我要退款', kind: 'urgent', rule: 'refund', ai: SVC ? '已先致歉並記錄原因，需你同意退款' : '已收照片、先致歉，需你同意退款' },
+  { t: '20:42', ch: 'phone', who: '張小姐', msg: SVC ? `公司要買 ${BIG_N} 張${topP.name}禮券` : `公司尾牙要訂 ${BIG_N} 份${topP.name}`, kind: 'urgent', rule: 'big', ai: `金額 NT$ ${(BIG_N * (topP.price || 300)).toLocaleString('en-US')}，超過門檻，推播給你` },
+  { t: '23:58', ch: 'line', who: '佐藤 ゆき', msg: SVC ? '予約はいつから再開しますか？' : '発送はいつになりますか？', kind: 'ai', ai: SVC ? '用日文回覆恢復預約日，不吵醒你' : '用日文回覆恢復出貨日，不吵醒你' },
+];
+// 急件推播給代理人的內容
+export const URGENT_PING = AMEI ? '王太太反映吃了草莓生乳捲後嘴巴腫起來。AI 已請客人先就醫並記下批號，請協助聯絡客人（0922-***-305）。'
+  : `王太太反映：「${SAFETY_MSG.replace(/…$/, '')}」。AI 已請客人先就醫${SVC ? '並記錄服務內容' : '並記下批號'}，請協助聯絡客人（0922-***-305）。`;
+export const DAY_SIM = !AMEI ? TENANT_DAY : [
   { t: '08:12', ch: 'line', who: '林小姐', msg: '檸檬塔現在訂什麼時候會到？', kind: 'ai', ai: '告知休假期間，訂單於回來後第一天出貨，已成立預購' },
   { t: '09:40', ch: 'zalo', who: 'Trần Minh Anh', msg: 'Shop có giao bánh dứa trong tuần này không?', kind: 'ai', ai: '用越南文說明休假期間與恢復出貨日' },
   { t: '11:05', ch: 'web', who: '陳先生', msg: '想訂 6 吋芋泥巴斯克，週六門市取', kind: 'ai', ai: '門市休假中，改約回來後的取貨時段並收訂金' },
@@ -153,20 +186,23 @@ export const DAY_SIM = [
 // 公告文案（多語）
 export const LANGS = [['zh', '中文'], ['ja', '日本語'], ['en', 'English'], ['vi', 'Tiếng Việt'], ['ms', 'Melayu']];
 export const REASONS = [['rest', '休息充電'], ['travel', '出國'], ['family', '家裡有事'], ['sick', '身體不適']];
+const SHOP_ZH = AMEI ? '阿美手作甜點' : TENANT.name;
+const SHOP_EN = AMEI ? "Amei's Handmade Desserts" : (TENANT.en || TENANT.name);
+const STOP_ZH = SVC ? '暫停營業與預約' : '暫停出貨';
 const NOTICE = {
-  zh: { title: '休假公告', shop: '阿美手作甜點',
+  zh: { title: '休假公告', shop: SHOP_ZH,
     r: { rest: '', travel: '老闆出國進修，', family: '因家中有事，', sick: '因老闆身體微恙需要休養，' },
-    body: (r, s, e, b, pick) => `${r}阿美手作甜點於 ${s}–${e} 暫停出貨${pick ? '與門市取貨' : ''}，${b} 起恢復。休假期間照常可以下單，AI 店員 24 小時為您服務，訂單將於 ${b} 起依序出貨。謝謝您的體諒！` },
-  ja: { title: '臨時休業のお知らせ', shop: 'Amei 手作りスイーツ',
+    body: (r, s, e, b, pick) => `${r}${SHOP_ZH}於 ${s}–${e} ${STOP_ZH}${pick && !SVC ? '與門市取貨' : ''}，${b} 起恢復。休假期間照常可以${SVC ? '線上預約' : '下單'}，AI 店員 24 小時為您服務，${SVC ? `預約將於 ${b} 起依序安排` : `訂單將於 ${b} 起依序出貨`}。謝謝您的體諒！` },
+  ja: { title: '臨時休業のお知らせ', shop: AMEI ? 'Amei 手作りスイーツ' : SHOP_EN,
     r: { rest: '', travel: '店主の海外研修のため、', family: '家庭の事情により、', sick: '店主の体調不良のため、' },
     body: (r, s, e, b, pick) => `${r}${s}〜${e} の間、発送${pick ? 'と店頭受け取り' : ''}をお休みします（${b} より再開）。休業中もご注文は受け付けており、AI スタッフが 24 時間対応いたします。ご注文は ${b} より順次発送いたします。` },
-  en: { title: 'Holiday Notice', shop: "Amei's Handmade Desserts",
+  en: { title: 'Holiday Notice', shop: SHOP_EN,
     r: { rest: '', travel: 'While our owner is traveling abroad, ', family: 'Due to a family matter, ', sick: 'As our owner is taking time to recover, ' },
     body: (r, s, e, b, pick) => `${r}${r ? 'we' : 'We'} will pause shipping${pick ? ' and in-store pickup' : ''} from ${s} to ${e}, resuming ${b}. You can still order anytime — our AI assistant is here 24/7, and orders will ship in sequence from ${b}. Thank you for understanding!` },
-  vi: { title: 'Thông báo nghỉ', shop: "Amei's Handmade Desserts",
+  vi: { title: 'Thông báo nghỉ', shop: SHOP_EN,
     r: { rest: '', travel: 'Do chủ tiệm đi nước ngoài, ', family: 'Do việc gia đình, ', sick: 'Do chủ tiệm cần nghỉ ngơi, ' },
     body: (r, s, e, b, pick) => `${r}${r ? 'tiệm' : 'Tiệm'} tạm ngưng giao hàng${pick ? ' và nhận hàng tại cửa hàng' : ''} từ ${s} đến ${e}, hoạt động lại từ ${b}. Bạn vẫn có thể đặt hàng bất cứ lúc nào — trợ lý AI phục vụ 24/7, đơn hàng sẽ được giao lần lượt từ ${b}. Cảm ơn bạn đã thông cảm!` },
-  ms: { title: 'Notis Cuti', shop: "Amei's Handmade Desserts",
+  ms: { title: 'Notis Cuti', shop: SHOP_EN,
     r: { rest: '', travel: 'Memandangkan pemilik ke luar negara, ', family: 'Atas urusan keluarga, ', sick: 'Memandangkan pemilik perlu berehat, ' },
     body: (r, s, e, b, pick) => `${r}${r ? 'kami' : 'Kami'} berhenti sementara penghantaran${pick ? ' dan pengambilan di kedai' : ''} dari ${s} hingga ${e}, dan dibuka semula pada ${b}. Anda masih boleh membuat pesanan bila-bila masa — pembantu AI kami sedia 24/7, dan pesanan dihantar mengikut giliran mulai ${b}. Terima kasih!` },
 };
@@ -176,8 +212,13 @@ export function notice(lang, reason, s, e, b, pick = true) {
 }
 
 // 代理人
-export const PROXIES = [
+const EMP0 = STAFF.find(x => x.kind === 'full') || STAFF.find(x => x.kind === 'part');
+export const PROXIES = AMEI ? [
   { id: 'mom', name: '阿美媽媽', rel: '家人', phone: '0912-***-618', color: '#DD5597', initial: '媽' },
   { id: 'cpa', name: '陳記帳士', rel: '記帳士', phone: '0935-***-207', color: '#2E97D4', initial: '陳' },
   { id: 'yun', name: '小芸', rel: '全職烘焙助理', phone: '0968-***-441', color: '#5EE0C4', initial: '芸' },
+] : [
+  { id: 'mom', name: `${OWNER}的家人`, rel: '家人', phone: '0912-***-618', color: '#DD5597', initial: '家' },
+  { id: 'cpa', name: '陳記帳士', rel: '記帳士', phone: '0935-***-207', color: '#2E97D4', initial: '陳' },
+  ...(EMP0 ? [{ id: 'yun', name: EMP0.name, rel: String(EMP0.title || '員工').replace(/（.*）/, ''), phone: '0968-***-441', color: '#5EE0C4', initial: EMP0.name.slice(-1) }] : []),
 ];

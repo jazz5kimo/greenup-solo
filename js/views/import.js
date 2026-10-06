@@ -6,6 +6,15 @@ import {
   parseCSV, decodeBuffer, demoCustomers, demoProducts, demoOrders, DEMO_LINE_TEXT, parseLineText, TYPES, autoMap, scoreType,
   normPhone, phoneCanonical, dateKind, DATE_KIND_LABEL, normDate, normMoney, moneyDirty, normName,
 } from '../import-data.js';
+import { AMEI as IM_AMEI, OWNER_NAME as IM_OWNER } from '../import-data.js';
+import { PRODUCTS as IM_PRODUCTS } from '../data.js';
+// 手寫帳本示意：其他業主用自家商品
+const IM_LEDGER = (() => {
+  if (IM_AMEI) return null;
+  const P = (i) => IM_PRODUCTS.length ? IM_PRODUCTS[i % IM_PRODUCTS.length] : { name: '商品', price: 300 };
+  const L = (d, who, i, q, yuan = true) => `${d} ${who} ${P(i).name} ×${q} ${(P(i).price * q).toLocaleString('en-US')}${yuan ? '元' : ''}`;
+  return [L('8/14', '王小美', 0, 2), L('8/15', '林佳蓉', 1, 1, false), L('8/17', '陳志明', 2, 3), L('115/8/20', '吳詩涵', 3, 2, false), L('8/22', '黃淑芬', 4, 1), L('8/23', '王 小美', 5, 2, false), `中秋前 張雅婷 ${P(0).name} ×5 ？`];
+})();
 
 const svg = (d, size = 20) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const CAM = (s) => svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>', s);
@@ -240,13 +249,13 @@ function renderPanel(anim) {
 
 function paperDoc() {
   const lines = S.paperMode === 'ledger'
-    ? ['8/14 王小美 檸檬塔 ×2 840元', '8/15 林佳蓉 巴斯克 ×1 680', '8/17 陳志明 鳳梨酥 ×3 1,440元', '115/8/20 吳詩涵 可麗露 ×2 780', '8/22 黃淑芬 餅乾禮盒 ×1 520元', '8/23 王 小美 磅蛋糕 ×2 720', '中秋前 張雅婷 禮盒 ×5 ？']
-    : ['陳美玲 0937-208-511 生日66/2/14', '郭志豪 0918 552 307 高雄左營', '蔡宜君 0926552108 生日3月8日', '曾子晴 0955-882-016 要統編', '陳 美玲 0937208511 改寄信義區', '許書豪 0911-306-722', '廖思妤 0963 410 285 少糖'];
+    ? IM_LEDGER || ['8/14 王小美 檸檬塔 ×2 840元', '8/15 林佳蓉 巴斯克 ×1 680', '8/17 陳志明 鳳梨酥 ×3 1,440元', '115/8/20 吳詩涵 可麗露 ×2 780', '8/22 黃淑芬 餅乾禮盒 ×1 520元', '8/23 王 小美 磅蛋糕 ×2 720', '中秋前 張雅婷 禮盒 ×5 ？']
+    : ['陳美玲 0937-208-511 生日66/2/14', '郭志豪 0918 552 307 高雄左營', '蔡宜君 0926552108 生日3月8日', '曾子晴 0955-882-016 要統編', '陳 美玲 0937208511 改寄信義區', '許書豪 0911-306-722', IM_AMEI ? '廖思妤 0963 410 285 少糖' : '廖思妤 0963 410 285 要收據'];
   return `<svg viewBox="0 0 300 250" preserveAspectRatio="xMidYMid meet" role="img" aria-label="手寫筆記本示意">
     <rect x="6" y="6" width="288" height="238" rx="8" fill="#fbf7ea"/>
     ${Array.from({ length: 9 }, (_, i) => `<line x1="14" x2="286" y1="${44 + i * 24}" y2="${44 + i * 24}" stroke="#bcd3e6" stroke-width="1"/>`).join('')}
     <line x1="40" x2="40" y1="6" y2="244" stroke="#f0a6a6" stroke-width="1.2"/>
-    <text x="48" y="32" font-size="14" fill="#7a5a3a" font-weight="700">${S.paperMode === 'ledger' ? '阿美的帳本　八月' : '老客人電話簿'}</text>
+    <text x="48" y="32" font-size="14" fill="#7a5a3a" font-weight="700">${S.paperMode === 'ledger' ? `${esc(IM_OWNER)}的帳本　八月` : '老客人電話簿'}</text>
     ${lines.map((t, i) => `<text x="48" y="${62 + i * 24}" font-size="12.5" fill="#24427a" transform="rotate(${((i * 7) % 5 - 2) * 0.35} 48 ${62 + i * 24})">${esc(t)}</text>`).join('')}
   </svg>`;
 }
@@ -460,8 +469,9 @@ async function runClean(fast = false) {
     for (const li of exs) { await sleep(fast ? 60 : 260); li.classList.add('fixed'); if (gsap) gsap.fromTo($('em', li), { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.35, ease: 'back.out(2)' }); }
     await sleep(fast ? 200 : Math.max(200, dur * 1000 - exs.length * 260));
     card.classList.remove('run'); card.classList.add('done');
-    $('.im-is-st', card).innerHTML = `${icon('check', 13)} 已整理`;
-    if (gsap) gsap.fromTo($('.im-is-ok', card), { scale: 0, rotate: -40 }, { scale: 1, rotate: 0, duration: 0.5, ease: 'back.out(3)' });
+    if (!card.isConnected) { S.busy = false; return; } // 整理中切換了資料來源，卡片已重繪，這次整理作廢
+    const stEl = $('.im-is-st', card); if (stEl) stEl.innerHTML = `${icon('check', 13)} 已整理`;
+    if (gsap && $('.im-is-ok', card)) gsap.fromTo($('.im-is-ok', card), { scale: 0, rotate: -40 }, { scale: 1, rotate: 0, duration: 0.5, ease: 'back.out(3)' });
   }
   const c = buildClean();
   S.clean = c.rows; S.changed = c.changed; S.merged = c.merged; S.cleaned = true; S.view = 'clean'; S.busy = false;

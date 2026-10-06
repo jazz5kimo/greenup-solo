@@ -360,3 +360,9 @@
   .sf-pp-net b { font-size: 20px; }
   .sf-slip-tabs .btn { margin-left: 0; }
 }
+
+/* 只有負責人／沒有申請時的空狀態 */
+.sf-empty { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 12px; background: rgba(94,224,196,.06); border: 1px dashed rgba(94,224,196,.3); color: var(--txt2); }
+.sf-empty > .ic { color: var(--mint); flex: none; margin-top: 2px; }
+.sf-empty b { display: block; font-size: 13.5px; color: var(--txt1, inherit); margin-bottom: 4px; }
+.sf-empty small { display: block; font-size: 12px; line-height: 1.6; color: var(--txt3); }

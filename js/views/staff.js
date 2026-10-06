@@ -8,7 +8,9 @@ import { RATES, PAYROLL } from '../ledger.js';
 import {
   DAY_NAMES as DN, H0, H1, wdOf, weekStart, PEOPLE, PERSON, SHIFT_TYPES as ST, CYCLE, brk, workH, hm, mm,
   traffic, draftSchedule, aiSchedule, annualLeaveDays, LEAVE_TIERS, otPay, hourlyBase, genAttendance,
+  OWNER, EMPS, SOLO,
 } from '../staff-data.js';
+import { TENANT, TENANT_ID } from '../tenant.js';
 
 const SPAN = H1 - H0;
 const n0 = (v) => Math.round(v).toLocaleString('en-US');
@@ -17,10 +19,17 @@ const clone = (w) => w.map(d => Object.fromEntries(Object.entries(d).map(([k, v]
 const LAW = PEOPLE.filter(p => p.law);
 const av = (p, cls = '') => `<span class="sf-av ${cls}" style="--c:${p.color}">${esc(p.name.slice(-1))}</span>`;
 const pct = (v) => `${(v / SPAN * 100).toFixed(3)}%`;
+const AMEI = TENANT_ID === 'amei';
+const FT = PERSON.yun, PT = PERSON.jie; // 全職／兼職（可能不存在）
+// 依業態大類（TENANT.cat）挑選文案
+const DUTY = { food: '外場與外送', drink: '吧台與出貨', dessert: '包裝出貨與門市', retail: '門市與出貨', craft: '門市與出貨', flower: '花束包裝與外送', service: '預約接待', farm: '理貨與出貨' };
+const duty = DUTY[TENANT.cat] || '門市與出貨';
+const PREP = { food: '備料', drink: '備料與包裝', dessert: '點心備料', retail: '理貨上架', craft: '材料裁切與製作', flower: '花材整理', service: '消毒與備品', farm: '分級包裝' };
+const STORE_WIFI = AMEI ? 'AMEI-STORE' : `${String(TENANT.en || TENANT.id).split(/[\s']/)[0].toUpperCase()}-STORE`;
 
 let root, go, now, ws, todayWd, tr, ai, draft, sched, recs, leaves, aiDone = false, firstShow = true;
-let timer = 0, chart, chartMonth = 'prev', recFilter = 'all', selPid = 'yun', busy = false, payTab = 'yun', payDone = false;
-const annualUsed = { yun: 5, jie: 1 };
+let timer = 0, chart, chartMonth = 'prev', recFilter = 'all', selPid = (EMPS[0] || OWNER).id, busy = false, payTab = EMPS[0] ? EMPS[0].id : '', payDone = false;
+const annualUsed = Object.fromEntries(EMPS.map(p => [p.id, p.id === 'yun' ? 5 : p.id === 'jie' ? 1 : 0]));
 
 export default {
   mount(section, ctx) {
@@ -34,12 +43,12 @@ export default {
     leaves = [
       { id: 'L1', pid: 'yun', kind: 'annual', label: '特休', date: addDays(ws, 11), span: '全天（8 小時）', hours: 8, reason: '家人婚禮，需請一天', via: 'LINE 官方帳號', at: at(-1, 21, 14), status: 'pending' },
       { id: 'L2', pid: 'jie', kind: 'personal', label: '事假', date: addDays(ws, 5), span: '13:00–19:00（5.5 小時）', hours: 5.5, reason: '學校期中考，週六下午無法上班', via: 'GreenUP App', at: at(-2, 22, 3), status: 'pending' },
-      { id: 'L3', pid: 'yun', kind: 'ot', label: '加班', date: addDays(ws, 4), span: '17:00–19:00（2 小時）', hours: 2, reason: '週末預購單量大，延長烘焙備料', via: 'GreenUP App', at: at(0, 8, 41), status: 'pending' },
+      { id: 'L3', pid: 'yun', kind: 'ot', label: '加班', date: addDays(ws, 4), span: '17:00–19:00（2 小時）', hours: 2, reason: AMEI ? '週末預購單量大，延長烘焙備料' : `週末訂單量大，延長${PREP[TENANT.cat] || '備料'}`, via: 'GreenUP App', at: at(0, 8, 41), status: 'pending' },
       { id: 'L4', pid: 'jie', kind: 'sick', label: '病假', date: addDays(ws, -2), span: '全班（5.5 小時）', hours: 5.5, reason: '感冒就醫（已上傳診斷證明）', via: 'LINE 官方帳號', at: (() => { const x = addDays(ws, -2); x.setHours(9, 12); return x; })(), status: 'ok' },
-    ];
+    ].filter(l => PERSON[l.pid]);
     recs = genAttendance(now, ai.week, sched, leaves);
     const def = PEOPLE.find(p => sched[todayWd][p.id] && !todayRec(p.id)?.out);
-    selPid = def ? def.id : 'yun';
+    selPid = def ? def.id : (EMPS[0] || OWNER).id;
 
     section.innerHTML = `
     <div class="sf">
@@ -79,7 +88,7 @@ export default {
               <div class="sf-who" id="sfWho"></div>
             </div>
             <div class="sf-pc-mid">
-              <div class="sf-gps" id="sfGps">${gpsSvg()}<div class="sf-gps-t"><b>${icon('check', 13)} 在店內打卡範圍</b><small>距店 18 公尺・允許 100 公尺內・Wi-Fi AMEI-STORE</small></div></div>
+              <div class="sf-gps" id="sfGps">${gpsSvg()}<div class="sf-gps-t"><b>${icon('check', 13)} 在店內打卡範圍</b><small>距店 18 公尺・允許 100 公尺內・Wi-Fi ${STORE_WIFI}</small></div></div>
               <div class="sf-face" id="sfFace">${faceSvg()}<div class="sf-face-t" id="sfFaceT">對準鏡頭，按下打卡即開始辨識</div></div>
             </div>
             <div class="sf-pc-btns">
@@ -160,7 +169,7 @@ let covThr = null;
 function coverage(w) {
   if (covThr == null) { const v = tr.avg.flatMap(r => r.slice(11, 20)).sort((a, b) => a - b); covThr = v[Math.floor(v.length * 0.6)]; }
   let tot = 0, cov = 0;
-  for (let d = 0; d < 7; d++) for (let h = 11; h < 20; h++) { const v = tr.avg[d][h], need = v >= covThr ? 2 : 1; tot += v; cov += v * Math.min(1, onDuty(w, d, h) / need); }
+  for (let d = 0; d < 7; d++) for (let h = 11; h < 20; h++) { const v = tr.avg[d][h], need = v >= covThr && PEOPLE.length > 1 ? 2 : 1; tot += v; cov += v * Math.min(1, onDuty(w, d, h) / need); }
   return tot ? Math.round(cov / tot * 100) : 0;
 }
 function peakOf(d, lo = 11, hi = 20) { let b = lo; for (let h = lo; h < hi; h++) if (tr.avg[d][h] > tr.avg[d][b]) b = h; return b; }
@@ -185,11 +194,20 @@ function curOT() {
 /* ---------- 勞基法檢核 ---------- */
 function checks() {
   const yun = PERSON.yun, jie = PERSON.jie;
+  if (SOLO) {
+    const off = offDays(OWNER.id);
+    return [
+      { id: 'solo', ok: true, law: '適用範圍', title: '目前沒有受僱員工', detail: `${TENANT.name} 目前只有負責人 ${OWNER.name}，工時、加班、特休等勞基法規定適用於受僱勞工；日後聘人時系統會自動啟用各項檢核` },
+      { id: 'orest', ok: off >= 1, law: '建議', title: '負責人每週至少休息 1 天', detail: off >= 1 ? `本週休 ${sched.map((d, i) => d[OWNER.id] ? '' : DN[i].slice(1)).filter(Boolean).join('、')}，休息日由 AI 代班` : `${OWNER.name} 本週 7 天都排班，建議挑來客最少的一天店休` },
+      { id: 'aiduty', ok: true, law: 'AI 代班', title: '店休與休息時段由 AI 代班', detail: `AI 助理 ${TENANT.aiName} 代接 LINE／官網訊息與預約，緊急事項才通知負責人，隔天早上彙整待辦` },
+      { id: 'oins', ok: true, law: '勞健保', title: '負責人本人投保', detail: '負責人以雇主身分投保勞健保與提繳方式，依規定辦理；實際以勞保局、健保署公告為準' },
+    ];
+  }
   const wk = LAW.map(p => [p, weekHours(p.id)]);
   const over = wk.filter(([, h]) => h > 40);
   const offBad = LAW.filter(p => offDays(p.id) < 2);
   const run7 = LAW.filter(p => maxRun(p.id) >= 7);
-  const maxDay = Math.max(...LAW.flatMap(p => sched.map(d => workH(d[p.id]))), ...recs.filter(r => PERSON[r.pid].law).map(r => r.hours));
+  const maxDay = Math.max(0, ...LAW.flatMap(p => sched.map(d => workH(d[p.id]))), ...recs.filter(r => PERSON[r.pid].law).map(r => r.hours));
   const prevYun = monthStats(prevMonth(), 'yun');
   const ot = curOT();
   const yunOTm = Math.max(prevYun.ot, ot.hours);
@@ -198,12 +216,12 @@ function checks() {
     { id: 'week', ok: !over.length, law: '§30', title: '每週正常工時 40 小時', detail: over.length ? over.map(([p, h]) => `${p.name} 本週排 ${h1(h)} 小時，超出 ${h1(h - 40)} 小時需經同意並給付加班費`).join('；') : wk.map(([p, h]) => `${p.name} ${h1(h)}h`).join('・') + '（皆 ≤ 40h）' },
     { id: 'day', ok: maxDay <= 12, law: '§32', title: '每日工時含加班不超過 12 小時', detail: `本週與近期打卡最長單日 ${h1(maxDay)} 小時` },
     { id: 'rest', ok: !offBad.length && !run7.length, law: '§36', title: '一例一休（七休一）', detail: offBad.length ? offBad.map(p => `${p.name} 本週僅休 ${offDays(p.id)} 天${maxRun(p.id) >= 6 ? `，連續上班 ${maxRun(p.id)} 天` : ''}；休息日出勤須另計加班費`).join('；') : LAW.map(p => `${p.name} 休 ${sched.map((d, i) => d[p.id] ? '' : DN[i].slice(1)).filter(Boolean).join('、')}`).join('・') + '，每七日皆有例假與休息日' },
-    { id: 'otcap', ok: yunOTm <= 46, law: '§32', title: '每月延長工時 46 小時以內', detail: `小芸 上月 ${h1(prevYun.ot)}h・本月至今 ${h1(ot.hours)}h（含已核准申請）` },
-    { id: 'otpay', ok: true, law: '§24', title: '加班費依法加成計給', detail: `時薪基準 ${n0(yun.pay)}÷240＝${hourlyBase(yun).toFixed(1)} 元；前 2 小時 ×4/3＝${(hourlyBase(yun) * 4 / 3).toFixed(1)}、再 2 小時 ×5/3＝${(hourlyBase(yun) * 5 / 3).toFixed(1)}；本月加班費 ${money(ot.pay)}` },
-    { id: 'hourly', ok: jie.hourly >= RATES.minHourly, law: '基本工資', title: '兼職時薪不低於基本時薪', detail: `小傑 時薪 ${jie.hourly} 元 ≥ 115 年基本時薪 ${RATES.minHourly} 元` },
-    { id: 'wage', ok: yun.pay >= RATES.minWage, law: '基本工資', title: '月薪不低於基本工資', detail: `小芸 月薪 ${n0(yun.pay)} 元 ≥ 115 年基本工資 ${n0(RATES.minWage)} 元` },
+    yun && { id: 'otcap', ok: yunOTm <= 46, law: '§32', title: '每月延長工時 46 小時以內', detail: `${yun.name} 上月 ${h1(prevYun.ot)}h・本月至今 ${h1(ot.hours)}h（含已核准申請）` },
+    yun && { id: 'otpay', ok: true, law: '§24', title: '加班費依法加成計給', detail: `時薪基準 ${n0(yun.pay)}÷240＝${hourlyBase(yun).toFixed(1)} 元；前 2 小時 ×4/3＝${(hourlyBase(yun) * 4 / 3).toFixed(1)}、再 2 小時 ×5/3＝${(hourlyBase(yun) * 5 / 3).toFixed(1)}；本月加班費 ${money(ot.pay)}` },
+    jie && { id: 'hourly', ok: jie.hourly >= RATES.minHourly, law: '基本工資', title: '兼職時薪不低於基本時薪', detail: `${jie.name} 時薪 ${jie.hourly} 元 ≥ 115 年基本時薪 ${RATES.minHourly} 元` },
+    yun && { id: 'wage', ok: yun.pay >= RATES.minWage, law: '基本工資', title: '月薪不低於基本工資', detail: `${yun.name} 月薪 ${n0(yun.pay)} 元 ≥ 115 年基本工資 ${n0(RATES.minWage)} 元` },
     { id: 'break', ok: !noBreak.length, law: '§35', title: '連續工作 4 小時給 30 分鐘休息', detail: '班表已自動扣除休息時間：8 小時以上班別休 1 小時、4 小時以上休 30 分鐘' },
-  ];
+  ].filter(Boolean);
 }
 
 /* ---------- KPI ---------- */
@@ -220,9 +238,9 @@ function renderKpis(anim) {
   const K = [
     ['本週排班總工時', 'clock', '#2DB674', total, ' h', 1, PEOPLE.map(p => `${p.name} ${h1(weekHours(p.id))}`).join('・')],
     ['今日出勤', 'user', '#2E97D4', att.length, ` / ${sch.length} 人`, 0, sch.length ? `已打卡／今日排班${late ? `・遲到 ${late}` : '・無遲到'}` : '今日無人排班'],
-    ['本月加班時數', 'trend', '#F0A531', ot.hours, ' h', 1, `加班費 ${money(ot.pay)}・上限 46h／人`],
-    ['預估本月薪資成本', 'coins', '#7C62E6', cost, '', 0, `含雇主勞健保勞退 ${money(emp)}`],
-    ['勞基法檢核', 'shield', ok === cs.length ? '#5EE0C4' : '#EC6A55', ok, ` / ${cs.length} 通過`, 0, ok === cs.length ? '全部通過，可發布班表' : `${cs.length - ok} 項需注意・可一鍵 AI 修正`],
+    ['本月加班時數', 'trend', '#F0A531', ot.hours, ' h', 1, SOLO ? '目前只有負責人，無員工加班' : `加班費 ${money(ot.pay)}・上限 46h／人`],
+    ['預估本月薪資成本', 'coins', '#7C62E6', cost, '', 0, SOLO ? '負責人董事酬勞・含勞健保' : `含雇主勞健保勞退 ${money(emp)}`],
+    [SOLO ? '排班檢核' : '勞基法檢核', 'shield', ok === cs.length ? '#5EE0C4' : '#EC6A55', ok, ` / ${cs.length} 通過`, 0, ok === cs.length ? (SOLO ? '目前只有負責人，休息日 AI 代班' : '全部通過，可發布班表') : `${cs.length - ok} 項需注意・可一鍵 AI 修正`],
   ];
   const host = $('#sfKpis', root);
   if (!host.children.length) {
@@ -296,11 +314,11 @@ function renderSide(typed = false) {
   let list;
   if (!aiDone) {
     const iss = [];
-    const yOff = offDays('yun');
-    if (yOff < 2) iss.push(`小芸本週只休 ${yOff} 天、連續上班 ${maxRun('yun')} 天，違反一例一休`);
-    if (offDays('mei') === 0) iss.push('阿美連續 7 天上班，負責人也需要休息');
-    const sat = sched[5].jie, pk = peakOf(5);
-    if (!sat || sat.s > pk || sat.e < pk + 1) iss.push(`週六 ${pk}:00 是全週尖峰，小傑${sat ? ` ${hm(sat.s)}–${hm(sat.e)}` : '沒排班'}，錯過出貨高峰`);
+    if (FT) { const yOff = offDays('yun'); if (yOff < 2) iss.push(`${FT.name}本週只休 ${yOff} 天、連續上班 ${maxRun('yun')} 天，違反一例一休`); }
+    if (offDays('mei') === 0) iss.push(`${OWNER.name}連續 7 天上班，負責人也需要休息`);
+    const sat = PT && sched[5].jie, pk = peakOf(5);
+    if (PT && (!sat || sat.s > pk || sat.e < pk + 1)) iss.push(`週六 ${pk}:00 是全週尖峰，${PT.name}${sat ? ` ${hm(sat.s)}–${hm(sat.e)}` : '沒排班'}，錯過${AMEI ? '出貨' : '來客'}高峰`);
+    if (SOLO) iss.push(`目前只有負責人一人，店休日可交給 AI 助理 ${TENANT.aiName} 代接訊息與預約`);
     iss.push(`尖峰時段人力覆蓋率僅 ${cov}%（目標 85% 以上）`);
     list = `<div class="sf-side-h warn">${icon('alert', 15)} AI 發現 ${iss.length} 個問題</div><ul class="sf-iss">${iss.map(t => `<li>${esc(t)}</li>`).join('')}</ul><div class="sf-side-cta">按右上「AI 自動排班」，依近 8 週來客分布重新安排。</div>`;
   } else {
@@ -314,14 +332,17 @@ function aiReasons() {
   const sat = ai.week[5].jie, pk = peakOf(5);
   const wkAvg = [0, 1, 2, 3].reduce((s, d) => s + tr.total[d], 0) / 4, endAvg = (tr.total[4] + tr.total[5] + tr.total[6]) / 3;
   const draftH = PEOPLE.reduce((s, p) => s + weekHours(p.id, draft), 0), aiH = PEOPLE.reduce((s, p) => s + weekHours(p.id, ai.week), 0);
+  const O = OWNER.name;
+  const ptDays = [d1, d2, d3].sort().filter(d => ai.week[d].jie && ai.week[d].jie.type === 'short');
   return [
-    ['trend', `週六 ${pk}:00 為全週來客最高峰（平均 ${tr.avg[5][pk].toFixed(1)} 單／時），安排小傑 ${hm(sat.s)}–${hm(sat.e)} 支援包裝出貨與門市。`],
-    ['calendar', `${DN[d1]}來客全週最低（預估 ${Math.round(tr.total[d1])} 單），阿美排休；由小芸中班 10:00–19:00 顧店。`],
-    ['shield', `小芸改為做五休二（${DN[d2]}、${DN[d3]}休），週工時 ${h1(weekHours('yun', ai.week))} 小時，符合一例一休。`],
-    ['clock', `週五至週日訂單是平日的 ${(endAvg / wkAvg).toFixed(2)} 倍，阿美延長至 20:00，處理晚間 LINE 與官網訂單。`],
-    ['truck', `${[d1, d2, d3].sort().map(d => DN[d]).join('、')}各加派小傑 4 小時尖峰班（${[d1, d2, d3].sort().map(d => hm(ai.week[d].jie.s)).join('／')} 起），每天尖峰都有兩人顧店與出貨。`],
+    PT && sat && ['trend', `週六 ${pk}:00 為全週來客最高峰（平均 ${tr.avg[5][pk].toFixed(1)} 單／時），安排${PT.name} ${hm(sat.s)}–${hm(sat.e)} 支援${duty}。`],
+    SOLO && ['trend', `週六 ${pk}:00 為全週來客最高峰（平均 ${tr.avg[5][pk].toFixed(1)} 單／時），${O}週五至週日延長到 20:00，尖峰時段 AI 先回覆訊息、整理訂單與預約。`],
+    ['calendar', `${DN[d1]}來客全週最低（預估 ${Math.round(tr.total[d1])} 單），${O}排休；${FT ? `由${FT.name}中班 10:00–19:00 顧店。` : PT ? `由${PT.name}中班 10:00–19:00 顧店，AI 助理 ${TENANT.aiName} 代接線上訊息。` : `當天店休，由 AI 助理 ${TENANT.aiName} 代接 LINE／官網訊息與預約，隔天彙整給${O}。`}`],
+    FT && ['shield', `${FT.name}改為做五休二（${DN[d2]}、${DN[d3]}休），週工時 ${h1(weekHours('yun', ai.week))} 小時，符合一例一休。`],
+    ['clock', `週五至週日訂單是平日的 ${(endAvg / wkAvg).toFixed(2)} 倍，${O}延長至 20:00，處理晚間 LINE 與官網訂單。`],
+    PT && ptDays.length && ['truck', `${ptDays.map(d => DN[d]).join('、')}各加派${PT.name} 4 小時尖峰班（${ptDays.map(d => hm(ai.week[d].jie.s)).join('／')} 起），${FT ? '每天尖峰都有兩人顧店與出貨' : `尖峰時段兩人分工${duty}`}。`],
     ['check', `本週總工時 ${h1(aiH)}h（草稿 ${h1(draftH)}h），尖峰人力覆蓋率 ${coverage(draft)}% → ${coverage(ai.week)}%，預估加班 0 小時。`],
-  ];
+  ].filter(Boolean);
 }
 
 function refreshSched(anim) {
@@ -402,8 +423,8 @@ async function runAI() {
   gsap.fromTo('#sfCov', { scale: 1.4, color: '#5EE0C4' }, { scale: 1, color: '#eafff4', duration: 0.8, ease: 'back.out(3)' });
   btn.innerHTML = `${icon('wand', 16)} 重新 AI 排班`;
   btn.disabled = false;
-  toast('AI 自動排班完成', `尖峰人力覆蓋率 ${coverage(draft)}% → ${coverage(sched)}%・勞基法檢核全數通過`, { icon: icon('sparkle', 18) });
-  store.log('staff', `AI 依來客分布重新排定 ${fmtMD(ws)} 當週班表，勞基法檢核全數通過`);
+  toast('AI 自動排班完成', `尖峰人力覆蓋率 ${coverage(draft)}% → ${coverage(sched)}%・${SOLO ? '店休日由 AI 代班' : '勞基法檢核全數通過'}`, { icon: icon('sparkle', 18) });
+  store.log('staff', `AI 依來客分布重新排定 ${fmtMD(ws)} 當週班表，${SOLO ? '負責人休息日由 AI 代班' : '勞基法檢核全數通過'}`);
   for (const p of $$('#sfWhy p', root)) { if (!root.isConnected) break; await typeText(p, p.dataset.t, 14); }
 }
 
@@ -429,6 +450,10 @@ async function aiFix(btn) {
   await sleep(700);
   const before = clone(sched);
   const msgs = [];
+  if (SOLO && offDays(OWNER.id) === 0) {
+    const i = [0, 1, 2, 3].sort((a, b) => tr.total[a] - tr.total[b])[0];
+    sched[i][OWNER.id] = null; msgs.push(`${OWNER.name} ${DN[i]}店休（AI 代班）`);
+  }
   for (const p of LAW) {
     let guard = 0;
     while (offDays(p.id) < 2 && guard++ < 7) {
@@ -458,7 +483,7 @@ async function aiFix(btn) {
   changed.forEach(([d, pid]) => { const lane = $(`.sf-lane[data-d="${d}"][data-p="${pid}"]`, root); if (lane) { lane.classList.add('fixed'); setTimeout(() => lane.classList.remove('fixed'), 2600); } popBlock(d, pid); });
   flashKpi(4);
   $('.sf-sched-card', root).scrollIntoView({ behavior: 'smooth', block: 'center' });
-  toast('AI 已修正班表', msgs.length ? msgs.join('、') + `；小芸週工時 ${h1(weekHours('yun'))} 小時` : '目前班表已符合規定', { icon: icon('shield', 18) });
+  toast('AI 已修正班表', msgs.length ? msgs.join('、') + (FT ? `；${FT.name}週工時 ${h1(weekHours('yun'))} 小時` : '') : '目前班表已符合規定', { icon: icon('shield', 18) });
   store.log('staff', `勞基法檢核：AI 修正班表（${msgs.join('、') || '無需調整'}）`);
 }
 
@@ -472,7 +497,7 @@ function gpsSvg() {
     <circle cx="112" cy="82" r="50" class="sf-fence"/>
     <circle cx="112" cy="82" r="50" class="sf-fence-pulse"/>
     <g transform="translate(112 82)"><path d="M0 -4c-7 0-12-5-12-12 0-8 12-20 12-20s12 12 12 20c0 7-5 12-12 12z" fill="#2DB674" stroke="#04130d" stroke-width="1.5"/><circle cx="0" cy="-17" r="4.5" fill="#04130d"/></g>
-    <text x="112" y="104" text-anchor="middle" class="sf-gps-lbl">阿美手作甜點</text>
+    <text x="112" y="104" text-anchor="middle" class="sf-gps-lbl">${esc(TENANT.name)}</text>
     <g class="sf-me"><circle cx="128" cy="70" r="11" class="sf-me-ring"/><circle cx="128" cy="70" r="5.5" fill="#5EE0C4" stroke="#fff" stroke-width="2"/></g>
   </svg>`;
 }
@@ -622,14 +647,19 @@ function renderRecs(hl) {
 const LV_COLOR = { annual: '#2DB674', personal: '#F0A531', sick: '#EC6A55', ot: '#7C62E6' };
 function lvNote(l) {
   const p = PERSON[l.pid];
-  if (l.kind === 'annual') { const a = annualLeaveDays(p.hire, now), rem = a.days - annualUsed[p.id]; return `特休剩 ${rem} 天，核准後剩 ${rem - 1} 天；AI 建議當天由阿美代早班`; }
-  if (l.kind === 'personal') return `事假不給薪，扣 ${l.hours}h × ${p.hourly} ＝ ${money(l.hours * p.hourly)}；AI 建議週六由阿美補位`;
+  if (l.kind === 'annual') { const a = annualLeaveDays(p.hire, now), rem = a.days - annualUsed[p.id]; return `特休剩 ${rem} 天，核准後剩 ${rem - 1} 天；AI 建議當天由${OWNER.name}代早班`; }
+  if (l.kind === 'personal') return `事假不給薪，扣 ${l.hours}h × ${p.hourly} ＝ ${money(l.hours * p.hourly)}；AI 建議週六由${OWNER.name}補位`;
   if (l.kind === 'sick') return `病假半薪：${l.hours}h × ${p.hourly} ÷ 2 ＝ ${money(l.hours * p.hourly / 2)}，已自動帶入薪資單`;
   return `平日延長 ${l.hours}h，加班費 ${money(otPay(p, l.hours))}；本月累計 ${h1(curOT().hours + (l.status === 'ok' ? 0 : l.hours))}h／上限 46h`;
 }
 function renderLeaves() {
   const pend = leaves.filter(l => l.status === 'pending').length;
   const chip = $('#sfLvChip', root);
+  if (!leaves.length) {
+    chip.textContent = SOLO ? '目前只有負責人' : '沒有申請'; chip.classList.remove('warn');
+    $('#sfLeaves', root).innerHTML = `<div class="sf-empty">${icon('users', 18)}<div><b>${SOLO ? '目前只有負責人，沒有員工請假或加班申請' : '目前沒有請假或加班申請'}</b><small>${SOLO ? `${OWNER.name}休息時由 AI 助理 ${TENANT.aiName} 代班；日後聘人，員工可用 LINE 官方帳號或 GreenUP App 送出申請。` : '員工可用 LINE 官方帳號或 GreenUP App 送出申請，負責人一鍵核准。'}</small></div></div>`;
+    return;
+  }
   chip.textContent = pend ? `${pend} 件待核准` : '全部處理完成';
   chip.classList.toggle('warn', pend > 0);
   $('#sfLeaves', root).innerHTML = leaves.map(l => {
@@ -674,10 +704,11 @@ function tierPos(y) {
   return 100;
 }
 function renderAL() {
+  if (!LAW.length) { $('#sfAL', root).innerHTML = `<div class="sf-empty"><div><b>目前沒有受僱員工</b><small>特休依年資計算，聘人後自動顯示每位員工的應有與剩餘天數。</small></div></div>`; return; }
   $('#sfAL', root).innerHTML = LAW.map(p => {
     const a = annualLeaveDays(p.hire, now);
     const ratio = p.kind === 'part' ? p.hours / 176 : 1;
-    const total = a.days * ratio, used = Math.min(total, annualUsed[p.id] * (p.kind === 'part' ? ratio : 1)), rem = total - used;
+    const total = a.days * ratio, used = Math.min(total, (annualUsed[p.id] || 0) * (p.kind === 'part' ? ratio : 1)), rem = total - used;
     const y = a.months / 12;
     const C = 2 * Math.PI * 22;
     return `<div class="sf-al" style="--c:${p.color}">
@@ -716,11 +747,15 @@ function renderChart() {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => v + ' 小時' },
     xAxis: { type: 'category', data: weeks.map(w => w.label), axisLabel: { fontSize: 11 } },
     yAxis: { type: 'value', axisLabel: { formatter: '{value}h' } },
-    series: [S('小芸 正常工時', 'yun', 'n', '#2E97D4', 'yun'), S('小芸 加班', 'yun', 'o', '#F0A531', 'yun'), S('小傑 工時（時薪）', 'jie', 'n', '#DD5597', 'jie')],
+    series: [
+      ...(FT ? [S(`${FT.name} 正常工時`, 'yun', 'n', '#2E97D4', 'yun'), S(`${FT.name} 加班`, 'yun', 'o', '#F0A531', 'yun')] : []),
+      ...(PT ? [S(`${PT.name} 工時（時薪）`, 'jie', 'n', '#DD5597', 'jie')] : []),
+      ...(SOLO ? [S(`${OWNER.name} 工時（負責人・參考）`, OWNER.id, 'n', '#5EE0C4', 'mei')] : []),
+    ],
   }, true);
   const ms = LAW.map(p => [p, monthStats(m0, p.id)]);
   $('#sfHSum', root).innerHTML = ms.map(([p, s]) => `<div class="sf-hs" style="--c:${p.color}">${av(p, 'sm')}<div><b>${p.name}</b><small>出勤 ${s.days} 天・遲到 ${s.late} 次</small></div><span><small>正常</small><b>${h1(s.normal)}h</b></span><span><small>加班</small><b>${h1(s.ot)}h</b></span><span><small>加班費</small><b>${n0(s.otPay)}</b></span></div>`).join('')
-    + `<div class="sf-hs-note">${icon('sparkle', 13)} 工時直接取自打卡紀錄，阿美為負責人不計薪資工時${chartMonth === 'cur' ? `；${now.getMonth() + 1} 月為至今累計` : ''}。</div>`;
+    + `<div class="sf-hs-note">${icon('sparkle', 13)} 工時直接取自打卡紀錄，${OWNER.name}為負責人不計薪資工時${SOLO ? '；目前只有負責人，圖表僅供參考' : ''}${chartMonth === 'cur' ? `；${now.getMonth() + 1} 月為至今累計` : ''}。</div>`;
 }
 
 /* ---------- 薪資單 ---------- */
@@ -738,10 +773,15 @@ function slipData(pid) {
   return { p, s, pr, earn, gross, ded, dsum, net: gross - dsum, employer: [['勞保＋職災（雇主）', pr.labor], ['健保（雇主）', pr.health], ['勞退提繳 6%（雇主）', pr.pension]] };
 }
 function renderSlipIdle() {
+  if (SOLO) {
+    $('#sfSlipHost', root).innerHTML = `<div class="sf-slip-idle"><div class="sf-empty">${icon('receipt', 18)}<div><b>目前只有負責人，本月沒有員工薪資單</b><small>${OWNER.name}的董事酬勞 ${money(OWNER.pay)} 已依會計帳務入帳；日後聘人，打卡工時會自動算成薪資單。</small></div></div><div class="sf-slip-cta"><button class="btn btn-ghost" id="sfToBooks0">${icon('external', 14)} 前往會計帳務</button></div></div>`;
+    $('#sfToBooks0', root).addEventListener('click', () => go && go('books'));
+    return;
+  }
   const steps = ['彙整打卡工時與請假', '計算加班費（§24）', '套用勞健保投保級距', '產生個人薪資單', '寫入會計帳務「人」與扣繳資料'];
   $('#sfSlipHost', root).innerHTML = `<div class="sf-slip-idle">
     <div class="sf-slip-steps">${steps.map((t, i) => `<div class="sf-step" data-i="${i}"><i>${i + 1}</i><span>${t}</span></div>`).join('')}</div>
-    <div class="sf-slip-cta"><p>${prevMonthLabel()}工時已結算：小芸 ${h1(monthStats(prevMonth(), 'yun').hours)} 小時、小傑 ${h1(monthStats(prevMonth(), 'jie').hours)} 小時。一鍵產生薪資單，自動寄給員工並入帳。</p>
+    <div class="sf-slip-cta"><p>${prevMonthLabel()}工時已結算：${EMPS.map(p => `${p.name} ${h1(monthStats(prevMonth(), p.id).hours)} 小時`).join('、')}。一鍵產生薪資單，自動寄給員工並入帳。</p>
     <button class="btn btn-primary btn-lg" id="sfGen">${icon('receipt', 18)} 產生薪資單</button></div>
   </div>`;
   $('#sfGen', root).addEventListener('click', genSlip);
@@ -755,21 +795,21 @@ async function genSlip() {
   await sleep(200);
   payDone = true;
   renderSlip(true);
-  const all = ['yun', 'jie'].map(slipData);
+  const all = EMPS.map(p => p.id).map(slipData);
   toast('薪資單已產生', `${prevMonthLabel()}・實發合計 ${money(all.reduce((a, d) => a + d.net, 0))}，已寫入會計帳務（人）`, { icon: icon('receipt', 18) });
   store.log('staff', `${prevMonthLabel()}薪資單已產生並寫入會計帳務「人」：實發合計 ${money(all.reduce((a, d) => a + d.net, 0))}`);
 }
 function renderSlip(anim) {
   const d = slipData(payTab);
-  const all = ['yun', 'jie'].map(slipData);
+  const all = EMPS.map(p => p.id).map(slipData);
   const G = all.reduce((a, x) => a + x.gross, 0), EMP = all.reduce((a, x) => a + x.dsum, 0), NET = all.reduce((a, x) => a + x.net, 0);
   const INS = all.reduce((a, x) => a + x.pr.labor + x.pr.health, 0), PEN = all.reduce((a, x) => a + x.pr.pension, 0);
   const nM = prevMonth().getMonth() + 1;
   const ytd = all.map(x => [x.p, x.gross * nM]);
   const host = $('#sfSlipHost', root);
-  host.innerHTML = `<div class="sf-slip-tabs">${['yun', 'jie'].map(id => `<button class="seg ${id === payTab ? 'on' : ''}" data-p="${id}">${PERSON[id].name}</button>`).join('')}<button class="btn btn-ghost btn-sm" id="sfSend">${icon('send', 13)} LINE 寄送薪資單</button></div>
+  host.innerHTML = `<div class="sf-slip-tabs">${EMPS.map(p => p.id).map(id => `<button class="seg ${id === payTab ? 'on' : ''}" data-p="${id}">${PERSON[id].name}</button>`).join('')}<button class="btn btn-ghost btn-sm" id="sfSend">${icon('send', 13)} LINE 寄送薪資單</button></div>
   <div class="sf-paper" id="sfPaper">
-    <div class="sf-pp-h"><div><b>薪資明細表</b><small>阿美手作甜點（示範）・${prevMonthLabel()}</small></div><span class="stamp">已核發</span></div>
+    <div class="sf-pp-h"><div><b>薪資明細表</b><small>${esc(TENANT.name)}（示範）・${prevMonthLabel()}</small></div><span class="stamp">已核發</span></div>
     <div class="sf-pp-meta"><span>姓名：${d.p.name}</span><span>職稱：${esc(d.p.title)}</span><span>投保薪資：${n0(d.p.level)}</span><span>發薪日：${fmtDate(payday())}</span><span>出勤：${d.s.days} 天／${h1(d.s.hours)} 小時</span></div>
     <div class="sf-pp-cols">
       <table class="sf-pp-t"><tr class="sec"><th colspan="2">應發項目</th></tr>${d.earn.map(([t, v]) => `<tr><td>${t}</td><td class="r">${n0(v)}</td></tr>`).join('')}<tr class="sub"><td>應發合計</td><td class="r">${n0(d.gross)}</td></tr></table>
@@ -792,7 +832,7 @@ function renderSlip(anim) {
     <div class="sf-post-f"><span class="chip-sm">${icon('file', 12)} 扣繳憑單資料 1–${nM} 月累計：${ytd.map(([p, v]) => `${p.name} 約 ${n0(v)}`).join('・')}</span><button class="btn btn-ghost btn-sm" id="sfToBooks">${icon('external', 13)} 前往會計帳務</button></div>
   </div>`;
   $$('.sf-slip-tabs .seg', host).forEach(b => b.addEventListener('click', () => { payTab = b.dataset.p; renderSlip(false); gsap.fromTo('#sfPaper', { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.4 }); }));
-  $('#sfSend', host).addEventListener('click', () => toast('薪資單已寄送', `透過 LINE 官方帳號寄給小芸、小傑（含密碼保護 PDF）`, { kind: 'info', icon: icon('send', 18) }));
+  $('#sfSend', host).addEventListener('click', () => toast('薪資單已寄送', `透過 LINE 官方帳號寄給${EMPS.map(p => p.name).join('、')}（含密碼保護 PDF）`, { kind: 'info', icon: icon('send', 18) }));
   $('#sfToBooks', host).addEventListener('click', () => go && go('books'));
   if (anim) {
     gsap.fromTo('#sfPaper', { clipPath: 'inset(0 0 100% 0)', y: -10 }, { clipPath: 'inset(0 0 0% 0)', y: 0, duration: 1.1, ease: 'power2.out' });

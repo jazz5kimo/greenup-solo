@@ -3,10 +3,11 @@ import { store } from '../state.js';
 import { $, $$, el, gsap, esc, countUp, typeText, toast, sleep } from '../util.js';
 import { icon } from '../icons.js';
 import { makeChart, fmtK } from '../charts.js';
-import { RATES } from '../ledger.js';
+import { RATES, STAFF } from '../ledger.js';
+const PT0 = STAFF.find(x => x.kind === 'part' && x.hours);
 import {
   baseline, weekly, priceSim, hireSim, equipSim, channelSim, govList, draftFor, answer, QUICK,
-  ELASTIC, EQUIP, CHAN, confLevel, n0, nt, snt, wan,
+  ELASTIC, EQUIP, CHAN, confLevel, n0, nt, snt, wan, AMEI,
 } from '../advisor-data.js';
 
 let root, go, B, W, weekChart, simChart, shown = false, typing = 0, simTabPrev = null;
@@ -14,7 +15,7 @@ const S = {
   tab: 'price',
   price: { pid: 'all', r: 8, e: 10 },
   hire: { kind: 'part', hourly: 210, hours: 80, salary: 32000, demand: 45 },
-  equip: { preset: 'oven', price: 180000, years: 5, units: 320, sell: 55, util: 1800, pay: 'cash' },
+  equip: { preset: 'oven', price: EQUIP.oven.price, years: EQUIP.oven.years, units: EQUIP.oven.units, sell: 55, util: EQUIP.oven.util, pay: 'cash' },
   chan: { ch: 'delivery', ...pick(CHAN.delivery) },
 };
 function pick(c) { return { orders: c.orders, aov: c.aov, comm: c.comm, per: c.per, cannibal: c.cannibal, mkt: c.mkt }; }
@@ -22,8 +23,8 @@ function pick(c) { return { orders: c.orders, aov: c.aov, comm: c.comm, per: c.p
 const TABS = [
   { id: 'price', ic: 'percent', t: '漲價', s: '漲多少不會掉客？', c: '#F0A531' },
   { id: 'hire', ic: 'users', t: '雇人', s: '請兼職還是全職？', c: '#2E97D4' },
-  { id: 'equip', ic: 'factory', t: '買設備', s: '第二台烤箱多久回本？', c: '#7C62E6' },
-  { id: 'chan', ic: 'store', t: '開新通路', s: '外送、蝦皮、跨境划算嗎？', c: '#2DB674' },
+  { id: 'equip', ic: 'factory', t: '買設備', s: AMEI ? '第二台烤箱多久回本？' : `${EQUIP.oven.name}多久回本？`, c: '#7C62E6' },
+  { id: 'chan', ic: 'store', t: '開新通路', s: `${CHAN.delivery.name.replace('平台', '')}、蝦皮、跨境划算嗎？`, c: '#2DB674' },
 ];
 const BOLD_RE = /(NT\$ [\d,]+|[+−-]NT\$ [\d,]+|[+−-]?\d+(?:\.\d+)?%|(?<![近前] )\d+(?:\.\d+)? (?:筆|天|份|盒|個月|小時|倍))/g;
 const boldify = (s) => esc(s).replace(BOLD_RE, '<b>$1</b>');
@@ -80,7 +81,7 @@ export default {
           <div class="ad-quick" id="adQuick">${QUICK.map(q => `<button class="ad-q">${esc(q)}</button>`).join('')}</div>
           <div class="ad-msgs" id="adMsgs"></div>
           <form class="ad-input" id="adForm" autocomplete="off">
-            <input id="adIn" placeholder="例如：要不要開外送平台？現金夠不夠買烤箱？" aria-label="問顧問">
+            <input id="adIn" placeholder="例如：要不要開${esc(CHAN.delivery.name)}？現金夠不夠${AMEI ? '買烤箱' : '買設備'}？" aria-label="問顧問">
             <button class="btn btn-primary" type="submit">${icon('send', 16)}<span>送出</span></button>
           </form>
         </section>
@@ -115,7 +116,7 @@ export default {
     if (!shown) {
       shown = true;
       renderWeek(true); renderSim(); renderGov();
-      addMsg('ai', `嗨阿美，我是你的 AI 經營顧問。我讀得到近 90 天的訂單、會計帳務與庫存；點上面的常見問題，或直接打字問我。`, { instant: true });
+      addMsg('ai', `嗨${STAFF[0] ? STAFF[0].name : ''}，我是你的 AI 經營顧問。我讀得到近 90 天的訂單、會計帳務與庫存；點上面的常見問題，或直接打字問我。`, { instant: true });
     } else { renderWeekChart(); renderSim(); }
   },
 };
@@ -245,7 +246,7 @@ function renderCtl() {
     const H = S.hire;
     h = `<div class="ad-ctl-h">雇用型態</div>${segs('kind', [['part', '兼職（時薪）'], ['full', '全職（月薪）']], H.kind)}
       ${H.kind === 'part'
-        ? slider('hourly', '時薪', RATES.minHourly, 300, 2, Math.max(H.hourly, RATES.minHourly), FMT.hourly, `不得低於基本時薪 NT$ ${RATES.minHourly}`) + slider('hours', '每月工時', 40, 140, 4, H.hours, FMT.hours, `參考：小傑兼職每月 88 小時`)
+        ? slider('hourly', '時薪', RATES.minHourly, 300, 2, Math.max(H.hourly, RATES.minHourly), FMT.hourly, `不得低於基本時薪 NT$ ${RATES.minHourly}`) + slider('hours', '每月工時', 40, 140, 4, H.hours, FMT.hours, (PT0 ? `參考：${PT0.name}兼職每月 ${PT0.hours} 小時` : '目前沒有兼職人員，可先從每月 60–80 小時試起'))
         : slider('salary', '月薪', RATES.minWage, 48000, 500, Math.max(H.salary, RATES.minWage), FMT.salary, `不得低於基本工資 NT$ ${n0(RATES.minWage)}；以每月 174 工時計`)}
       ${slider('demand', '多出的產能能賣掉幾成', 20, 90, 5, H.demand, FMT.demand, `週末每日訂單是平日的 ${(B.weekendDay / Math.max(1, B.weekdayDay)).toFixed(1)} 倍`)}`;
   } else if (t === 'equip') {

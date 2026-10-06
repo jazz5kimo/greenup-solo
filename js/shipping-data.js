@@ -2,6 +2,8 @@
 // 所有資料皆為示範用途；物流商名稱僅作情境示意，非真實串接。
 import { mulberry32, PRODUCT_MAP, startOfDay, addDays } from './data.js';
 import { pName } from './i18n.js';
+import { TENANT } from './tenant.js';
+import { IS_AMEI, CAT, KIT } from './inventory-data.js';
 
 export const STAGES = [
   { id: 'pick', name: '待揀貨', color: '#F0A531' },
@@ -21,7 +23,22 @@ export const CARRIERS = {
 export const CARRIER_ORDER = ['tcat', 'seven', 'fami', 'ems'];
 
 // 出貨地（示範商家，虛構地址）
-export const ORIGIN = { city: '台北市', lat: 25.033, lon: 121.543, addr: '台北市大安區復興南路一段＊＊號 1 樓' };
+const A_ORIGIN = { city: '台北市', lat: 25.033, lon: 121.543, addr: '台北市大安區復興南路一段＊＊號 1 樓' };
+// 其他業主：出貨地依 TENANT.region（例：台中市西區）
+const REG = String(TENANT.region || '台北市大安區');
+const REG_CITY = (REG.match(/^(.{2,3}?[市縣])/) || [])[1] || '台北市';
+const REG_DIST = REG.slice(REG_CITY.length) || '中心';
+const CITY_GEO = { 台北市: [25.04, 121.56, '02', 'Taipei'], 新北市: [25.01, 121.46, '02', 'New Taipei'], 桃園市: [24.99, 121.31, '03', 'Taoyuan'], 新竹市: [24.81, 120.97, '03', 'Hsinchu'], 台中市: [24.15, 120.67, '04', 'Taichung'], 台南市: [22.99, 120.21, '06', 'Tainan'], 高雄市: [22.63, 120.30, '07', 'Kaohsiung'] };
+const GEO = CITY_GEO[REG_CITY] || [23.7, 120.9, '0X', 'Taiwan'];
+export const ORIGIN = IS_AMEI ? A_ORIGIN : { city: REG_CITY, lat: GEO[0], lon: GEO[1], addr: `${REG}＊＊路＊＊號 1 樓` };
+const DS = REG_DIST.replace(/[區鄉鎮市]$/, '') || REG_DIST;
+// 寄件資訊（託運單、通知訊息的署名）
+export const SENDER = IS_AMEI
+  ? { name: '阿美手作甜點', en: 'A-Mei Handmade Desserts', phone: '02-27＊＊-＊＊88', store: '大安店', seven: '大安門市', fami: '大安和平店', from: "Da'an Dist., Taipei, TAIWAN", item: ['甜點（易碎・冷藏）', '甜點禮盒（易碎）'], hs: '1905.90' }
+  : { name: TENANT.name, en: TENANT.en || TENANT.name, phone: `${GEO[2]}-2＊＊＊-＊＊${String((TENANT.name || '').length * 7).slice(-2).padStart(2, '0')}`, store: `${DS}店`, seven: `${DS}門市`, fami: `${DS}站前店`, from: `${GEO[3]}, TAIWAN`,
+    item: { food: ['餐點（冷藏・勿倒置）', '食品'], drink: ['飲品（冷藏・易碎）', '咖啡茶飲（易碎）'], dessert: ['糕點（易碎・冷藏）', '糕點禮盒（易碎）'], retail: ['生活選物', '生活選物（易碎）'], craft: ['手作工藝品', '手作工藝品'], flower: ['鮮花（易損・勿壓）', '花禮（易損・勿壓）'], service: ['保養品・禮券', '禮券・保養品'], farm: ['生鮮農產（冷藏）', '農產品'] }[CAT],
+    hs: { food: '2106.90', drink: '0901.21', dessert: '1905.90', retail: '依品項判定', craft: '4202.31', flower: '0603.19', service: '4911.10', farm: '0709.99' }[CAT] };
+
 
 export const CITIES = {
   taipei: { name: '台北市', country: 'TW', lat: 25.04, lon: 121.56, dist: ['大安區', '信義區', '中山區', '內湖區', '士林區', '松山區'] },
@@ -61,7 +78,9 @@ function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^=
 function pick(rng, list) { const tot = list.reduce((s, x) => s + x[1], 0); let r = rng() * tot; for (const x of list) { r -= x[1]; if (r <= 0) return x[0]; } return list[list.length - 1][0]; }
 const H = 3600e3;
 
-export function isFridge(order) { return order.items.some(it => PRODUCT_MAP[it.pid]?.storage === 'fridge'); }
+// 冷藏判斷：阿美依商品主檔；其他業主依業態與保存天數（鮮食、鮮花、短效飲品走冷藏）
+const coldOf = (p) => !!p && (IS_AMEI ? p.storage === 'fridge' : ['food', 'farm', 'dessert', 'flower', 'drink'].includes(CAT) && (KIT.shelfOf(p) ?? 999) <= 7);
+export function isFridge(order) { return order.items.some(it => coldOf(PRODUCT_MAP[it.pid])); }
 
 export function trackingNo(carrier, rng) {
   const d = (n) => Array.from({ length: n }, () => Math.floor(rng() * 10)).join('');
@@ -120,7 +139,7 @@ export function buildShipment(order, now = Date.now()) {
     fridge, temp: fridge ? '冷藏' : '常溫', carrier, cityId, city, district, intl, store, fee, phone,
     times, stage, tracking: stage >= 2 ? trackingNo(carrier, rng) : null,
     pending: order.status === 'pending', live: order.source === 'live',
-    weight: +(order.items.reduce((s, it) => s + it.qty * (PRODUCT_MAP[it.pid].storage === 'fridge' ? 0.7 : 0.5), 0) + 0.4).toFixed(1),
+    weight: +(order.items.reduce((s, it) => s + it.qty * (coldOf(PRODUCT_MAP[it.pid]) ? 0.7 : 0.5), 0) + 0.4).toFixed(1),
   };
   sh.rng = rng;
   return sh;
@@ -164,13 +183,20 @@ const md = (t) => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDa
 const hm = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
 export function destLabel(sh) {
-  if (sh.carrier === 'pickup') return '門市自取・大安店';
+  if (sh.carrier === 'pickup') return `門市自取・${SENDER.store}`;
   if (sh.intl) return sh.city.label;
   return `${sh.city.name}${sh.district}`;
 }
 
 // AI 多語出貨通知
+const FLOWER_CARE = [['到着後はすぐに冷蔵庫で保管してください。', '到着後は茎を少し切り、きれいな水に生けてください。'], [' Sila simpan dalam peti sejuk sebaik tiba.', ' Sila potong sedikit batang dan letakkan dalam air bersih.'], [' Please refrigerate as soon as it arrives.', ' Please trim the stems and put them in fresh water when they arrive.'], [' Vui lòng bảo quản lạnh ngay khi nhận.', ' Vui lòng cắt bớt cuống và cắm vào nước sạch khi nhận.'], ['收到後請立即冷藏，風味最佳喔！', '收到後請斜剪花莖、放入乾淨的水，每天換水更持久喔！']];
 export function shipMessage(sh) {
+  const m = baseShipMessage(sh);
+  if (!IS_AMEI && CAT === 'flower') for (const [a, b] of FLOWER_CARE) m.text = m.text.replace(a, b);
+  if (!IS_AMEI && CAT === 'flower') m.text = m.text.replace('（冷藏）', '（低溫）');
+  return m;
+}
+function baseShipMessage(sh) {
   const lang = sh.lang;
   const items = sh.order.items.map(it => `${pName(lang, it.pid)}×${it.qty}`).join(lang === 'zh' ? '、' : lang === 'ja' ? '、' : ', ');
   const c = CARRIERS[sh.carrier];
@@ -179,22 +205,22 @@ export function shipMessage(sh) {
   const eta = md(sh.times.done);
   const storeTxt = sh.store ? `${c.short}「${sh.store}」` : '';
   if (lang === 'ja') {
-    return { lang: '日本語', text: `${sh.customer} 様\nご注文の${items}を${date}に発送いたしました（${c.ja}・追跡番号 ${trk}）。お届け予定は${eta}です。${sh.fridge ? '到着後はすぐに冷蔵庫で保管してください。' : 'ご利用ありがとうございます。'}\n— 阿美手作甜點`,
+    return { lang: '日本語', text: `${sh.customer} 様\nご注文の${items}を${date}に発送いたしました（${c.ja}・追跡番号 ${trk}）。お届け予定は${eta}です。${sh.fridge ? '到着後はすぐに冷蔵庫で保管してください。' : 'ご利用ありがとうございます。'}\n— ${SENDER.name}`,
       zh: `${sh.customer} 您好，您訂購的商品已於 ${date} 寄出（${c.short}，貨號 ${trk}），預計 ${eta} 送達。` };
   }
   if (lang === 'en' || lang === 'ms') {
-    if (lang === 'ms') return { lang: 'Bahasa Melayu', text: `Hai ${sh.customer}! Pesanan anda (${items}) telah dihantar pada ${date} melalui ${c.en}. No. penjejakan: ${trk}. Anggaran tiba: ${eta}.${sh.fridge ? ' Sila simpan dalam peti sejuk sebaik tiba.' : ''}\n— A-Mei Handmade Desserts`, zh: `已通知客人商品於 ${date} 寄出，貨號 ${trk}，預計 ${eta} 送達。` };
-    return { lang: 'English', text: `Hi ${sh.customer}! Your order (${items}) shipped on ${date} via ${c.en}${sh.store ? ` to ${sh.store}` : ''}. Tracking no. ${trk}, estimated arrival ${eta}.${sh.fridge ? ' Please refrigerate as soon as it arrives.' : ' Thank you for your order!'}\n— A-Mei Handmade Desserts`,
+    if (lang === 'ms') return { lang: 'Bahasa Melayu', text: `Hai ${sh.customer}! Pesanan anda (${items}) telah dihantar pada ${date} melalui ${c.en}. No. penjejakan: ${trk}. Anggaran tiba: ${eta}.${sh.fridge ? ' Sila simpan dalam peti sejuk sebaik tiba.' : ''}\n— ${SENDER.en}`, zh: `已通知客人商品於 ${date} 寄出，貨號 ${trk}，預計 ${eta} 送達。` };
+    return { lang: 'English', text: `Hi ${sh.customer}! Your order (${items}) shipped on ${date} via ${c.en}${sh.store ? ` to ${sh.store}` : ''}. Tracking no. ${trk}, estimated arrival ${eta}.${sh.fridge ? ' Please refrigerate as soon as it arrives.' : ' Thank you for your order!'}\n— ${SENDER.en}`,
       zh: `${sh.customer} 您好，您的訂單已於 ${date} 寄出（${c.short}，貨號 ${trk}），預計 ${eta} 送達。` };
   }
   if (lang === 'vi') {
-    return { lang: 'Tiếng Việt', text: `Chào ${sh.customer}! Đơn hàng (${items}) đã được gửi lúc ${date} qua ${c.en}. Mã vận đơn: ${trk}. Dự kiến nhận hàng: ${eta}.${sh.fridge ? ' Vui lòng bảo quản lạnh ngay khi nhận.' : ' Cảm ơn bạn đã ủng hộ!'}\n— A-Mei Handmade Desserts`,
+    return { lang: 'Tiếng Việt', text: `Chào ${sh.customer}! Đơn hàng (${items}) đã được gửi lúc ${date} qua ${c.en}. Mã vận đơn: ${trk}. Dự kiến nhận hàng: ${eta}.${sh.fridge ? ' Vui lòng bảo quản lạnh ngay khi nhận.' : ' Cảm ơn bạn đã ủng hộ!'}\n— ${SENDER.en}`,
       zh: `${sh.customer} 您好，您的訂單已於 ${date} 寄出（貨號 ${trk}），預計 ${eta} 送達。` };
   }
   const body = sh.carrier === 'pickup'
-    ? `${sh.customer}您好～您訂購的${items}已包裝完成，可於營業時間到大安店取貨，取貨時請出示訂單末四碼 ${sh.id.slice(-4)}。`
+    ? `${sh.customer}您好～您訂購的${items}已包裝完成，可於營業時間到${SENDER.store}取貨，取貨時請出示訂單末四碼 ${sh.id.slice(-4)}。`
     : `${sh.customer}您好～您訂購的${items}已於 ${date} 交寄${storeTxt || c.short}${sh.fridge ? '（冷藏）' : ''}，貨號 ${trk}，預計 ${eta} ${sh.store ? '到店，取貨請出示手機末三碼' : '送達'}。${sh.fridge ? '收到後請立即冷藏，風味最佳喔！' : '謝謝您的支持！'}`;
-  return { lang: '中文', text: `${body}\n— 阿美手作甜點`, zh: null };
+  return { lang: '中文', text: `${body}\n— ${SENDER.name}`, zh: null };
 }
 
 // 物流商比較（近 30 天）：由訂單推算件數與運費

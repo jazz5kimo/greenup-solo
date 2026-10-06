@@ -4,11 +4,17 @@ import { $, $$, el, gsap, esc, money, fmtDate, fmtMD, fmtTime, countUp, typeText
 import { icon } from '../icons.js';
 import { makeChart, fmtK } from '../charts.js';
 import { productArt } from '../art.js';
-import { PRODUCT_MAP, startOfDay, addDays } from '../data.js';
+import { PRODUCT_MAP, PRODUCTS, startOfDay, addDays } from '../data.js';
+import { TENANT } from '../tenant.js';
+import { IS_AMEI, CAT } from '../brief-data.js';
 import {
   buildMembers, memberTimeline, SEGMENTS, SEG_MAP, TIERS, MCH, LANGS, LANG_NAME, PURPOSES, PURPOSE_MAP, CAMP_CHANNELS,
-  composeMessage, seedCoupons, seedReviews, seedSchedules, SENTI, STAR_DIST, KEYWORDS, DAYMS,
+  composeMessage, seedCoupons, seedReviews, seedSchedules, SENTI, STAR_DIST, KEYWORDS, DAYMS, GIFT_P, NEW_P,
 } from '../crm-data.js';
+
+const SHOP = IS_AMEI ? '阿美手作甜點' : TENANT.name;
+const OWNER = IS_AMEI ? '阿美' : TENANT.owner;
+const pn = (pid) => PRODUCT_MAP[pid]?.name || pid;
 
 let root, members = [], selId = null, listLimit = 60;
 const filter = { q: '', tier: 'all', ch: 'all', lang: 'all', seg: 'all' };
@@ -71,6 +77,20 @@ const JOURNEYS = [
     ],
     edges: [['a', 'b'], ['b', 'c'], ['c', 'd'], ['d', 'e', '是'], ['d', 'f', '否'], ['f', 'g']] },
 ];
+// 其他業主：旅程中與甜點相關的用語改成通用說法
+if (!IS_AMEI) {
+  const SV = CAT === 'service';
+  const fixes = [
+    ['讓客人先吃到', SV ? '讓客人先體驗' : '讓客人先用到'],
+    ['等商品送達、客人吃過再聯繫，避免打擾；冷藏商品會依到貨日自動調整。', SV ? '等客人服務完幾天再聯繫，避免打擾；依服務日期自動調整。' : '等商品送達、客人用過再聯繫，避免打擾；會依到貨日自動調整。'],
+    ['附保存方式小卡', SV ? '附居家保養小卡' : '附使用與保存小卡'],
+    ['依會員偏好語言與通路發送感謝訊息，附上保存方式與食用建議，邀請留下評論。', `依會員偏好語言與通路發送感謝訊息，附上${SV ? '居家保養建議' : '使用與保存建議'}，邀請留下評論。`],
+    ['推薦口味與取貨日', SV ? '推薦項目與時段' : '推薦品項與日期'],
+    ['客人在聊天中詢問價格、口味或取貨日，但對話結束時沒有下單。', `客人在聊天中詢問價格、品項或${SV ? '預約時段' : '日期'}，但對話結束時沒有下單。`],
+    ['AI 依對話內容追問用途（自用／送禮）、人數與取貨日，推薦適合的組合。', `AI 依對話內容追問用途（自用／送禮）、人數與${SV ? '方便的時段' : '日期'}，推薦適合的組合。`],
+  ];
+  for (const j of JOURNEYS) for (const n of j.nodes) for (const [a, b] of fixes) { if (n.sub === a) n.sub = b; if (n.desc === a) n.desc = b; }
+}
 const NW = 132, NH = 80;
 
 // ---------- 掛載 ----------
@@ -151,7 +171,7 @@ export default {
           <div class="crm-phone-wrap anim-in">
             <div class="crm-phone" id="cfPhone" data-ch="line">
               <div class="ph-notch"></div>
-              <div class="ph-head"><span class="ph-back">‹</span><span class="ph-av">${icon('leaf', 16)}</span><div><b id="phShop">阿美手作甜點</b><small id="phSub">官方帳號</small></div></div>
+              <div class="ph-head"><span class="ph-back">‹</span><span class="ph-av">${icon('leaf', 16)}</span><div><b id="phShop">${esc(SHOP)}</b><small id="phSub">官方帳號</small></div></div>
               <div class="ph-body" id="phBody"><div class="ph-empty">${icon('sparkle', 26)}<p>選好分眾、目的、通路與語言<br>按「AI 生成文案」預覽訊息</p></div></div>
               <div class="ph-input"><span></span>${icon('send', 16)}</div>
             </div>
@@ -425,8 +445,15 @@ function renderDetail(animate) {
   const nextDays = Math.round((m.nextTs - now) / DAYMS);
   const riskC = m.risk >= 60 ? 'var(--coral)' : m.risk >= 30 ? 'var(--amber)' : 'var(--leaf)';
   const avoid = m.allergy.avoid || [];
-  const recPid = ({ champ: 'canele', loyal: 'cookie', potential: 'roll', attention: m.favs[0]?.pid || 'lemon', risk: m.favs[0]?.pid || 'lemon' })[m.seg];
-  const rec = avoid.includes(recPid) ? (['basque', 'roll', 'lemon'].find(p => !avoid.includes(p)) || 'basque') : recPid;
+  let rec;
+  if (IS_AMEI) {
+    const recPid = ({ champ: 'canele', loyal: 'cookie', potential: 'roll', attention: m.favs[0]?.pid || 'lemon', risk: m.favs[0]?.pid || 'lemon' })[m.seg];
+    rec = avoid.includes(recPid) ? (['basque', 'roll', 'lemon'].find(p => !avoid.includes(p)) || 'basque') : recPid;
+  } else {
+    const first = PRODUCTS[0].id;
+    const recPid = ({ champ: NEW_P.id, loyal: GIFT_P.id, potential: (PRODUCTS[1] || PRODUCTS[0]).id, attention: m.favs[0]?.pid || first, risk: m.favs[0]?.pid || first })[m.seg] || first;
+    rec = avoid.includes(recPid) ? (PRODUCTS.find(p => !avoid.includes(p.id)) || PRODUCTS[0]).id : recPid;
+  }
   const bd = `${m.bday.m}/${m.bday.d}`;
   const nowD = new Date();
   const bdaySoon = m.bday.m === nowD.getMonth() + 1 && m.bday.d >= nowD.getDate();
@@ -435,7 +462,7 @@ function renderDetail(animate) {
     <div class="crm-mc-top">
       <div class="crm-vcard t-${m.tier}" style="--g:${TIERS[m.tier].grad}">
         <div class="vc-shine"></div>
-        <div class="vc-row"><span class="vc-brand">${icon('leaf', 14)} 阿美手作甜點 MEMBER</span><span class="vc-tier">${TIERS[m.tier].name}</span></div>
+        <div class="vc-row"><span class="vc-brand">${icon('leaf', 14)} ${esc(SHOP)} MEMBER</span><span class="vc-tier">${TIERS[m.tier].name}</span></div>
         <div class="vc-mid"><span class="vc-av">${esc(avatarChar(m.name))}</span><div><b>${esc(m.name)}</b><small class="mono">${m.id}</small></div></div>
         <div class="vc-row vc-bot"><div><small>可用點數</small><b class="mono" id="vcPts">0</b></div><div class="vc-chip"></div></div>
       </div>
@@ -468,15 +495,15 @@ function renderDetail(animate) {
       </div>
       <div class="crm-side">
         <div class="crm-favs"><div class="crm-sub-h"><b>${icon('heart', 15)} 最愛商品</b></div>
-          <div class="crm-fav-row">${m.favs.map((f, i) => `<div class="crm-fav"><span class="fav-art">${productArt(f.pid, 52)}</span><b>${PRODUCT_MAP[f.pid].name}</b><small>${i === 0 ? 'TOP 1・' : ''}買過 ${f.qty} 次</small></div>`).join('')}</div></div>
-        <div class="crm-allergy ${m.allergy.text ? 'has' : ''}">${icon(m.allergy.text ? 'alert' : 'shield', 16)}<div><b>過敏與備註</b><p>${m.allergy.text ? esc(m.allergy.text) + (avoid.length ? `｜AI 推薦已自動排除：${avoid.slice(0, 3).map(p => PRODUCT_MAP[p].name).join('、')}${avoid.length > 3 ? ' 等' : ''}` : '｜已同步到接單與出貨備註') : '無過敏紀錄・AI 會在對話中持續留意'}</p></div></div>
+          <div class="crm-fav-row">${m.favs.map((f, i) => `<div class="crm-fav"><span class="fav-art">${productArt(f.pid, 52)}</span><b>${esc(pn(f.pid))}</b><small>${i === 0 ? 'TOP 1・' : ''}買過 ${f.qty} 次</small></div>`).join('')}</div></div>
+        <div class="crm-allergy ${m.allergy.text ? 'has' : ''}">${icon(m.allergy.text ? 'alert' : 'shield', 16)}<div><b>過敏與備註</b><p>${m.allergy.text ? esc(m.allergy.text) + (avoid.length ? `｜AI 推薦已自動排除：${avoid.slice(0, 3).map(pn).join('、')}${avoid.length > 3 ? ' 等' : ''}` : '｜已同步到接單與出貨備註') : '無過敏紀錄・AI 會在對話中持續留意'}</p></div></div>
         <div class="crm-pred">
           <div class="crm-sub-h"><b>${icon('bot', 15)} AI 預測</b><small>依個人回購週期 ${avgIv < 3 ? avgIv.toFixed(1) : Math.round(avgIv)} 天</small></div>
           <div class="crm-pred-row">
             <div><small>下次可能回購</small><b>${fmtMD(m.nextTs)}</b><em>${nextDays > 0 ? `${nextDays} 天後` : nextDays === 0 ? '今天' : `已逾期 ${-nextDays} 天`}</em></div>
             <div class="crm-risk" style="--rc:${riskC}"><small>流失風險</small><b id="riskV">0%</b><i><em id="riskBar"></em></i></div>
           </div>
-          <div class="crm-rec">${productArt(rec, 40)}<p><b>下一步建議</b>${m.seg === 'risk' || m.seg === 'attention' ? '送「' + PRODUCT_MAP[rec].name + '」85 折喚回券' : m.seg === 'potential' ? '首購後關懷＋第二次購買 9 折' : '新品「' + PRODUCT_MAP[rec].name + '」搶先試吃邀請'}${bdaySoon ? '，並搭配生日禮金' : ''}</p></div>
+          <div class="crm-rec">${productArt(rec, 40)}<p><b>下一步建議</b>${m.seg === 'risk' || m.seg === 'attention' ? '送「' + pn(rec) + '」85 折喚回券' : m.seg === 'potential' ? '首購後關懷＋第二次購買 9 折' : '新品「' + pn(rec) + (IS_AMEI ? '」搶先試吃邀請' : '」搶先體驗邀請')}${bdaySoon ? '，並搭配生日禮金' : ''}</p></div>
         </div>
       </div>
     </div>`;
@@ -766,8 +793,10 @@ function renderJourneyInfo(animate) {
 
 // ---------- 優惠券 ----------
 const SUGGEST = [
-  { code: 'RAINY90', name: '雨天限定外送', disc: '9 折', ch: ['line', 'whatsapp'], days: 3, color: '#2E97D4', why: '氣象預報週末降雨，外送訂單通常 +18%' },
-  { code: 'TEAPAIR', name: '下午茶雙人組', disc: '加 NT$99 換購', ch: ['line', 'web', 'ig'], days: 21, color: '#F0A531', why: '磅蛋糕＋可麗露常一起購買（共購率 31%）' },
+  CAT === 'service' && !IS_AMEI ? { code: 'RAINY90', name: '雨天補位優惠', disc: '9 折', ch: ['line', 'whatsapp'], days: 3, color: '#2E97D4', why: '氣象預報週末降雨，臨時取消預約通常 +18%，先推優惠補空檔' }
+    : { code: 'RAINY90', name: '雨天限定外送', disc: '9 折', ch: ['line', 'whatsapp'], days: 3, color: '#2E97D4', why: '氣象預報週末降雨，外送訂單通常 +18%' },
+  IS_AMEI ? { code: 'TEAPAIR', name: '下午茶雙人組', disc: '加 NT$99 換購', ch: ['line', 'web', 'ig'], days: 21, color: '#F0A531', why: '磅蛋糕＋可麗露常一起購買（共購率 31%）' }
+    : { code: 'DUO99', name: '人氣雙品組', disc: '加 NT$99 換購', ch: ['line', 'web', 'ig'], days: 21, color: '#F0A531', why: `${PRODUCTS[0].name}＋${(PRODUCTS[1] || PRODUCTS[0]).name}常一起購買（共購率 31%）` },
   { code: 'REFER100', name: '好友推薦禮', disc: '雙方各折 NT$100', ch: ['line', 'whatsapp', 'zalo'], days: 45, color: '#7C62E6', why: '冠軍顧客推薦意願高，帶新客成本最低' },
 ];
 let sugIdx = 0;
@@ -844,7 +873,7 @@ function renderReviews(animate) {
         <div class="rv-who"><b>${esc(r.author)}</b><small>${srcN}・${ago(r.ts)}</small></div>
         ${r.stars ? `<span class="rv-stars">${'★'.repeat(r.stars)}<i>${'★'.repeat(5 - r.stars)}</i></span>` : ''}
         <span class="rv-senti" style="--c:${sC}">${sN} ${conf}%</span></header>
-      ${r.urgent && !r.replied ? `<div class="rv-alert">${icon('bell', 13)} AI 偵測到負評，已即時通知阿美</div>` : ''}
+      ${r.urgent && !r.replied ? `<div class="rv-alert">${icon('bell', 13)} AI 偵測到負評，已即時通知${esc(OWNER)}</div>` : ''}
       <p class="rv-text">${esc(r.text)}</p>
       <div class="rv-tags">${r.tags.map(t => `<span>#${t}</span>`).join('')}</div>
       ${r.replied ? `<div class="rv-reply sent"><div class="rr-h">${icon('check', 14)} 已回覆・${fmtTime(r.repliedAt)}</div><p>${esc(r.replied)}</p></div>`

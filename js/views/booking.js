@@ -5,8 +5,9 @@ import { icon, chIcon } from '../icons.js';
 import { startOfDay, addDays } from '../data.js';
 import {
   TYPES, OPEN_H, CLOSE_H, SLOT_MIN, DOW_ZH, LANG_NAME, CH_NAME, DEFAULT_RULES, weekStart, sameDay, hm, mdw, whenIn,
-  buildBookings, daysBetween, classTaken, NOSHOW_TREND, NOSHOW_AI_WEEK, moveNotice, classNotice, waitNotice,
+  buildBookings, daysBetween, classTaken, NOSHOW_TREND, NOSHOW_AI_WEEK, moveNotice, classNotice, waitNotice, W, BK_ITEMS, BK_NOTES,
 } from '../booking-data.js';
+import { IS_AMEI, CAT, FOODISH, KIT } from '../inventory-data.js';
 
 let root, DATA, FULL_SNAP = null;
 const R = { ...DEFAULT_RULES, closed: [...DEFAULT_RULES.closed] };
@@ -64,11 +65,11 @@ function canPlace(b, d) {
   const mins = (d.getHours() - OPEN_H) * 60 + d.getMinutes();
   if (mins < 0 || mins >= (CLOSE_H - OPEN_H) * 60) return '不在營業時段';
   const c = classOn(d);
-  if (c && d >= c.start && d < new Date(c.start.getTime() + c.dur * 60000)) return '這段時間在上烘焙課';
+  if (c && d >= c.start && d < new Date(c.start.getTime() + c.dur * 60000)) return `這段時間在上${W.clsShort}`;
   if (slotLoad(d, b) >= R.slotCap) return `這個時段已滿（上限 ${R.slotCap} 單）`;
   if (b.type === 'cake') {
-    if (!sameDay(d, b.start) && cakesOn(d, b) >= R.cakeCap) return `當天蛋糕產能已滿（每天 ${R.cakeCap} 個）`;
-    if (d < b.start && daysBetween(NOW(), d) < R.leadDays) return `客製蛋糕需 ${R.leadDays} 天前預訂，提前會來不及做`;
+    if (!sameDay(d, b.start) && cakesOn(d, b) >= R.cakeCap) return `當天${W.capN}已滿（每天 ${R.cakeCap} ${W.mu}）`;
+    if (d < b.start && daysBetween(NOW(), d) < R.leadDays) return `${W.main}需 ${R.leadDays} 天前預訂，${IS_AMEI ? '提前會來不及做' : '太趕會來不及準備'}`;
   }
   return '';
 }
@@ -101,8 +102,8 @@ const KPI_DEF = [
   { k: 'noshow', label: '爽約率', icon: 'bell', c: 'var(--pink)' },
 ];
 const SCEN = [
-  { key: 'cake', name: '日文客人訂生日蛋糕', short: '訂蛋糕', ch: 'line' },
-  { key: 'class', name: '中文客人報名烘焙課', short: '報名課程', ch: 'line' },
+  { key: 'cake', name: IS_AMEI ? '日文客人訂生日蛋糕' : `日文客人${W.order}`, short: W.order, ch: 'line' },
+  { key: 'class', name: `中文客人報名${W.clsShort}`, short: '報名課程', ch: 'line' },
   { key: 'move', name: '熟客要改期', short: '改期', ch: 'line' },
   { key: 'cancel', name: '英文客人取消退費', short: '取消退費', ch: 'whatsapp' },
 ];
@@ -120,7 +121,7 @@ export default {
         <div class="bk2-head-t">
           <div class="bk2-head-badges"><span class="demo-badge">${icon('alert', 13)} 示範資料・非真實預約</span><span class="chip-sm">${icon('sparkle', 12)} AI 代接預約・自動收訂金・自動提醒</span></div>
           <h2>預約、訂金、提醒，<span class="grad-txt">交給 AI 顧</span></h2>
-          <p>客人在 LINE 說一句「想訂蛋糕」，AI 就會查空檔、推薦時段、確認客製內容、傳訂金連結；付款後自動排進行事曆，前一天再提醒，減少爽約。</p>
+          <p>客人在 LINE 說一句「想${W.order}」，AI 就會查空檔、推薦時段、確認客製內容、傳訂金連結；付款後自動排進行事曆，前一天再提醒，減少爽約。</p>
         </div>
         <div class="bk2-types" id="bk2Types"></div>
       </div>
@@ -178,7 +179,7 @@ export default {
           <div class="bk2-say"><b>${icon('chat', 14)} AI 會這樣跟客人說明</b><p id="bk2Say"></p></div>
         </div>
         <div class="glass card bk2-cls anim-in">
-          <div class="card-h"><h3>${icon('users', 18)} 烘焙小班課名單</h3><span class="chip-sm" id="bk2ClsChip"></span></div>
+          <div class="card-h"><h3>${icon('users', 18)} ${W.cls}名單</h3><span class="chip-sm" id="bk2ClsChip"></span></div>
           <div class="bk2-cls-list" id="bk2ClsList"></div>
           <div class="bk2-roster" id="bk2Roster"></div>
         </div>
@@ -214,9 +215,9 @@ export default {
 function renderTypes() {
   const k = kpis();
   $('#bk2Types', root).innerHTML = `
-    <div class="bk2-type" style="--tc:${TYPES.cake.color}"><span>${icon('heart', 16)}</span><div><b>客製蛋糕</b><small>${R.leadDays} 天前預訂・訂金 ${R.depositPct}%</small></div><em>${k.cakes}<small>本週</small></em></div>
-    <div class="bk2-type" style="--tc:${TYPES.pickup.color}"><span>${icon('box', 16)}</span><div><b>門市取貨時段</b><small>每 30 分鐘最多 ${R.slotCap} 單</small></div><em>${k.picks}<small>本週</small></em></div>
-    <div class="bk2-type" style="--tc:${TYPES.class.color}"><span>${icon('users', 16)}</span><div><b>週末烘焙小班課</b><small>每班 ${R.classSeats} 人・${money(R.classPrice)}/人</small></div><em>${k.seats}<small>/${k.seatCap} 位</small></em></div>`;
+    <div class="bk2-type" style="--tc:${TYPES.cake.color}"><span>${icon('heart', 16)}</span><div><b>${W.main}</b><small>${R.leadDays} 天前預訂・訂金 ${R.depositPct}%</small></div><em>${k.cakes}<small>本週</small></em></div>
+    <div class="bk2-type" style="--tc:${TYPES.pickup.color}"><span>${icon('box', 16)}</span><div><b>${W.pickSlot}</b><small>每 30 分鐘最多 ${R.slotCap} 單</small></div><em>${k.picks}<small>本週</small></em></div>
+    <div class="bk2-type" style="--tc:${TYPES.class.color}"><span>${icon('users', 16)}</span><div><b>${W.clsWeek}</b><small>每班 ${R.classSeats} 人・${money(R.classPrice)}/人</small></div><em>${k.seats}<small>/${k.seatCap} 位</small></em></div>`;
 }
 function renderKpis(anim) {
   const k = kpis();
@@ -227,10 +228,10 @@ function renderKpis(anim) {
     $('[data-sub]', c).innerHTML = sub;
     const d = $('[data-delta]', c); if (delta) { d.className = `kpi-delta ${delta[1]}`; d.textContent = delta[0]; } else d.textContent = '';
   };
-  set('week', k.week, { suffix: ' 筆' }, `蛋糕 ${k.cakes}・取貨 ${k.picks}・課程報名 ${k.week - k.cakes - k.picks}`, [`${k.weekDelta >= 0 ? '+' : ''}${k.weekDelta} vs 上週`, k.weekDelta >= 0 ? 'up' : 'down']);
-  set('pend', k.pend, { prefix: 'NT$ ' }, `${k.pendN} 筆蛋糕等客人付款・AI 已自動催`, k.pendN ? [`${k.pendN} 筆`, 'warn'] : null);
-  set('paid', k.paid, { prefix: 'NT$ ' }, `蛋糕訂金 ${n0(k.paidCake)}・課程費 ${n0(k.paidCls)}`, ['負債', 'warn']);
-  set('vac', k.vac, { suffix: '%', decimals: 1 }, `還有 ${k.vacSeats} 個課位／蛋糕產能可接`, null);
+  set('week', k.week, { suffix: ' 筆' }, `${W.ms} ${k.cakes}・${W.pv} ${k.picks}・課程報名 ${k.week - k.cakes - k.picks}`, [`${k.weekDelta >= 0 ? '+' : ''}${k.weekDelta} vs 上週`, k.weekDelta >= 0 ? 'up' : 'down']);
+  set('pend', k.pend, { prefix: 'NT$ ' }, `${k.pendN} 筆${W.ms}等客人付款・AI 已自動催`, k.pendN ? [`${k.pendN} 筆`, 'warn'] : null);
+  set('paid', k.paid, { prefix: 'NT$ ' }, `${W.ms}訂金 ${n0(k.paidCake)}・課程費 ${n0(k.paidCls)}`, ['負債', 'warn']);
+  set('vac', k.vac, { suffix: '%', decimals: 1 }, `還有 ${k.vacSeats} 個課位／${W.capN}可接`, null);
   set('noshow', k.noshow, { suffix: '%', decimals: 1 }, `AI 提醒前 ${k.before.toFixed(1)}%`, [`−${(k.before - k.noshow).toFixed(1)}%`, 'up']);
   // 爽約率走勢
   const sv = $('#bk2Spark', root); if (sv && !sv.dataset.done) {
@@ -316,7 +317,7 @@ function agendaHTML() {
     const shown = open ? items : items.slice(0, LIM);
     return `<div class="bk2-ag-day ${sameDay(d, now) ? 'today' : ''}"><div class="bk2-ag-h"><b>${d.getMonth() + 1}/${d.getDate()}</b><small>週${DOW_ZH[d.getDay()]}</small><em>${closed ? '公休日' : `${items.length} 筆`}</em></div>
       ${items.length > LIM ? `<button class="bk2-ag-more" data-ag="${key}">${open ? '收合' : `顯示全部 ${items.length} 筆（還有 ${items.length - LIM} 筆）`}</button>` : ''}
-      ${shown.map(b => `<button class="bk2-ag-row ${b.status} ${b.depStatus === 'pending' ? 'pend' : ''}" data-id="${b.id}" style="--tc:${TYPES[b.type].color}"><i>${hm(b.start)}</i><span><b>${esc(b.type === 'class' ? b.title : b.customer)}</b><small>${esc(b.type === 'class' ? `${classTaken(b)}/${b.seats} 位・烘焙小班課` : b.item)}</small></span>${b.depStatus === 'pending' ? '<em class="st pending">待付訂金</em>' : ''}</button>`).join('')}</div>`;
+      ${shown.map(b => `<button class="bk2-ag-row ${b.status} ${b.depStatus === 'pending' ? 'pend' : ''}" data-id="${b.id}" style="--tc:${TYPES[b.type].color}"><i>${hm(b.start)}</i><span><b>${esc(b.type === 'class' ? b.title : b.customer)}</b><small>${esc(b.type === 'class' ? `${classTaken(b)}/${b.seats} 位・${W.cls}` : b.item)}</small></span>${b.depStatus === 'pending' ? '<em class="st pending">待付訂金</em>' : ''}</button>`).join('')}</div>`;
   }).join('')}</div>`;
 }
 function monthHTML() {
@@ -459,8 +460,8 @@ function bookingDetail(b) {
   const dep = b.type === 'cake'
     ? `<div class="bk2-dep"><div class="bk2-dep-t"><span>訂金 ${Math.round(b.deposit / b.price * 100)}%</span><b>${money(b.deposit)}</b><em class="st ${b.depStatus === 'paid' ? 'paid' : 'pending'}">${b.depStatus === 'paid' ? '已收' : '待付'}</em></div>
        <div class="bk2-dep-bar"><i style="width:${b.depStatus === 'paid' ? b.deposit / b.price * 100 : 0}%"></i></div>
-       <small>總價 ${money(b.price)}・取貨時付尾款 ${money(b.price - b.deposit)}${b.depStatus === 'paid' ? '・訂金已記入「預收款項」' : ''}</small></div>`
-    : `<div class="bk2-dep"><div class="bk2-dep-t"><span>付款方式</span><b>${money(b.price)}</b><em class="st ${b.depStatus === 'full' || b.status === 'done' ? 'paid' : 'idle'}">${b.depStatus === 'full' ? '已線上付清' : b.status === 'done' ? '取貨時已付' : '取貨時付款'}</em></div><small>門市取貨不收訂金，未付款者取貨時 POS 結帳</small></div>`;
+       <small>總價 ${money(b.price)}・${W.at}時付尾款 ${money(b.price - b.deposit)}${b.depStatus === 'paid' ? '・訂金已記入「預收款項」' : ''}</small></div>`
+    : `<div class="bk2-dep"><div class="bk2-dep-t"><span>付款方式</span><b>${money(b.price)}</b><em class="st ${b.depStatus === 'full' || b.status === 'done' ? 'paid' : 'idle'}">${b.depStatus === 'full' ? '已線上付清' : b.status === 'done' ? `${W.pv}時已付` : `${W.pv}時付款`}</em></div><small>${W.pick}不收訂金，未付款者${W.pv}時 POS 結帳</small></div>`;
   const live = b.status === 'confirmed' && b.start > NOW();
   const sug = live ? suggest(b) : [];
   return `
@@ -469,7 +470,7 @@ function bookingDetail(b) {
       <button class="icon-btn" data-close aria-label="關閉">${icon('x', 16)}</button>
     </div>
     <div class="bk2-who"><span class="bk2-av" style="--tc:${t.color}">${esc(initial(b.customer))}</span><div><b>${esc(b.customer)}</b><small>${chIcon(b.channel, 18)} ${CH_NAME[b.channel]}・<span class="bk2-lang">${icon('globe', 12)} ${LANG_NAME[b.lang]}</span></small></div>
-      <div class="bk2-when"><small>${b.type === 'cake' ? '取貨時間' : '取貨時段'}</small><b>${mdw(b.start)} ${hm(b.start)}</b></div></div>
+      <div class="bk2-when"><small>${b.type === 'cake' ? `${W.at}時間` : `${W.pv}時段`}</small><b>${mdw(b.start)} ${hm(b.start)}</b></div></div>
     <div class="bk2-dl">
       <div><small>品項</small><b>${esc(b.item)}</b></div>
       ${b.note ? `<div class="bk2-note"><small>${icon('file', 12)} 備註（AI 已從對話整理）</small><b>${esc(b.note)}</b></div>` : ''}
@@ -479,7 +480,7 @@ function bookingDetail(b) {
     ${live ? `<div class="bk2-sec"><h4>${icon('sparkle', 14)} 改期：AI 找到的空檔</h4><div class="bk2-sug">${sug.map(s => `<button class="bk2-sugb" data-move="${s.d.getTime()}"><b>${mdw(s.d)}</b><span>${hm(s.d)}・剩 ${s.left} 名額</span></button>`).join('') || '<small>近期沒有空檔</small>'}</div><small class="bk2-tip">改期後會自動用${LANG_NAME[b.lang]}通知客人，提醒時間也會跟著改。也可以直接在週曆上拖拉。</small></div>` : ''}
     <div class="bk2-dlg-act">
       ${live && b.depStatus === 'pending' ? `<button class="btn btn-ghost btn-sm" data-act="paylink">${icon('link', 14)} 再傳一次訂金連結</button><button class="btn btn-primary btn-sm" data-act="paid">${icon('coins', 14)} 模擬客人付款</button>` : ''}
-      ${live && b.type === 'cake' && b.depStatus === 'paid' ? `<button class="btn btn-primary btn-sm" data-act="deliver">${icon('check', 14)} 完成交貨・訂金轉收入</button>` : ''}
+      ${live && b.type === 'cake' && b.depStatus === 'paid' ? `<button class="btn btn-primary btn-sm" data-act="deliver">${icon('check', 14)} ${IS_AMEI ? '完成交貨' : (W.dv.startsWith('完成') ? W.dv : '完成' + W.dv)}・訂金轉收入</button>` : ''}
       ${live ? `<button class="btn btn-ghost btn-sm bk2-danger" data-act="cancel">${icon('x', 14)} 客人要取消</button>` : ''}
     </div>
     <div class="bk2-cancel" id="bk2CancelBox" hidden></div>`;
@@ -505,7 +506,7 @@ function onModalClick(e) {
   const act = a.dataset.act;
   if (act === 'roster') { closeModal(); V.selClass = b.id; renderClasses(true); $('.bk2-cls', root).scrollIntoView({ behavior: 'smooth', block: 'center' }); }
   if (act === 'paylink') toast(`已重傳訂金連結給 ${b.customer}`, `用${LANG_NAME[b.lang]}透過 ${CH_NAME[b.channel]} 傳送，24 小時未付款 AI 會再提醒一次`, { kind: 'info', icon: icon('link', 18) });
-  if (act === 'paid') { b.depStatus = 'paid'; pushLedger('in', b, b.deposit, `${b.customer} 付訂金`); toast(`收到訂金 ${money(b.deposit)}`, `${b.customer}・已記入「預收款項」（負債），交貨時才轉收入`, { icon: icon('coins', 18) }); store.log('pay', `收到 ${b.customer} 蛋糕訂金 NT$ ${b.deposit.toLocaleString()}，記入預收款項`); refreshAll(); openDetail(b.id); }
+  if (act === 'paid') { b.depStatus = 'paid'; pushLedger('in', b, b.deposit, `${b.customer} 付訂金`); toast(`收到訂金 ${money(b.deposit)}`, `${b.customer}・已記入「預收款項」（負債），交貨時才轉收入`, { icon: icon('coins', 18) }); store.log('pay', `收到 ${b.customer} ${W.ms}訂金 NT$ ${b.deposit.toLocaleString()}，記入預收款項`); refreshAll(); openDetail(b.id); }
   if (act === 'deliver') { closeModal(); deliver(b); }
   if (act === 'cancel') showCancel(b);
   if (act === 'cancel-ok') { closeModal(); cancelBooking(b); }
@@ -521,8 +522,8 @@ function showCancel(b) {
   const box = $('#bk2CancelBox', root); const r = refundOf(b);
   box.hidden = false;
   box.innerHTML = b.type === 'pickup'
-    ? `<p>門市取貨沒有收訂金，取消後時段會自動釋出給其他客人。${b.depStatus === 'full' ? `已付的 ${money(b.price)} 會全額退回。` : ''}</p><button class="btn btn-sm bk2-dangerbtn" data-act="cancel-ok">確認取消並通知客人</button>`
-    : `<p>距取貨 <b>${r.days} 天</b>，套用規則「${r.rule}」：已收訂金 ${money(r.paid)}，${r.amt ? `退回 <b>${money(r.amt)}</b>` : '<b>不退款</b>'}${r.paid - r.amt > 0 ? `，${money(r.paid - r.amt)} 轉列「其他收入」` : ''}。${r.pct === 0 && R.allowMoveOnce ? 'AI 會先建議客人改期一次。' : ''}</p><button class="btn btn-sm bk2-dangerbtn" data-act="cancel-ok">確認取消並通知客人</button>`;
+    ? `<p>${W.pick}沒有收訂金，取消後時段會自動釋出給其他客人。${b.depStatus === 'full' ? `已付的 ${money(b.price)} 會全額退回。` : ''}</p><button class="btn btn-sm bk2-dangerbtn" data-act="cancel-ok">確認取消並通知客人</button>`
+    : `<p>距${W.at} <b>${r.days} 天</b>，套用規則「${r.rule}」：已收訂金 ${money(r.paid)}，${r.amt ? `退回 <b>${money(r.amt)}</b>` : '<b>不退款</b>'}${r.paid - r.amt > 0 ? `，${money(r.paid - r.amt)} 轉列「其他收入」` : ''}。${r.pct === 0 && R.allowMoveOnce ? 'AI 會先建議客人改期一次。' : ''}</p><button class="btn btn-sm bk2-dangerbtn" data-act="cancel-ok">確認取消並通知客人</button>`;
   gsap.from(box, { opacity: 0, y: 8, duration: 0.3 });
 }
 function cancelBooking(b) {
@@ -534,24 +535,24 @@ function cancelBooking(b) {
 }
 function deliver(b) {
   b.status = 'done';
-  pushLedger('out', b, b.deposit, `${b.customer} 交貨轉收入`);
+  pushLedger('out', b, b.deposit, `${b.customer} ${W.dv}轉收入`);
   invSeq++;
   refreshAll();
   const box = $('#bk2Acct', root);
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   setTimeout(() => highlightStep(2), 450);
-  toast(`交貨完成・訂金轉為營業收入`, `${b.customer}：預收款項 −${money(net(b.deposit))}、營業收入 +${money(net(b.deposit) + net(b.price - b.deposit))}，已開立尾款發票 AB-${30428800 + invSeq}`, { icon: icon('receipt', 18), duration: 6000 });
-  store.log('order', `${b.customer} 客製蛋糕交貨，訂金由預收款項轉列營業收入，開立尾款發票`);
+  toast(`${W.dv}完成・訂金轉為營業收入`, `${b.customer}：預收款項 −${money(net(b.deposit))}、營業收入 +${money(net(b.deposit) + net(b.price - b.deposit))}，已開立尾款發票 AB-${30428800 + invSeq}`, { icon: icon('receipt', 18), duration: 6000 });
+  store.log('order', `${b.customer} ${W.main}${W.dv}，訂金由預收款項轉列營業收入，開立尾款發票`);
 }
 function refreshAll() { renderCal(); renderKpis(); renderTypes(); renderClasses(); renderAcct(); }
 
 // ───────── 規則 ─────────
 const RULE_DEF = [
-  { k: 'depositPct', q: '客製蛋糕要先收多少訂金？', h: '付了訂金，預約才算成立', opts: [[30, '30%'], [50, '50%'], [100, '全額']] },
-  { k: 'leadDays', q: '客製蛋糕最晚幾天前要訂？', h: '太趕做不出來，AI 會婉拒並推薦現貨', step: [1, 7, '天前'] },
-  { k: 'cancel', q: '客人取消怎麼退？', h: '依距離取貨／上課的天數自動判斷', custom: true },
+  { k: 'depositPct', q: `${W.main}要先收多少訂金？`, h: '付了訂金，預約才算成立', opts: [[30, '30%'], [50, '50%'], [100, '全額']] },
+  { k: 'leadDays', q: `${W.main}最晚幾天前要訂？`, h: W.notMade, step: [1, 7, '天前'] },
+  { k: 'cancel', q: '客人取消怎麼退？', h: `依距離${W.at}／上課的天數自動判斷`, custom: true },
   { k: 'remind', q: '什麼時候提醒客人？', h: '用客人的語言、在客人下單的通路提醒', custom: true },
-  { k: 'slotCap', q: '每 30 分鐘最多幾單取貨？', h: '避免門市一次擠太多人', step: [1, 8, '單'] },
+  { k: 'slotCap', q: `每 30 分鐘最多幾單${W.pv}？`, h: '避免門市一次擠太多人', step: [1, 8, '單'] },
   { k: 'closed', q: '哪幾天公休？', h: '公休日不開放預約，已排的 AI 協助改期', custom: true, half: true },
   { k: 'waitlistAuto', q: '有人取消時自動通知候補？', h: '課程與熱門時段空出來，AI 依序通知候補名單', sw: true, wide: true },
 ];
@@ -572,15 +573,15 @@ function renderRules() {
   sayText();
 }
 function sayText() {
-  const rem = [R.remindEve && '前一天晚上 8 點', R.remind2h && '當天取貨前 2 小時'].filter(Boolean);
+  const rem = [R.remindEve && '前一天晚上 8 點', R.remind2h && `當天${W.at}前 2 小時`].filter(Boolean);
   const closed = R.closed.length ? `每週${R.closed.slice().sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(x => DOW_ZH[x]).join('、')}公休` : '全年無休';
-  $('#bk2Say', root).innerHTML = `「客製蛋糕請在 <b>${R.leadDays} 天前</b>預訂，預約時先付 <b>${R.depositPct === 100 ? '全額' : R.depositPct + '% 訂金'}</b>。取貨前 <b>${R.fullRefundDays} 天</b>以上取消可全額退費，${R.noRefundDays}–${R.fullRefundDays} 天退 ${R.midRefundPct}%，<b>${R.noRefundDays} 天內</b>恕不退費${R.allowMoveOnce ? '，但可以免費改期一次' : ''}。${rem.length ? `我們會在${rem.join('和')}用 LINE 提醒您${R.remindMap ? '，並附上地圖與停車資訊' : ''}。` : ''}門市${closed}。」`;
+  $('#bk2Say', root).innerHTML = `「${W.main}請在 <b>${R.leadDays} 天前</b>預訂，預約時先付 <b>${R.depositPct === 100 ? '全額' : R.depositPct + '% 訂金'}</b>。${W.at}前 <b>${R.fullRefundDays} 天</b>以上取消可全額退費，${R.noRefundDays}–${R.fullRefundDays} 天退 ${R.midRefundPct}%，<b>${R.noRefundDays} 天內</b>恕不退費${R.allowMoveOnce ? '，但可以免費改期一次' : ''}。${rem.length ? `我們會在${rem.join('和')}用 LINE 提醒您${R.remindMap ? '，並附上地圖與停車資訊' : ''}。` : ''}門市${closed}。」`;
 }
 function onRuleClick(e) {
   const o = e.target.closest('[data-opt]'), s = e.target.closest('[data-step]'), w = e.target.closest('[data-sw]'), dy = e.target.closest('[data-day]');
   let msg = '';
-  if (o) { R[o.dataset.opt] = +o.dataset.v; msg = o.dataset.opt === 'depositPct' ? `客製蛋糕訂金改為 ${R.depositPct === 100 ? '全額' : R.depositPct + '%'}（新預約適用，既有訂單不變）` : `取貨前 ${R.fullRefundDays} 天以上取消可全額退`; }
-  if (s) { const k = s.dataset.step, def = RULE_DEF.find(x => x.k === k); R[k] = Math.max(def.step[0], Math.min(def.step[1], R[k] + +s.dataset.d)); msg = k === 'slotCap' ? `每 30 分鐘最多 ${R.slotCap} 單取貨，行事曆已套用` : `客製蛋糕需 ${R.leadDays} 天前預訂`; }
+  if (o) { R[o.dataset.opt] = +o.dataset.v; msg = o.dataset.opt === 'depositPct' ? `${W.main}訂金改為 ${R.depositPct === 100 ? '全額' : R.depositPct + '%'}（新預約適用，既有訂單不變）` : `${W.at}前 ${R.fullRefundDays} 天以上取消可全額退`; }
+  if (s) { const k = s.dataset.step, def = RULE_DEF.find(x => x.k === k); R[k] = Math.max(def.step[0], Math.min(def.step[1], R[k] + +s.dataset.d)); msg = k === 'slotCap' ? `每 30 分鐘最多 ${R.slotCap} 單${W.pv}，行事曆已套用` : `${W.main}需 ${R.leadDays} 天前預訂`; }
   if (w) { const k = w.dataset.sw; R[k] = !R[k]; msg = `${w.textContent.trim().replace(/開啟|關閉/, '') || RULE_DEF.find(x => x.k === k)?.q}：${R[k] ? '開啟' : '關閉'}`; }
   if (dy) {
     const x = +dy.dataset.day; const i = R.closed.indexOf(x);
@@ -626,7 +627,7 @@ function renderRoster(anim) {
       ${Array.from({ length: Math.max(0, c.seats - tk) }, () => `<div class="bk2-ros empty"><span class="bk2-av sm">${icon('plus', 12)}</span><span class="bk2-ros-n"><b>空位</b><small>AI 會在 LINE 熟客群推播</small></span></div>`).join('')}
     </div>
     <div class="bk2-wait"><b>${icon('clock', 13)} 候補名單</b>${c.waitlist.length ? c.waitlist.map((w, i) => `<span class="bk2-wchip"><em>#${i + 1}</em>${esc(w.customer)}<small>${LANG_NAME[w.lang]}</small>${tk < c.seats ? `<button data-promote="${i}">遞補</button>` : ''}</span>`).join('') : '<small>目前沒有候補</small>'}</div>
-    <small class="bk2-tip">課前通知內容：時間地點、停車資訊、穿著建議、過敏確認；會用 ${langMix(c) || '客人語言'} 分別發送。</small>`;
+    <small class="bk2-tip">課前通知內容：時間地點、停車資訊、穿著建議、${FOODISH || IS_AMEI ? '過敏確認' : '需求確認'}；會用 ${langMix(c) || '客人語言'} 分別發送。</small>`;
   if (anim) gsap.fromTo($$('.bk2-ros', host), { opacity: 0, x: -10 }, { opacity: 1, x: 0, stagger: 0.03, duration: 0.3 });
 }
 async function onRosterClick(e) {
@@ -659,18 +660,18 @@ async function onRosterClick(e) {
 function pushLedger(kind, b, amt, label) { V.ledger.unshift({ kind, amt, label, t: NOW() }); V.ledger = V.ledger.slice(0, 5); }
 function renderAcct() {
   const k = kpis();
-  const price = 1400, dep = Math.round(price * R.depositPct / 100), tail = price - dep;
+  const price = IS_AMEI ? 1400 : (BK_ITEMS[0]?.price || 1400), dep = Math.round(price * R.depositPct / 100), tail = price - dep;
   const dn = net(dep), dt = dep - dn, tn = net(tail), tt = tail - tn;
   const soon = DATA.list.filter(b => b.type === 'cake' && b.status === 'confirmed' && b.depStatus === 'paid' && b.start > NOW()).slice(0, 4);
   const je = (rows) => `<table class="bk2-je"><tbody>${rows.map(([dc, name, amt, cls]) => `<tr class="${dc} ${cls || ''}"><td>${dc === 'dr' ? '借' : '貸'}</td><td>${name}</td><td class="r">${n0(amt)}</td></tr>`).join('')}</tbody></table>`;
   $('#bk2Acct', root).innerHTML = `
-    <div class="card-h"><h3>${icon('book', 18)} 訂金怎麼記帳？<small>收到訂金 ≠ 賺到錢，這點報稅很重要</small></h3><span class="chip-sm">示意分錄・以 ${money(price)} 的 6 吋蛋糕、訂金 ${R.depositPct}% 為例</span></div>
+    <div class="card-h"><h3>${icon('book', 18)} 訂金怎麼記帳？<small>收到訂金 ≠ 賺到錢，這點報稅很重要</small></h3><span class="chip-sm">示意分錄・以 ${money(price)} 的${IS_AMEI ? ' 6 吋蛋糕' : `「${esc(BK_ITEMS[0]?.item || W.main)}」`}、訂金 ${R.depositPct}% 為例</span></div>
     <div class="bk2-acct-grid">
       <div class="bk2-flow">
         <div class="bk2-fs" data-step="0">
           <div class="bk2-fs-h"><span>1</span><div><b>收到訂金</b><small>客人 LINE Pay 付 ${money(dep)}</small></div></div>
           ${je([['dr', '銀行存款（LINE Pay）', dep], ['cr', '預收款項（負債）', dn, 'hl'], ['cr', '銷項稅額 5%', dt]])}
-          <p>蛋糕還沒交，這筆錢其實是「欠客人一個蛋糕」，先記在<b>負債</b>，不能算當月營收。</p>
+          <p>${IS_AMEI ? '蛋糕還沒交' : `${W.ms}還沒${W.dv}`}，這筆錢其實是「${W.owe}」，先記在<b>負債</b>，不能算當月營收。</p>
         </div>
         <div class="bk2-arrow">${icon('arrow', 18)}</div>
         <div class="bk2-fs" data-step="1">
@@ -680,14 +681,14 @@ function renderAcct() {
         </div>
         <div class="bk2-arrow">${icon('arrow', 18)}</div>
         <div class="bk2-fs" data-step="2">
-          <div class="bk2-fs-h"><span>3</span><div><b>交貨・轉為營業收入</b><small>取貨付尾款 ${money(tail)}，開尾款發票</small></div></div>
+          <div class="bk2-fs-h"><span>3</span><div><b>${W.dv}・轉為營業收入</b><small>${W.at}付尾款 ${money(tail)}，開尾款發票</small></div></div>
           ${je([['dr', '銀行存款／現金', tail], ['dr', '預收款項', dn, 'hl'], ['cr', '營業收入', dn + tn, 'hl2'], ['cr', '銷項稅額 5%', tt]])}
-          <p>蛋糕交到客人手上，這時才認列收入 ${money(dn + tn)}（未稅），預收款項歸零。</p>
+          <p>${IS_AMEI ? '蛋糕交到客人手上' : `${W.ms}${W.dv}給客人`}，這時才認列收入 ${money(dn + tn)}（未稅），預收款項歸零。</p>
         </div>
       </div>
       <div class="bk2-acct-side">
-        <div class="bk2-bal"><small>目前預收款項餘額（負債）</small><b id="bk2Bal">NT$ ${n0(k.paid)}</b><span>蛋糕訂金 ${n0(k.paidCake)}・課程費 ${n0(k.paidCls)}</span></div>
-        <div class="bk2-soon"><div class="bk2-soon-h"><b>即將交貨、轉為收入</b><button class="btn btn-ghost btn-sm" data-deliver ${soon.length ? '' : 'disabled'}>${icon('check', 13)} 示範：交貨轉收入</button></div>
+        <div class="bk2-bal"><small>目前預收款項餘額（負債）</small><b id="bk2Bal">NT$ ${n0(k.paid)}</b><span>${W.ms}訂金 ${n0(k.paidCake)}・課程費 ${n0(k.paidCls)}</span></div>
+        <div class="bk2-soon"><div class="bk2-soon-h"><b>即將${W.dv}、轉為收入</b><button class="btn btn-ghost btn-sm" data-deliver ${soon.length ? '' : 'disabled'}>${icon('check', 13)} 示範：${W.dv}轉收入</button></div>
           ${soon.map(b => `<div class="bk2-srow"><span>${mdw(b.start)}</span><b>${esc(b.customer)}</b><em>${money(b.deposit)}</em></div>`).join('') || '<small>近期沒有待交貨的訂金</small>'}
           ${V.ledger.length ? `<div class="bk2-led">${V.ledger.map(l => `<div class="${l.kind}"><i>${l.kind === 'in' ? '＋' : '−'}</i><span>${esc(l.label)}</span><b>${n0(l.amt)}</b></div>`).join('')}</div>` : ''}
         </div>
@@ -730,7 +731,7 @@ function setSteps(names, i) {
 }
 function idleChat() {
   phoneTop(SCEN[0], '佐藤 ゆき', 'ja');
-  chat().innerHTML = `<div class="bk2-idle">${icon('chat', 30)}<b>按「開始示範」</b><span>看 AI 接一位日本客人的生日蛋糕預約：查空檔 → 推薦時段 → 確認客製內容 → 傳 ${R.depositPct}% 訂金連結 → 付款後自動排進行事曆。</span></div>`;
+  chat().innerHTML = `<div class="bk2-idle">${icon('chat', 30)}<b>按「開始示範」</b><span>${IS_AMEI ? '看 AI 接一位日本客人的生日蛋糕預約' : `看 AI 接一位日本客人的${W.main}`}：查空檔 → 推薦時段 → 確認客製內容 → 傳 ${R.depositPct}% 訂金連結 → 付款後自動排進行事曆。</span></div>`;
   setSteps(['查空檔', '推薦時段', '確認客製', '收訂金', '已確認'], -1);
   markScen();
 }
@@ -783,7 +784,7 @@ async function runScenario(i) {
   chat().innerHTML = '';
   const ctx = makeCtx(my);
   try {
-    await [scCake, scClass, scMove, scCancel][i](ctx);
+    await (IS_AMEI ? [scCake, scClass, scMove, scCancel] : [gCake, gClass, gMove, gCancel])[i](ctx);
   } catch (e) { if (e.message !== 'abort') throw e; return; }
   if (my !== runId) return;
   V.scen = (i + 1) % SCEN.length;
@@ -818,12 +819,19 @@ async function scCake(x) {
   setSteps(STEPS, 0);
   DATA.list = DATA.list.filter(b => b.demo !== 'sato');
   const probe = { type: 'cake', start: new Date(0) };
-  const day = nextDay(addDays(T0(), R.leadDays), d => (d.getDay() === 6 || d.getDay() === 0) && !R.closed.includes(d.getDay()) && cakesOn(d) < R.cakeCap);
+  // 找最近一個有產能、也有取貨空檔的週末（最多往後看 8 週）
+  const okDay = (d) => (d.getDay() === 6 || d.getDay() === 0) && !R.closed.includes(d.getDay()) && cakesOn(d) < R.cakeCap;
+  let day = nextDay(addDays(T0(), R.leadDays), okDay), cand = freeSlots(probe, day, 14, 17.5, 8);
+  for (let k = 0; k < 16 && !cand.length; k++) { day = nextDay(addDays(day, 1), okDay); cand = freeSlots(probe, day, 14, 17.5, 8); }
   const md = `${day.getMonth() + 1}/${day.getDate()}`;
   await x.cust(`こんにちは！${md}（${JA_DOW[day.getDay()]}）に6号のバースデーケーキを予約できますか？`, `你好！${md}（${DOW_ZH[day.getDay()]}）可以預訂 6 吋生日蛋糕嗎？`);
   await x.think(`查詢 ${mdw(day)} 蛋糕產能與取貨空檔…`, `${mdw(day)} 蛋糕產能剩 ${R.cakeCap - cakesOn(day)} 個・距今 ${daysBetween(NOW(), day)} 天，符合「${R.leadDays} 天前預訂」`);
   setSteps(STEPS, 1);
-  const cand = freeSlots(probe, day, 14, 17.5, 8);
+  if (!cand.length) {
+    await x.ai('申し訳ございません、8 週間先まで週末のお受け取り枠が満席です。キャンセル待ちにご登録しますか？', '很抱歉，未來 8 週的週末取貨時段都已額滿，要幫您登記候補嗎？');
+    await x.sys(`${icon('clock', 13)} 已登記候補，有空位時 AI 會用日文通知客人`, 'ok');
+    return;
+  }
   const opts = [cand[0], cand[Math.floor(cand.length / 2)], cand[cand.length - 1]].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
   const rec = opts.reduce((bi, o, i) => (o.left > opts[bi].left ? i : bi), 0);
   await x.ai(`お問い合わせありがとうございます！${md}は下記の時間にお受け取りいただけます。`, `感謝詢問！${md} 以下時段可以取貨。`);
@@ -895,6 +903,7 @@ async function scMove(x) {
   const STEPS = ['找到訂單', '檢查規則', '找空檔', '改期', '更新提醒'];
   setSteps(STEPS, 0);
   const b = DATA.list.find(q => q.fixed === 'chen');
+  if (!b) { await x.ai('目前查不到您的訂單，已轉給阿美確認，稍後回覆您。'); return; }
   if (!b.orig) b.orig = new Date(b.start);
   b.start = new Date(b.orig); b.status = 'confirmed'; b.moved = 0;
   if (V.mode === 'week') V.week = weekStart(b.start);
@@ -907,6 +916,10 @@ async function scMove(x) {
   await x.think('套用改期規則…', days >= R.noRefundDays ? `距取貨 ${days} 天・可免費改期` : `距取貨 ${days} 天・3 天內可改期一次`);
   setSteps(STEPS, 2);
   const opts = freeSlots(b, target, 14, 18, 8).filter((o, i, a) => i % 2 === 0).slice(0, 3);
+  if (!opts.length) {
+    await x.ai('不好意思，接下來 30 天的下午取貨時段都滿了，已幫您登記候補，一有空位會馬上通知您；原本的取貨時間也先幫您保留。');
+    return;
+  }
   const pickI = Math.min(2, opts.length - 1);
   await x.ai(`可以的！${mdw(target)} 下午這幾個時段有空：`);
   await x.slots(`${mdw(target)} 下午`, opts.map(o => ({ label: hm(o.d), sub: `剩 ${o.left} 名額` })), -1);
@@ -935,6 +948,178 @@ async function scCancel(x) {
   renderClasses(); renderCal();
   const when = whenIn('en', c.start);
   await x.cust(`Hi, so sorry — something came up and I can't make the baking class on ${when}. Can I get a refund?`, `抱歉臨時有事，${mdw(c.start)} 的烘焙課沒辦法去了，可以退費嗎？`);
+  await x.think('查詢 WhatsApp 報名紀錄…', `找到：${c.title}・${mdw(c.start)}・已付 ${money(c.price)}`);
+  setSteps(STEPS, 1);
+  const r = refundOf({ type: 'class', price: c.price, start: c.start });
+  await x.think('套用取消政策…', `距上課 ${r.days} 天 → ${r.rule}`);
+  const en = r.pct === 100 ? `Since it's ${r.days} days before the class, you'll get a full refund of NT$${n0(r.amt)}.`
+    : r.pct === 0 ? `As it's within ${R.noRefundDays} days of the class, we're unable to refund${R.allowMoveOnce ? ', but you can move to another class once for free' : ''}.`
+      : `Since it's ${r.days} days before the class, our policy refunds ${r.pct}% — NT$${n0(r.amt)}.`;
+  const zh = r.pct === 100 ? `距上課 ${r.days} 天，可全額退 NT$${n0(r.amt)}。` : r.pct === 0 ? `上課前 ${R.noRefundDays} 天內無法退費${R.allowMoveOnce ? '，但可免費改到其他場次一次' : ''}。` : `距上課 ${r.days} 天，依規定退 ${r.pct}%，共 NT$${n0(r.amt)}。`;
+  await x.ai(`No worries, Daniel! ${en} Shall I go ahead and cancel?`, `沒關係！${zh}要幫您取消嗎？`);
+  await x.cust('Yes please, thank you for understanding!', '好的，謝謝體諒！');
+  setSteps(STEPS, 2);
+  await x.sys(`${icon('coins', 13)} ${r.amt ? `已退款 ${money(r.amt)}（原路退回）・開立銷貨退回折讓證明單` : '不退款'}${r.paid - r.amt > 0 ? `・${money(r.paid - r.amt)} 轉列其他收入` : ''}`, 'ok');
+  c.roster = c.roster.filter(q => q.fixed !== 'daniel');
+  renderClasses(); renderCal(); renderKpis(); renderTypes(); renderAcct();
+  setSteps(STEPS, 3);
+  if (R.waitlistAuto && c.waitlist.length) {
+    const wl = c.waitlist.shift();
+    await x.think('空出 1 個座位・自動通知候補第 1 位…', `已通知 ${wl.customer}（${CH_NAME[wl.channel]}・${LANG_NAME[wl.lang]}）`);
+    await x.sys(`${icon('send', 13)} 傳給 ${esc(wl.customer)}：「${esc(waitNotice(wl.lang, wl.customer, whenIn(wl.lang, c.start), c.title))}」`, 'info');
+    c.roster.push({ ...wl, allergy: '', paid: false, hold: true, notified: false });
+  } else await x.sys(`${icon('alert', 13)} 自動通知候補已關閉・空位留給熟客推播`, 'info');
+  setSteps(STEPS, 4);
+  renderClasses(true); renderCal(); renderKpis(); flashBooking(c.id);
+  await x.ai('Done! Your booking is cancelled and the refund is on its way. Hope to see you at another class soon!', '已取消，退款處理中。期待下次在其他課程見到您！');
+  setSteps(STEPS, 5);
+  toast('取消與候補遞補自動完成', `Daniel Tan 取消・${r.rule}・候補已自動通知，老闆不用介入`, { kind: 'info', icon: icon('users', 18) });
+}
+
+// ───────── 其他業主的示範情境（依業態大類用語；service 以服務預約為主） ─────────
+const DM = {
+  food: { req: ['10名で利用します。辛さ控えめでお願いします！', '我們 10 個人，麻煩辣度降低！'], note: '10 人・辣度降低', extra: ['ドリンク追加', '加購飲品'], noteJa: 'ご要望', echo: '辣度降低' },
+  drink: { req: ['ギフト用にカードを付けてください。「Thank you ゆい」でお願いします。', '可以附送禮卡片嗎？寫「Thank you ゆい」。'], note: '卡片寫「Thank you ゆい」', extra: ['ギフトカード', '送禮卡片'], noteJa: 'カード', echo: '送禮卡片' },
+  dessert: { req: ['カードに「Happy Birthday ゆい」と書いてもらえますか？', '卡片可以寫「Happy Birthday ゆい」嗎？'], note: '卡片寫「Happy Birthday ゆい」', extra: ['フルーツ増量', '水果加量'], noteJa: 'カード', echo: '卡片內容' },
+  retail: { req: ['ギフト包装で、カードに「Thank you ゆい」と入れてください。', '要禮物包裝，卡片寫「Thank you ゆい」。'], note: '禮物包裝・卡片寫「Thank you ゆい」', extra: ['ギフト包装', '禮物包裝'], noteJa: 'カード', echo: '禮物包裝' },
+  craft: { req: ['「YUI」と刻印をお願いできますか？', '可以幫我刻「YUI」嗎？'], note: '刻字「YUI」', extra: ['刻印', '刻字'], noteJa: '刻印', echo: '刻字「YUI」' },
+  flower: { req: ['ピンク系で、カードに「Happy Birthday ゆい」とお願いします。', '要粉色系，卡片寫「Happy Birthday ゆい」。'], note: '粉色系・卡片寫「Happy Birthday ゆい」', extra: ['メッセージカード', '賀卡'], noteJa: 'カード', echo: '粉色系與卡片' },
+  service: { req: ['初めてです。シンプルなデザインでお願いします！', '第一次來，想要簡約風格！'], note: '第一次來店・簡約風格', extra: ['ケア追加', '加購保養'], noteJa: 'ご要望', echo: '指定的風格' },
+  farm: { req: ['ギフト用に箱入りでお願いします。', '要送禮用的禮盒包裝。'], note: '送禮禮盒包裝', extra: ['ギフト箱', '禮盒包裝'], noteJa: 'ご要望', echo: '禮盒包裝' },
+}[CAT];
+async function gCake(x) {
+  const s = SCEN[0];
+  phoneTop(s, '佐藤 ゆき', 'ja');
+  const STEPS = ['查空檔', '推薦時段', '確認內容', '收訂金', '已確認'];
+  setSteps(STEPS, 0);
+  DATA.list = DATA.list.filter(b => b.demo !== 'sato');
+  const it = BK_ITEMS[0] || { item: W.main, price: 1200, dur: 30 };
+  const probe = { type: 'cake', start: new Date(0) };
+  const okDay = (d) => (d.getDay() === 6 || d.getDay() === 0 || CAT === 'service') && !R.closed.includes(d.getDay()) && cakesOn(d) < R.cakeCap;
+  let day = nextDay(addDays(T0(), R.leadDays), okDay), cand = freeSlots(probe, day, 14, 17.5, 8);
+  for (let k = 0; k < 16 && !cand.length; k++) { day = nextDay(addDays(day, 1), okDay); cand = freeSlots(probe, day, 14, 17.5, 8); }
+  const md = `${day.getMonth() + 1}/${day.getDate()}`;
+  const P = PRODUCTS_BY_NAME(it.item);
+  const enItem = P ? (P.en || P.name) : it.item;
+  await x.cust(`こんにちは！${md}（${JA_DOW[day.getDay()]}）に「${enItem}」を予約できますか？`, `你好！${md}（${DOW_ZH[day.getDay()]}）可以預約「${it.item}」嗎？`);
+  await x.think(`查詢 ${mdw(day)} ${W.cap}與空檔…`, `${mdw(day)} ${W.cap}剩 ${R.cakeCap - cakesOn(day)} ${W.mu}・距今 ${daysBetween(NOW(), day)} 天，符合「${R.leadDays} 天前預訂」`);
+  setSteps(STEPS, 1);
+  if (!cand.length) {
+    await x.ai('申し訳ございません、しばらく先まで予約枠が満席です。キャンセル待ちにご登録しますか？', '很抱歉，近期的時段都已額滿，要幫您登記候補嗎？');
+    await x.sys(`${icon('clock', 13)} 已登記候補，有空位時 AI 會用日文通知客人`, 'ok');
+    return;
+  }
+  const opts = [cand[0], cand[Math.floor(cand.length / 2)], cand[cand.length - 1]].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+  const rec = opts.reduce((bi, o, i) => (o.left > opts[bi].left ? i : bi), 0);
+  await x.ai(`お問い合わせありがとうございます！${md}は下記の時間がご利用いただけます。`, `感謝詢問！${md} 以下時段可以預約。`);
+  await x.slots(`${mdw(day)} 可預約時段`, opts.map(o => ({ label: hm(o.d), sub: `剩 ${o.left} 名額` })), rec);
+  const pick = opts[rec].d;
+  await x.cust(`${hm(pick)}でお願いします。${DM.req[0]}`, `${hm(pick)} 麻煩了。${DM.req[1]}`);
+  setSteps(STEPS, 2);
+  const price = it.price + 100, dep = Math.round(price * R.depositPct / 100);
+  await x.ai('かしこまりました。ご予約内容をご確認ください。', '好的，請確認預約內容。',
+    `<div class="bk2-sum"><div><span>${esc(enItem)}</span><b>NT$${n0(it.price)}</b></div><div><span>${esc(DM.extra[0])}</span><b>+NT$100</b></div><div><span>${esc(DM.noteJa)}</span><b>${esc(DM.note)}</b></div><div><span>${esc(W.atJa)}</span><b>${md}（${JA_DOW[day.getDay()]}）${hm(pick)}</b></div><div class="t"><span>合計</span><b>NT$${n0(price)}</b></div></div>`);
+  await x.ai(`ご予約確定には${R.depositPct === 100 ? '全額' : `${R.depositPct}%の内金`}（NT$${n0(dep)}）のお支払いをお願いしております。${R.fullRefundDays}日前までのキャンセルは全額返金です。`, `確認預約需先付${R.depositPct === 100 ? '全額' : ` ${R.depositPct}% 訂金`}（NT$${n0(dep)}）。${R.fullRefundDays} 天前取消全額退。`);
+  setSteps(STEPS, 3);
+  const payNode = await x.pay(dep, `訂金 ${R.depositPct}%・${it.item}`, ['お支払いしました！', '付好了！']);
+  await x.sys(`${icon('coins', 13)} 已收訂金 ${money(dep)}（LINE Pay）・記入「預收款項」・訂金發票已自動開立`, 'ok');
+  setSteps(STEPS, 4);
+  const b = { id: `BK-${seq++}`, type: 'cake', start: pick, dur: it.dur || 30, customer: '佐藤 ゆき', lang: 'ja', channel: 'line', item: `${it.item}（${DM.extra[1]}）`, price, deposit: dep,
+    depStatus: 'paid', status: 'confirmed', note: `${DM.note}（AI 由日文翻譯）`, moved: 0, demo: 'sato', isNew: true };
+  DATA.list.push(b); DATA.list.sort((p, q) => p.start - q.start);
+  pushLedger('in', b, dep, `佐藤 ゆき ${W.ms}訂金`);
+  store.log('pay', `AI 完成預約：佐藤 ゆき ${it.item}，收訂金 NT$ ${dep.toLocaleString()}，記入預收款項`);
+  flyTo(payNode, b);
+  renderKpis(); renderTypes(); renderAcct();
+  await x.ai('ご予約が確定しました！前日20時と当日2時間前にLINEでお知らせします。', `預約完成！前一天晚上 8 點和當天 2 小時前會用 LINE 提醒您。`);
+  setSteps(STEPS, 5);
+  toast(`AI 完成一筆${W.main}`, `佐藤 ゆき・${mdw(pick)} ${hm(pick)}・訂金 ${money(dep)} 已收，已排進行事曆`, { icon: icon('calendar', 18) });
+}
+const PRODUCTS_BY_NAME = (name) => KIT.byPop().find(p => String(name).includes(p.name) || String(name).includes(KIT.short(p)));
+async function gClass(x) {
+  const s = SCEN[1];
+  phoneTop(s, '王太太', 'zh');
+  const STEPS = ['查名額', '推薦場次', FOODISH ? '確認過敏' : '確認需求', '收課程費', '加入名單'];
+  setSteps(STEPS, 0);
+  DATA.classes.forEach(c => { c.roster = c.roster.filter(r => r.demo !== 'wang'); });
+  await x.cust(`請問週末的${W.clsShort}還有位子嗎？我想跟女兒一起上，2 位。`);
+  const up = DATA.classes.filter(c => c.start > addDays(NOW(), 1) && c.fixed !== 'full').slice(0, 4);
+  if (!up.length) { await x.ai(`近期的${W.cls}都額滿了，已幫您登記候補，有空位會馬上通知您！`); return; }
+  let pick = up.find(c => c.seats - classTaken(c) >= 2);
+  if (!pick) { pick = up[0]; while (pick.seats - classTaken(pick) < 2) pick.roster.pop(); }
+  await x.think(`查詢近期${W.cls}名額…`, `找到 ${up.length} 個場次・${up.filter(c => c.seats - classTaken(c) >= 2).length} 場還有 2 個以上空位`);
+  setSteps(STEPS, 1);
+  await x.ai(`有的！近期場次如下，每人 ${money(pick.price)}（含材料，成品可帶回家）：`);
+  const opt = up.slice(0, 3);
+  await x.slots(`近期${W.cls}`, opt.map(c => { const l = c.seats - classTaken(c); return { label: `${c.start.getMonth() + 1}/${c.start.getDate()}（${DOW_ZH[c.start.getDay()]}）${esc(c.title)}`, sub: l >= 2 ? `剩 ${l} 位` : l === 1 ? '剩 1 位' : '額滿・可候補' }; }), opt.indexOf(pick) >= 0 ? opt.indexOf(pick) : 0);
+  const note = FOODISH ? '堅果過敏' : '初學者';
+  await x.cust(FOODISH ? `那我們報 ${pick.start.getMonth() + 1}/${pick.start.getDate()} 的${pick.title}！女兒對堅果過敏，可以嗎？` : `那我們報 ${pick.start.getMonth() + 1}/${pick.start.getDate()} 的${pick.title}！女兒是第一次上，需要自己帶工具嗎？`);
+  setSteps(STEPS, 2);
+  await x.think(FOODISH ? '查詢課程材料過敏原…' : '查詢課程準備清單…', FOODISH ? `「${pick.title}」可改用無堅果材料` : `「${pick.title}」工具與材料全部提供`);
+  const amt = pick.price * 2;
+  await x.ai(FOODISH ? `沒問題，已幫您備註「堅果過敏」，老師會準備無堅果材料。2 位共 NT$${n0(amt)}，需全額預付完成報名；${R.fullRefundDays} 天前取消可全額退費。`
+    : `不用喔，工具與材料都由我們準備，已幫您備註「初學者」，老師會多留意。2 位共 NT$${n0(amt)}，需全額預付完成報名；${R.fullRefundDays} 天前取消可全額退費。`);
+  setSteps(STEPS, 3);
+  const payNode = await x.pay(amt, `課程費・${pick.title} ×2`, ['付好了，謝謝！']);
+  await x.sys(`${icon('coins', 13)} 已收課程費 ${money(amt)}・記入「預收款項」，上課當天轉為收入・已開立發票`, 'ok');
+  setSteps(STEPS, 4);
+  pick.roster.push({ customer: '王太太', lang: 'zh', channel: 'line', pax: 2, allergy: note, paid: true, notified: false, demo: 'wang' });
+  pick.noticeSent = false;
+  V.selClass = pick.id;
+  store.log('pay', `AI 完成課程報名：王太太 2 位（${pick.title}），收課程費 NT$ ${amt.toLocaleString()}`);
+  renderClasses(true); renderKpis(); renderTypes(); renderAcct();
+  flyTo(payNode, pick);
+  await x.ai(`報名完成！上課前一天會傳課前通知給您（地點、停車、穿著建議）。${classTaken(pick) >= pick.seats ? '這班已經額滿囉，您們剛好搶到最後的位子！' : ''}`);
+  setSteps(STEPS, 5);
+  toast('AI 完成一筆課程報名', `王太太 2 位・${mdw(pick.start)} ${pick.title}・${classTaken(pick)}/${pick.seats} 位`, { icon: icon('users', 18) });
+}
+async function gMove(x) {
+  const s = SCEN[2];
+  phoneTop(s, '陳先生', 'zh');
+  const STEPS = ['找到預約', '檢查規則', '找空檔', '改期', '更新提醒'];
+  setSteps(STEPS, 0);
+  const b = DATA.list.find(q => q.fixed === 'chen');
+  if (!b) { await x.ai(`目前查不到您的預約，已轉給${KIT.owner}確認，稍後回覆您。`); return; }
+  if (!b.orig) b.orig = new Date(b.start);
+  b.start = new Date(b.orig); b.status = 'confirmed'; b.moved = 0;
+  if (V.mode === 'week') V.week = weekStart(b.start);
+  renderCal();
+  const target = nextDay(addDays(b.start, 1), d => !R.closed.includes(d.getDay()) && freeSlots(b, d, 14, 18, 8).length >= 2);
+  await x.cust(`不好意思，我 ${mdw(b.start)} 的${W.ms}（${b.item}），可以改到 ${mdw(target)} 下午嗎？`);
+  await x.think('辨識 LINE 帳號・查詢預約…', `找到 ${b.id}：${b.item}・${mdw(b.start)} ${hm(b.start)}・訂金已收 ${money(b.deposit)}`);
+  setSteps(STEPS, 1);
+  const days = daysBetween(NOW(), b.start);
+  await x.think('套用改期規則…', days >= R.noRefundDays ? `距${W.at} ${days} 天・可免費改期` : `距${W.at} ${days} 天・3 天內可改期一次`);
+  setSteps(STEPS, 2);
+  const opts = freeSlots(b, target, 14, 18, 8).filter((o, i) => i % 2 === 0).slice(0, 3);
+  if (!opts.length) { await x.ai('不好意思，接下來 30 天的下午時段都滿了，已幫您登記候補，一有空位會馬上通知您；原本的時間也先幫您保留。'); return; }
+  const pickI = Math.min(2, opts.length - 1);
+  await x.ai(`可以的！${mdw(target)} 下午這幾個時段有空：`);
+  await x.slots(`${mdw(target)} 下午`, opts.map(o => ({ label: hm(o.d), sub: `剩 ${o.left} 名額` })), -1);
+  const pick = opts[pickI].d;
+  await x.cust(`${pick.getHours() - 12} 點${pick.getMinutes() ? '半' : ''}好了，謝謝`);
+  setSteps(STEPS, 3);
+  const old = b.start;
+  moveBooking(b, pick, { quiet: true });
+  await x.ai(`已幫您改到 ${mdw(pick)} ${hm(pick)}，訂金 ${money(b.deposit)} 保留不用重付；備註「${b.note}」也照舊。`);
+  setSteps(STEPS, 4);
+  await x.sys(`${icon('bell', 13)} 提醒已改排：${mdw(addDays(pick, -1))} 20:00・${mdw(pick)} ${hm(new Date(pick.getTime() - 7200e3))}`, 'ok');
+  setSteps(STEPS, 5);
+  toast('陳先生改期完成', `${mdw(old)} ${hm(old)} → ${mdw(pick)} ${hm(pick)}・行事曆、提醒、${W.cap}都已自動更新`, { kind: 'info', icon: icon('calendar', 18) });
+}
+async function gCancel(x) {
+  const s = SCEN[3];
+  phoneTop(s, 'Daniel Tan', 'en');
+  const STEPS = ['找到報名', '套用退費規則', '退款', '通知候補', '更新名單'];
+  setSteps(STEPS, 0);
+  const c = DATA.classes.find(q => q.fixed === 'full');
+  if (!c) { await x.ai('Sorry, I could not find your booking. I have passed this to the owner.', '查不到報名紀錄，已轉給老闆確認。'); return; }
+  if (FULL_SNAP) { c.roster = FULL_SNAP.roster.map(r => ({ ...r })); c.waitlist = FULL_SNAP.waitlist.map(r => ({ ...r })); }
+  if (V.mode === 'week') V.week = weekStart(c.start); else V.month = new Date(c.start.getFullYear(), c.start.getMonth(), 1);
+  V.selClass = c.id;
+  renderClasses(); renderCal();
+  const when = whenIn('en', c.start);
+  await x.cust(`Hi, so sorry — something came up and I can't make the ${W.clsEn} on ${when}. Can I get a refund?`, `抱歉臨時有事，${mdw(c.start)} 的${W.clsShort}沒辦法去了，可以退費嗎？`);
   await x.think('查詢 WhatsApp 報名紀錄…', `找到：${c.title}・${mdw(c.start)}・已付 ${money(c.price)}`);
   setSteps(STEPS, 1);
   const r = refundOf({ type: 'class', price: c.price, start: c.start });

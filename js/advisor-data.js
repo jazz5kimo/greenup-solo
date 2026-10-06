@@ -2,7 +2,20 @@
 // 全部為示範資料與簡化試算；價格彈性、產能、平台抽成等皆為示範假設，非真實數據。
 import { store } from './state.js';
 import { PRODUCTS, PRODUCT_MAP, CHANNELS, CHANNEL_MAP, startOfDay, addDays } from './data.js';
-import { month, monthList, position, annualEstimate, RATES, PAYROLL, payrollRow, RD_PROJECTS } from './ledger.js';
+import { month, monthList, position, annualEstimate, RATES, PAYROLL, payrollRow, RD_PROJECTS, STAFF } from './ledger.js';
+import { TENANT, TENANT_ID } from './tenant.js';
+
+// 多業主：阿美維持原劇本；其他業主依業態大類（TENANT.cat）帶入設備、通路與文案
+export const AMEI = TENANT_ID === 'amei';
+const CAT = TENANT.cat || 'retail';
+const OWNER_NAME = (STAFF[0] && STAFF[0].name) || TENANT.owner || '老闆';
+const FOODISH = ['food', 'drink', 'dessert', 'farm'].includes(CAT);
+const topNames = (n) => [...PRODUCTS].sort((a, b) => (b.pop || 0) - (a.pop || 0)).slice(0, n).map(p => p.name);
+// 加產能的工作描述（雇人、補助用途）
+const WORK = { food: '尖峰備料與外送', drink: '製作與包裝出貨', dessert: '週末製作與包裝', retail: '理貨與出貨', craft: '製作與包裝出貨', flower: '花束製作與外送', service: '預約接待與服務', farm: '分級包裝與出貨' }[CAT] || '製作與出貨';
+const EQ_MAIN = TENANT.fixed?.equip || '營業設備';
+const EQ_PRICE = Math.max(30000, Math.round((TENANT.fixed?.depreciation || 2000) * 60 / 10000) * 10000);
+const EQ_UNITS = Math.max(20, Math.round((TENANT.volume || 8) * 30 * 0.6 / 10) * 10);
 
 export const n0 = (v) => Math.round(v).toLocaleString('en-US');
 export const nt = (v) => `NT$ ${n0(v)}`;
@@ -132,7 +145,13 @@ export function weekly(B) {
   if (lowP) {
     const make = Math.max(lowP.safety * 2 - lowP.current, 6);
     const p = B.prods.find(x => x.id === lowP.id);
-    actions.push({ id: 'stock', ic: 'box', t: `明天加做 ${lowP.name} ${make} 份`, d: `補回安全庫存以上，避開週末斷貨；AI 已確認原料足夠並排入早班生產。`, impact: r100(Math.min(make, (A.pq[lowP.id] || 0)) * p.unitGM), unit: '避免流失毛利', run: '加入生產排程', done: `已排入明日生產：${lowP.name} × ${make}（示範）`, go: 'inventory', goLabel: '庫存與生產' });
+    const VERB = AMEI ? ['明天加做', '份', '補回安全庫存以上，避開週末斷貨；AI 已確認原料足夠並排入早班生產。', '已排入明日生產'] : {
+      service: ['下週多開', '個預約名額', '熱門項目名額快滿；AI 已確認耗材足夠並排入可預約時段。', '已開放預約名額'],
+      retail: ['向供應商補貨', '件', '補回安全庫存以上，避開週末斷貨；AI 已擬好叫貨單。', '已送出叫貨單'],
+      flower: ['明天補進花材做', '份', '補回安全庫存以上，避開週末斷貨；AI 已擬好花市叫貨單。', '已排入明日製作'],
+      farm: ['明天加採收', '份', '補回安全庫存以上，避開週末斷貨；AI 已排入採收與分級。', '已排入明日採收'],
+    }[CAT] || ['明天加做', '份', '補回安全庫存以上，避開週末斷貨；AI 已確認材料足夠並排入生產。', '已排入明日生產'];
+    actions.push({ id: 'stock', ic: 'box', t: `${VERB[0]} ${lowP.name} ${make} ${VERB[1]}`, d: VERB[2], impact: r100(Math.min(make, (A.pq[lowP.id] || 0)) * p.unitGM), unit: '避免流失毛利', run: AMEI ? '加入生產排程' : CAT === 'retail' ? '產生叫貨單' : '加入排程', done: `${VERB[3]}：${lowP.name} × ${make}（示範）`, go: 'inventory', goLabel: '庫存與生產' });
   }
   const chTop = upCh ? upCh.c : CHANNEL_MAP.line;
   const slow = [...ps].sort((a, b) => a.q - b.q).slice(0, 3).sort((a, b) => b.gm - a.gm)[0];
@@ -225,10 +244,24 @@ export function hireSim(B, { kind = 'part', hourly = 210, hours = 80, salary = 3
 }
 
 // ---------- 決策模擬：買設備 ----------
-export const EQUIP = {
+const EQ_EXTRA = {
+  food: [['真空包裝機', 45000, '冷凍調理包、湯底包延長保存，接團購大單'], ['冷凍冷藏櫃', 90000, '備料量加倍，尖峰不用臨時補貨']],
+  drink: [['封口包裝機', 45000, '常溫包裝更穩定，接企業禮品大單'], ['冷藏展示櫃', 90000, '門市多陳列冷藏商品，提高現場加購']],
+  dessert: [['真空包裝機', 45000, '延長常溫商品保存，接企業大單'], ['冷藏展示櫃', 90000, '門市多陳列 2 層，提高現場加購']],
+  retail: [['條碼標籤機', 25000, '進貨上架更快，減少盤點誤差'], ['展示層架與燈光', 60000, '門市多陳列一區，提高現場加購']],
+  craft: [['雷射刻字機', 85000, '客製刻字自己做，交期縮短、接企業禮品'], ['展示層架與燈光', 60000, '門市多陳列一區，提高現場加購']],
+  flower: [['花藝工作台與包裝設備', 45000, '尖峰同時包兩束，節日接單量增加'], ['展示花架與燈光', 60000, '門市多陳列一區，提高現場加購']],
+  service: [['高溫消毒設備', 35000, '器具周轉更快，連續預約不用等'], ['等候區與展示櫃', 60000, '提升店內體驗，帶動加購與回訪']],
+  farm: [['冷藏庫', 120000, '採收後保鮮期拉長，減少報廢'], ['分級包裝機', 80000, '分級更快，接通路與團購大單']],
+}[CAT] || [['條碼標籤機', 25000, '進貨上架更快'], ['展示層架與燈光', 60000, '門市多陳列一區']];
+export const EQUIP = AMEI ? {
   oven: { name: '第二台烤箱', price: 180000, years: 5, units: 320, util: 1800, note: '旋風烤箱＋層架，週末可多出一整爐' },
   vacuum: { name: '真空包裝機', price: 45000, years: 5, units: 120, util: 300, note: '延長常溫禮盒保存，接企業大單' },
   fridge: { name: '冷藏展示櫃', price: 90000, years: 6, units: 150, util: 900, note: '門市多陳列 2 層，提高現場加購' },
+} : {
+  oven: { name: `加購${EQ_MAIN}`, price: EQ_PRICE, years: 5, units: EQ_UNITS, util: Math.round(EQ_PRICE / 100), note: `${EQ_MAIN}加一組，尖峰產能不再卡關（示範假設）` },
+  vacuum: { name: EQ_EXTRA[0][0], price: EQ_EXTRA[0][1], years: 5, units: Math.round(EQ_UNITS * 0.4), util: Math.round(EQ_EXTRA[0][1] / 150), note: EQ_EXTRA[0][2] },
+  fridge: { name: EQ_EXTRA[1][0], price: EQ_EXTRA[1][1], years: 6, units: Math.round(EQ_UNITS * 0.45), util: Math.round(EQ_EXTRA[1][1] / 100), note: EQ_EXTRA[1][2] },
 };
 const PAY_RATE = { cash: 0, 12: 0.03, 24: 0.05 }; // 分期總成本（示範假設）
 export function equipSim(B, { price, years, units, sell, util, pay = 'cash' }) {
@@ -267,11 +300,23 @@ export function equipSim(B, { price, years, units, sell, util, pay = 'cash' }) {
 }
 
 // ---------- 決策模擬：開新通路 ----------
-export const CHAN = {
+const AOV0 = Math.max(200, Math.round((PRODUCTS.reduce((s, p) => s + p.price, 0) / Math.max(1, PRODUCTS.length)) * 1.5 / 10) * 10);
+export const CHAN = AMEI ? {
   delivery: { name: '外送平台', comm: 30, aov: 650, orders: 80, per: 25, cannibal: 15, mkt: 2000, note: '抽成約 30%（示範假設）・冷藏甜點當日配送' },
   shopee: { name: '蝦皮購物', comm: 12, aov: 780, orders: 60, per: 90, cannibal: 15, mkt: 3000, note: '成交與金流手續費約 12%（示範假設）・常溫禮盒為主' },
   cross: { name: '跨境電商', comm: 18, aov: 1600, orders: 30, per: 380, cannibal: 5, mkt: 5000, note: '平台與金流約 18%（示範假設）・日本、馬來西亞常溫禮盒' },
+} : {
+  delivery: CAT === 'service'
+    ? { name: '預約平台', comm: 15, aov: AOV0, orders: 30, per: 0, cannibal: 20, mkt: 2000, note: '抽成約 15%（示範假設）・新客預約導流' }
+    : { name: '外送平台', comm: 30, aov: AOV0, orders: 80, per: 25, cannibal: 15, mkt: 2000, note: `抽成約 30%（示範假設）・${FOODISH || CAT === 'flower' ? '當日配送' : '同城快送'}` },
+  shopee: { name: '蝦皮購物', comm: 12, aov: Math.round(AOV0 * 1.2 / 10) * 10, orders: 60, per: 90, cannibal: 15, mkt: 3000, note: `成交與金流手續費約 12%（示範假設）・${CAT === 'service' ? '禮券與居家商品為主' : '常溫商品為主'}` },
+  cross: { name: '跨境電商', comm: 18, aov: Math.round(AOV0 * 2.5 / 10) * 10, orders: 30, per: 380, cannibal: 5, mkt: 5000, note: '平台與金流約 18%（示範假設）・日本、馬來西亞常溫商品' },
 };
+const DELIV_RISK = AMEI ? '冷藏蛋糕外送有碰撞、退款風險，需加強包材。' : {
+  food: '餐點外送有溫度與灑漏風險，需加強包材並控制配送時間。', drink: '飲品外送有灑漏風險，需加強封口與包材。', dessert: '冷藏商品外送有碰撞、退款風險，需加強包材。',
+  flower: '鮮花外送有碰撞與缺水風險，需加強保水與包材。', service: '平台新客回訪率較低，需設計首次體驗後的回購方案。', farm: '生鮮外送有溫度與擠壓風險，需加強包材。',
+}[CAT] || '外送有碰撞與退貨風險，需加強包材。';
+const CROSS_RISK = AMEI || FOODISH ? '跨境需確認目的地食品輸入、成分標示與關稅規定，冷藏品不適合。' : CAT === 'flower' ? '鮮花與植物跨境涉及檢疫規定，建議以乾燥花或周邊商品為主。' : '跨境需確認目的地商品輸入、標示與關稅規定。';
 export function channelSim(B, { ch = 'delivery', orders, aov, comm, per, cannibal, mkt }) {
   const rev = orders * aov / 1.05;
   const commission = orders * aov * comm / 100;
@@ -296,7 +341,7 @@ export function channelSim(B, { ch = 'delivery', orders, aov, comm, per, canniba
   const risks = [
     `抽成 ${comm}% 為示範假設，實際依平台合約與活動加碼而定；平台促銷常要求再折扣。`,
     `約 ${cannibal}% 訂單可能是原本會在 LINE／官網下單的熟客，等於多付抽成。`,
-    ch === 'delivery' ? '冷藏蛋糕外送有碰撞、退款風險，需加強包材。' : ch === 'shopee' ? '需處理平台客服時效與評價，AI 可代為回覆。' : '跨境需確認目的地食品輸入、成分標示與關稅規定，冷藏品不適合。',
+    ch === 'delivery' ? DELIV_RISK : ch === 'shopee' ? '需處理平台客服時效與評價，AI 可代為回覆。' : CROSS_RISK,
   ];
   return { rev, commission, prodCost, logi, mkt, cannibalLoss, net, perOrder, ownMargin, beOrders, year, series, conf, title, body, risks };
 }
@@ -308,36 +353,38 @@ export function govList(B) {
   const rdQ = B.full.reduce((s, d) => s + d.rd, 0) + B.cur.rd;
   return [
     { id: 'loan', ic: 'bank', c: '#2E97D4', name: '中小企業與青年創業相關貸款', ex: '例如：青年創業及啟動金貸款、中小企業信用保證融資等方向',
-      score: B.runway < 4 ? 90 : 76, why: `帳上現金可支付固定支出約 ${B.runway.toFixed(1)} 個月；若要添購第二台烤箱，搭配低利貸款可保住現金跑道。`,
+      score: B.runway < 4 ? 90 : 76, why: `帳上現金可支付固定支出約 ${B.runway.toFixed(1)} 個月；若要${AMEI ? '添購第二台烤箱' : `${EQUIP.oven.name}`}，搭配低利貸款可保住現金跑道。`,
       fit: ['依法設立登記、負責人或公司信用正常', '資金用途明確（設備、週轉、裝修）', '依各貸款類別的年齡、設立年限等條件'],
-      amount: '依貸款類別與銀行審核結果而定（示意）', time: '多為常態受理；送件到撥款約數週至數月（示意）', use: '購置第二台烤箱與週轉金' },
+      amount: '依貸款類別與銀行審核結果而定（示意）', time: '多為常態受理；送件到撥款約數週至數月（示意）', use: AMEI ? '購置第二台烤箱與週轉金' : `${EQUIP.oven.name.replace(/^加購/, '購置')}與週轉金` },
     { id: 'sbir', ic: 'flask', c: '#7C62E6', name: '小型企業創新研發相關計畫', ex: '例如：中央或地方型 SBIR 等研發補助方向',
       score: rdQ > 20000 ? 86 : 70, why: `近三個月研發支出 NT$ ${n0(rdQ)}（${B.rdProjects.slice(0, 2).map(p => p.name).join('、')}），研發項目與檢驗紀錄明確。`,
       fit: ['有具體的新產品、新製程或服務創新', '能提出研發計畫書與查核點', '通常需自籌部分經費'],
-      amount: '依計畫階段與審查結果核定，需搭配自籌款（示意）', time: '多為分梯次公告受理，審查期約數個月（示意）', use: '減糖配方研發與保存期限延長' },
+      amount: '依計畫階段與審查結果核定，需搭配自籌款（示意）', time: '多為分梯次公告受理，審查期約數個月（示意）', use: AMEI ? '減糖配方研發與保存期限延長' : `${(B.rdProjects[0] && B.rdProjects[0].name) || '新品開發'}與品質提升` },
     { id: 'dx', ic: 'cloud', c: '#5EE0C4', name: '數位轉型相關輔導', ex: '例如：中小企業數位轉型、雲端服務導入等輔導或補助方向',
       score: 82, why: `已用 GreenUP 串接 ${CHANNELS.length} 個接單通路、電子發票與自動記帳，數位化基礎完整，適合申請進階導入。`,
       fit: ['導入雲端系統、電子發票或線上金流', '願意配合輔導訪視與成果回報', '依公告的企業規模條件'],
       amount: '多為部分補助或顧問輔導資源，比例依公告（示意）', time: '常見為年度公告、額滿為止（示意）', use: 'AI 客服與跨境多語接單升級' },
     { id: 'local', ic: 'store', c: '#F0A531', name: '地方政府產業補助', ex: '例如：縣市政府的店家升級、地方特色產品、行銷推廣等補助方向',
-      score: 74, why: `伴手禮類商品占商品營收 ${(B.giftShare * 100).toFixed(0)}%，鳳梨酥、烏龍茶磅蛋糕具在地特色。`,
+      score: 74, why: AMEI ? `伴手禮類商品占商品營收 ${(B.giftShare * 100).toFixed(0)}%，鳳梨酥、烏龍茶磅蛋糕具在地特色。` : `${TENANT.region || '在地'}的${TENANT.typeName}，「${topNames(2).join('」「')}」具地方特色，適合結合在地行銷。`,
       fit: ['公司或商業登記在該縣市', '具地方特色產品或實體店面', '依各縣市公告條件'],
-      amount: '各縣市規定不同（示意）', time: '依各縣市年度公告（示意）', use: '在地伴手禮包裝升級與市集行銷' },
+      amount: '各縣市規定不同（示意）', time: '依各縣市年度公告（示意）', use: AMEI ? '在地伴手禮包裝升級與市集行銷' : '品牌包裝升級與在地市集行銷' },
     { id: 'hire', ic: 'users', c: '#2DB674', name: '僱用與人才培訓相關獎助', ex: '例如：勞動部門的僱用獎助、在職訓練課程補助等方向',
       score: B.weekendDay / Math.max(1, B.weekdayDay) > 1.3 ? 78 : 64, why: `週末每日訂單是平日的 ${(B.weekendDay / Math.max(1, B.weekdayDay)).toFixed(1)} 倍；若依決策模擬器加雇兼職，可先確認是否符合僱用相關獎助。`,
       fit: ['新僱用符合資格的求職者', '依規定投保勞健保並提繳勞退', '於規定期限內提出申請'],
-      amount: '依僱用對象與期間計算（示意）', time: '僱用後依規定期限申請（示意）', use: '週末烘焙與包裝人力' },
+      amount: '依僱用對象與期間計算（示意）', time: '僱用後依規定期限申請（示意）', use: AMEI ? '週末烘焙與包裝人力' : `${WORK}人力` },
     { id: 'export', ic: 'globe', c: '#DD5597', name: '跨境電商與外銷拓展輔導', ex: '例如：貿易推廣單位的跨境電商課程、海外展售與通路媒合等方向',
       score: B.overseasShare > 0.15 ? 80 : 62, why: `WhatsApp、Zalo 海外通路占營收約 ${(B.overseasShare * 100).toFixed(0)}%，已有跨境客群基礎。`,
-      fit: ['有外銷或跨境銷售計畫', '產品可常溫保存並備妥成分標示', '依活動公告報名'],
-      amount: '多為課程、展會或媒合資源（示意）', time: '依年度活動公告（示意）', use: '日本、馬來西亞常溫禮盒跨境上架' },
+      fit: ['有外銷或跨境銷售計畫', AMEI || FOODISH ? '產品可常溫保存並備妥成分標示' : '商品可穩定寄送並備妥標示', '依活動公告報名'],
+      amount: '多為課程、展會或媒合資源（示意）', time: '依年度活動公告（示意）', use: AMEI ? '日本、馬來西亞常溫禮盒跨境上架' : '日本、馬來西亞跨境上架' },
   ].sort((a, b) => b.score - a.score);
 }
 
 export function draftFor(g, B) {
   const staffN = B.payroll.length;
+  const fN = B.payroll.filter(p => p.kind === 'full').length, pN = B.payroll.filter(p => p.kind === 'part').length;
   return [
-    ['一、申請單位概況', `阿美手作甜點有限公司（示範），負責人阿美，含負責人共 ${staffN} 人（全職 1、兼職 1）。主要商品：檸檬塔、草莓生乳捲、芋泥巴斯克等 ${B.prods.length} 項手作甜點，透過 LINE、官網、門市 POS、WhatsApp、Zalo 等 ${CHANNELS.length} 個通路銷售。`],
+    AMEI ? ['一、申請單位概況', `阿美手作甜點有限公司（示範），負責人阿美，含負責人共 ${staffN} 人（全職 1、兼職 1）。主要商品：檸檬塔、草莓生乳捲、芋泥巴斯克等 ${B.prods.length} 項手作甜點，透過 LINE、官網、門市 POS、WhatsApp、Zalo 等 ${CHANNELS.length} 個通路銷售。`]
+      : ['一、申請單位概況', `${TENANT.name}有限公司（示範），負責人${OWNER_NAME}，${staffN > 1 ? `含負責人共 ${staffN} 人（全職 ${fN}、兼職 ${pN}）` : '目前由負責人一人經營，AI 協助接單與記帳'}。主要商品：${topNames(3).join('、')}等 ${B.prods.length} 項${TENANT.typeName}商品，透過 LINE、官網、門市 POS 等 ${CHANNELS.length} 個通路銷售。`],
     ['二、近期營運數據（系統自動帶入）', `近兩個完整月（${B.monthsTxt}）平均每月營收（未稅）${nt(B.net)}、毛利率 ${(B.margin * 100).toFixed(1)}%、稅前淨利 ${nt(B.pretax)}；每月約 ${n0(B.orders)} 筆訂單，海外通路占 ${(B.overseasShare * 100).toFixed(0)}%。`],
     ['三、計畫目的與資金用途', `${g.use}。${g.why}`],
     ['四、預期效益（引用決策模擬器）', `預計提升產能與毛利，並建立可追蹤的 KPI：月營收、毛利率、新客數、回購率；詳細數字請以決策模擬器最新試算為準。`],
@@ -346,19 +393,31 @@ export function draftFor(g, B) {
 }
 
 // ---------- 問顧問（規則式） ----------
-export const QUICK = ['我該再雇一個人嗎？', '11 月要不要做聖誕禮盒？', '哪個商品該停售？', '全店漲價 5% 會怎樣？', '現金夠撐多久？', '哪個通路最賺錢？'];
+export const QUICK = AMEI ? ['我該再雇一個人嗎？', '11 月要不要做聖誕禮盒？', '哪個商品該停售？', '全店漲價 5% 會怎樣？', '現金夠撐多久？', '哪個通路最賺錢？']
+  : ['我該再雇一個人嗎？', '年底要不要推節慶組合？', '哪個商品該停售？', '全店漲價 5% 會怎樣？', '現金夠撐多久？', '哪個通路最賺錢？'];
 export function answer(q, B, W) {
   const has = (re) => re.test(q);
   if (has(/雇|僱|員工|人手|請人|兼職|全職|招/)) {
     const h = hireSim(B, { kind: 'part', hourly: 210, hours: 80, demand: 45 });
     const yun = B.payroll.find(p => p.kind === 'full'), jie = B.payroll.find(p => p.kind === 'part');
-    return { t: `目前團隊是小芸（全職，雇主每月總成本 ${nt(yun.cost)}）與小傑（兼職 ${jie.hours} 小時，${nt(jie.cost)}），人事成本占月均營收 ${(B.staffCost / B.net * 100).toFixed(1)}%。近 4 週週末每天平均 ${B.weekendDay.toFixed(0)} 筆訂單，是平日的 ${(B.weekendDay / Math.max(1, B.weekdayDay)).toFixed(1)} 倍，產能卡在週末。用模擬器試算再雇一位兼職（80 小時、時薪 210）：雇主總成本 ${nt(h.row.cost)}，每月淨貢獻 ${snt(h.net)}${h.payback ? `，約第 ${h.payback} 個月回本` : ''}。建議先加週五到週日的兼職，暫不加全職。`,
+    const team = AMEI ? `目前團隊是小芸（全職，雇主每月總成本 ${nt(yun.cost)}）與小傑（兼職 ${jie.hours} 小時，${nt(jie.cost)}）`
+      : (yun || jie) ? `目前團隊是${[yun && `${yun.name}（全職，雇主每月總成本 ${nt(yun.cost)}）`, jie && `${jie.name}（兼職 ${jie.hours} 小時，${nt(jie.cost)}）`].filter(Boolean).join('與')}`
+        : `目前只有負責人${OWNER_NAME}一人，AI 代接訊息與預約`;
+    return { t: `${team}，人事成本占月均營收 ${(B.staffCost / B.net * 100).toFixed(1)}%。近 4 週週末每天平均 ${B.weekendDay.toFixed(0)} 筆訂單，是平日的 ${(B.weekendDay / Math.max(1, B.weekdayDay)).toFixed(1)} 倍，${AMEI ? '產能卡在週末' : `${WORK}卡在週末`}。用模擬器試算再雇一位兼職（80 小時、時薪 210）：雇主總成本 ${nt(h.row.cost)}，每月淨貢獻 ${snt(h.net)}${h.payback ? `，約第 ${h.payback} 個月回本` : ''}。建議先加週五到週日的兼職，暫不加全職。${!AMEI && !yun && !jie ? '第一次聘人記得到職當天加保勞健保，契約範本可在合規頁產生。' : ''}`,
       cites: [['月均營收（未稅）', nt(B.net)], ['現有人事成本', nt(B.staffCost) + '／月'], ['週末／平日訂單', `${(B.weekendDay / Math.max(1, B.weekdayDay)).toFixed(1)} 倍`]],
       acts: [{ label: '打開雇人試算', sim: { tab: 'hire' } }, { label: '前往排班打卡', go: 'staff' }] };
   }
   if (has(/聖誕|禮盒|節慶|過年|中秋|年節|11 ?月|12 ?月/)) {
     const xm = B.rdProjects.find(p => /聖誕/.test(p.name));
     const boxes = 150, price = 880, gp = boxes * price / 1.05 * (1 - B.costRatio);
+    if (!AMEI) {
+      const rd = B.rdProjects[0];
+      const tp = topNames(2);
+      const sets = 120, sp2 = Math.round((PRODUCTS.slice(0, 2).reduce((s, p) => s + p.price, 0) || 800) * 0.9 / 10) * 10, gp2 = sets * sp2 / 1.05 * (1 - B.costRatio);
+      return { t: `建議做，11 月中開始預告。把熱賣的「${tp.join('」＋「')}」組成節慶組合，定價 NT$ ${sp2}（約 9 折，示範），若賣出 ${sets} 組，商品毛利約 ${nt(gp2)}。${rd ? `研發中的「${rd.name}」目前 ${rd.pct}%，可作為限定加購。` : ''}時程建議：11/5 前定案組合與包裝、11/15 開 LINE 預購、12 月分批${CAT === 'service' ? '開放預約' : '出貨'}。風險：${CAT === 'service' ? '節前預約集中，需提前排好時段' : '包材打樣約需 3 週'}，${EQUIP.oven.name.replace(/^加購/, '')}產能有限時要控制預購量。`,
+        cites: [['組合定價（示範）', `NT$ ${sp2}`], ['預估組數', `${sets} 組`], ['預估毛利（示範）', nt(gp2)]],
+        acts: [{ label: '前往預約與訂金', go: 'booking' }, { label: 'AI 商品上架', go: 'listing' }] };
+    }
     return { t: `建議做，而且 11 月中就要開預購。禮盒類商品占商品營收 ${(B.giftShare * 100).toFixed(0)}%，每月約賣 ${n0(B.giftQty)} 盒，送禮需求穩定；12 月通常是甜點旺季。研發進度上「${xm ? xm.name : '聖誕限定禮盒'}」目前 ${xm ? xm.pct : 24}%（${xm ? xm.note : '配方開發中'}）。若預購 ${boxes} 盒、定價 NT$ ${price}（示範），商品毛利約 ${nt(gp)}。時程建議：11/5 前定案包材、11/15 開 LINE 預購收訂金、12/10 起分批出貨。風險：包材打樣約需 3 週，第二台烤箱沒到位前要控制預購量。`,
       cites: [['禮盒營收占比', `${(B.giftShare * 100).toFixed(0)}%`], ['禮盒月銷量', `${n0(B.giftQty)} 盒`], ['預估毛利（示範）', nt(gp)]],
       acts: [{ label: '前往預約與訂金', go: 'booking' }, { label: 'AI 商品上架', go: 'listing' }] };
@@ -366,13 +425,13 @@ export function answer(q, B, W) {
   if (has(/停售|下架|不賣|淘汰|商品|品項/)) {
     const ps = [...B.prods].sort((a, b) => a.gp - b.gp);
     const w = ps[0], tot = B.prods.reduce((s, p) => s + p.gp, 0), best = ps[ps.length - 1];
-    return { t: `不建議直接停售，但「${w.name}」是貢獻最低的商品：月均 ${n0(w.qty)} 份、商品毛利 ${nt(w.gp)}，只占全店 ${(w.gp / tot * 100).toFixed(1)}%（第一名${best.name}是 ${nt(best.gp)}）。它的毛利率 ${(w.gm * 100).toFixed(0)}% 並不差，問題是量少、保存只有 ${w.days} 天，容易報廢。建議改成每週二、五限量供應，或併進下午茶組合；若連續 4 週月銷低於 ${Math.round(w.qty * 0.7)} 份再考慮下架。`,
+    return { t: `不建議直接停售，但「${w.name}」是貢獻最低的商品：月均 ${n0(w.qty)} 份、商品毛利 ${nt(w.gp)}，只占全店 ${(w.gp / tot * 100).toFixed(1)}%（第一名${best.name}是 ${nt(best.gp)}）。它的毛利率 ${(w.gm * 100).toFixed(0)}% 並不差，問題是量少${w.days && w.days <= 30 ? `、保存只有 ${w.days} 天，容易報廢` : '、庫存週轉慢'}。建議改成${CAT === 'service' ? '固定時段限量開放' : '每週二、五限量供應'}，或併進${AMEI ? '下午茶' : '熱賣'}組合；若連續 4 週月銷低於 ${Math.round(w.qty * 0.7)} 份再考慮下架。`,
       cites: B.prods.slice().sort((a, b) => b.gp - a.gp).slice(0, 3).map(p => [p.name, nt(p.gp) + '／月']).concat([[w.name, nt(w.gp) + '／月']]),
       acts: [{ label: `試算${w.name}漲價`, sim: { tab: 'price', pid: w.id, r: 5 } }, { label: '前往庫存與生產', go: 'inventory' }] };
   }
   if (has(/漲價|調價|價格|定價|售價/)) {
     const s = priceSim(B, { pid: 'all', r: 5, e: 1 });
-    return { t: `以價格敏感度 1.0（示範假設）試算：全店漲 5%，銷量約 ${(s.qDrop * 100).toFixed(1)}%，每月商品毛利 ${snt(s.dgp)}，一年約 ${snt(s.dgp * 12)}。只要銷量掉幅不超過 ${(s.beDrop * 100).toFixed(1)}%，漲價就划算。建議先從禮盒與新品調整，熟客常買的檸檬塔、生乳捲最後動。`,
+    return { t: `以價格敏感度 1.0（示範假設）試算：全店漲 5%，銷量約 ${(s.qDrop * 100).toFixed(1)}%，每月商品毛利 ${snt(s.dgp)}，一年約 ${snt(s.dgp * 12)}。只要銷量掉幅不超過 ${(s.beDrop * 100).toFixed(1)}%，漲價就划算。建議先從禮盒與新品調整，熟客常買的${AMEI ? '檸檬塔、生乳捲' : topNames(2).join('、')}最後動。`,
       cites: [['目前毛利率', `${(B.margin * 100).toFixed(1)}%`], ['損益平衡銷量降幅', `${(s.beDrop * 100).toFixed(1)}%`], ['每月毛利變化', snt(s.dgp)]],
       acts: [{ label: '打開漲價試算', sim: { tab: 'price', pid: 'all', r: 5 } }] };
   }
@@ -387,9 +446,9 @@ export function answer(q, B, W) {
       cites: top.slice(0, 3).map(c => [c.name, nt(c.gp) + '／月']),
       acts: [{ label: '打開開新通路試算', sim: { tab: 'chan' } }] };
   }
-  if (has(/設備|烤箱|機器|買/)) {
+  if (has(/設備|烤箱|機器|買|加購/)) {
     const e = EQUIP.oven, s = equipSim(B, { price: e.price, years: e.years, units: e.units, sell: 55, util: e.util, pay: 'cash' });
-    return { t: `以第二台烤箱 18 萬、使用 5 年、每月多 320 件產能、賣掉 55% 試算：每月增加貢獻 ${nt(s.monthlyGain)}，約 ${Math.ceil(s.pb)} 個月回本；一次付清後現金可支付固定支出 ${s.runwayAfter.toFixed(1)} 個月。${s.runwayAfter < 3 ? '低於 3 個月安全線，建議分期或搭配貸款。' : '仍在安全範圍。'}`,
+    return { t: `以${AMEI ? '第二台烤箱 18 萬' : `${e.name} ${wan(e.price)}`}、使用 ${e.years} 年、每月多 ${e.units} 件產能、賣掉 55% 試算：每月增加貢獻 ${nt(s.monthlyGain)}，約 ${Math.ceil(s.pb)} 個月回本；一次付清後現金可支付固定支出 ${s.runwayAfter.toFixed(1)} 個月。${s.runwayAfter < 3 ? '低於 3 個月安全線，建議分期或搭配貸款。' : '仍在安全範圍。'}`,
       cites: [['回收期', `${Math.ceil(s.pb)} 個月`], ['每月折舊', nt(s.dep)], ['購買後可支付月數', `${s.runwayAfter.toFixed(1)} 個月`]],
       acts: [{ label: '打開買設備試算', sim: { tab: 'equip' } }] };
   }

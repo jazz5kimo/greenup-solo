@@ -1,7 +1,41 @@
 // 金流對帳：模擬資料（銀行／金流明細、企業月結應收、現金流預測、催款文案）
 // 所有資料皆為虛構示範，以固定種子產生並對應 store.orders / store.purchases。
-import { mulberry32, startOfDay, addDays, PRODUCT_MAP } from './data.js';
+import { mulberry32, startOfDay, addDays, PRODUCT_MAP, PRODUCTS } from './data.js';
 import { PAYROLL, month, position, monthList } from './ledger.js';
+import { TENANT, TENANT_ID } from './tenant.js';
+import { pName } from './i18n.js';
+
+export const AMEI = TENANT_ID === 'amei';
+// 店面租金與房東（阿美沿用原本示範；其他業主依 TENANT.fixed.rent）
+export const RENT = AMEI ? 25000 : (TENANT.fixed?.rent || 20000);
+export const RENT_NET = Math.round(RENT * 0.9);
+export const LANDLORD = AMEI ? '房東 王＊＊' : '房東（個人・示範）';
+
+// 企業月結客戶情境：依業態大類（TENANT.cat）各一組；客戶皆為虛構
+// [客戶, 語言, 通路, 名目, 天數前, 目標金額, 商品索引]
+const B2B_CAT = {
+  food: [['晨光設計有限公司', 'zh', 'line', '員工午餐團購（月結 30 天）'], ['青田企業社', 'zh', 'phone', '會議餐盒（月結）'], ['森林共享空間（虛構）', 'zh', 'line', '9 月講座餐點月結'], ['さくら旅行社 台北支店', 'ja', 'web', '訪台團午餐包場'], ['好日子民宿', 'zh', 'line', '8 月早餐代工月結']],
+  drink: [['晨光設計有限公司', 'zh', 'line', '中秋禮盒團購（月結 30 天）'], ['青田企業社', 'zh', 'phone', '辦公室飲品（月結）'], ['森林小屋選物店', 'zh', 'line', '9 月寄賣貨款'], ['さくら旅行社 台北支店', 'ja', 'web', '訪台團伴手禮'], ['好日子民宿', 'zh', 'line', '客房備品 8 月月結']],
+  dessert: [['晨光設計有限公司', 'zh', 'line', '中秋禮盒團購（月結 30 天）'], ['青田企業社', 'zh', 'phone', '員工下午茶（月結）'], ['森林小屋選物店', 'zh', 'line', '9 月寄賣貨款'], ['さくら旅行社 台北支店', 'ja', 'web', '訪台團伴手禮'], ['好日子民宿', 'zh', 'line', '早餐點心 8 月月結']],
+  retail: [['晨光設計有限公司', 'zh', 'line', '中秋禮品團購（月結 30 天）'], ['青田企業社', 'zh', 'phone', '員工福利品（月結）'], ['森林小屋選物店', 'zh', 'line', '9 月寄賣貨款'], ['さくら旅行社 台北支店', 'ja', 'web', '訪台團伴手禮'], ['好日子民宿', 'zh', 'line', '客房備品 8 月月結']],
+  craft: [['晨光設計有限公司', 'zh', 'line', '企業客製禮品（月結 30 天）'], ['青田企業社', 'zh', 'phone', '週年紀念品刻字（月結）'], ['森林小屋選物店', 'zh', 'line', '9 月寄賣貨款'], ['さくら旅行社 台北支店', 'ja', 'web', '訪台團伴手禮'], ['好日子民宿', 'zh', 'line', '客房擺設 8 月月結']],
+  flower: [['晨光設計有限公司', 'zh', 'line', '開幕花禮（月結 30 天）'], ['青田企業社', 'zh', 'phone', '辦公室週花（月結）'], ['森林婚禮工作室（虛構）', 'zh', 'line', '9 月婚禮佈置尾款'], ['さくら商事 台北支店', 'ja', 'web', '辦公室開幕花籃'], ['好日子民宿', 'zh', 'line', '大廳花藝 8 月月結']],
+  service: [['晨光設計有限公司', 'zh', 'line', '員工福利體驗券（月結 30 天）'], ['青田企業社', 'zh', 'phone', '尾牙摸彩禮券（月結）'], ['森林小屋選物店', 'zh', 'line', '9 月禮券寄賣'], ['さくら商事 台北支店', 'ja', 'web', '駐台員工福利方案'], ['好日子民宿', 'zh', 'line', '住客體驗方案 8 月月結']],
+  farm: [['晨光設計有限公司', 'zh', 'line', '中秋禮盒團購（月結 30 天）'], ['青田企業社', 'zh', 'phone', '員工餐廳食材（月結）'], ['森林小屋餐酒館', 'zh', 'line', '9 月食材月結'], ['さくら旅行社 台北支店', 'ja', 'web', '訪台團伴手禮'], ['好日子民宿', 'zh', 'line', '早餐食材 8 月月結']],
+};
+const B2B_SHAPE = [[-15, 10.5, 18600, [0, 1]], [-12, 14, 3450, [2, 3]], [-35, 9, 4860, [1, 4]], [-41, 11, 9600, [0]], [-66, 9, 6240, [5, 2]]];
+const B2B_INV = ['AB-30416127', 'AB-30416893', 'AB-30414502', 'AB-30413766', 'AB-30411902'];
+function tenantB2B(today) {
+  const set = B2B_CAT[TENANT.cat] || B2B_CAT.retail;
+  const P = PRODUCTS.length ? PRODUCTS : [];
+  return set.map(([customer, lang, channel, kind], i) => {
+    const [dd, hh, target, idx] = B2B_SHAPE[i];
+    const ps = [...new Set(idx.map(k => P[k % P.length]).filter(Boolean))];
+    const items = ps.map(p => ({ pid: p.id, qty: Math.max(1, Math.round(target / ps.length / Math.max(1, p.price))) }));
+    const total = items.reduce((s, it) => s + it.qty * (PRODUCT_MAP[it.pid]?.price || 0), 0) || target;
+    return { id: `AR-B2B-${['0912', '0923', '0831', '0826', '0730'][i]}`, customer, lang, channel, kind, total, ts: +addDays(today, dd) + hh * 3600e3, b2b: true, items, invoice: B2B_INV[i] };
+  });
+}
 
 const r0 = (n) => Math.round(n);
 
@@ -16,6 +50,7 @@ export const PROVIDERS = {
 // 企業月結／寄賣應收（模擬，帳齡較長，讓帳齡分析有層次）
 export function b2bReceivables(now = new Date()) {
   const today = startOfDay(now);
+  if (!AMEI) return tenantB2B(today);
   return [
     { id: 'AR-B2B-0912', customer: '晨光設計有限公司', lang: 'zh', channel: 'line', kind: '中秋禮盒團購（月結 30 天）', total: 18600, ts: +addDays(today, -15) + 10.5 * 3600e3, b2b: true, items: [{ pid: 'pineapple', qty: 20 }, { pid: 'cookie', qty: 12 }], invoice: 'AB-30416127' },
     { id: 'AR-B2B-0923', customer: '青田企業社', lang: 'zh', channel: 'phone', kind: '員工下午茶（月結）', total: 3450, ts: +addDays(today, -12) + 14 * 3600e3, b2b: true, items: [{ pid: 'canele', qty: 5 }, { pid: 'lemon', qty: 3 }], invoice: 'AB-30416893' },
@@ -52,7 +87,7 @@ export function buildRecon(store, now = new Date()) {
   const payroll = PAYROLL();
   const payNet = payroll.reduce((s, p) => s + p.pay - p.emp.labor - p.emp.health, 0);
   const prevM = new Date(today.getFullYear(), today.getMonth() - 1, 1).getMonth() + 1;
-  const b2b = b2bReceivables(now).find(x => x.customer === '森林小屋咖啡');
+  const b2b = AMEI ? b2bReceivables(now).find(x => x.customer === '森林小屋咖啡') : b2bReceivables(now)[2];
 
   // 今日交易時間：壓在「今天 00:00 ～ 現在」之間，確保不會出現未來時間
   const end = Math.max(+today + 50 * 60e3, Math.min(+now - 3 * 60e3, +today + 17.5 * 3600e3));
@@ -90,7 +125,7 @@ export function buildRecon(store, now = new Date()) {
   const bj = addBook({ type: 'ar', group: '應收帳款（企業月結）', title: b2b.customer, who: b2b.kind, sub: `發票 ${b2b.invoice}・已逾 30 天`, amt: b2b.total, ts: b2b.ts, tag: 'bank', b2b: b2b.id });
   bank.push({ dir: 'in', prov: 'bank', title: '不明匯入款', sub: 'ATM 轉入・戶名「林＊＊」', amt: b2b.total, kind: 'unknown', books: [], anomaly: {
     code: 'unknown', cand: [bj], conf: 92,
-    title: '查無對應訂單', text: `匯款人戶名與客戶資料不符。AI 比對到企業月結客戶「${b2b.customer}」${b2b.kind} ${b2b.total.toLocaleString()} 元金額完全相符，且該店負責人姓林。`,
+    title: '查無對應訂單', text: `匯款人戶名與客戶資料不符。AI 比對到企業月結客戶「${b2b.customer}」${b2b.kind} ${b2b.total.toLocaleString()} 元金額完全相符，且該${AMEI ? '店' : '客戶'}負責人姓林。`,
     action: `判定為「${b2b.customer}」付款，建議沖銷應收並傳 LINE 確認`, btn: '接受建議', done: '已沖銷應收，並傳訊息請對方確認', b2b: b2b.id,
   } });
   // 出帳
@@ -99,9 +134,9 @@ export function buildRecon(store, now = new Date()) {
     bank.push({ dir: 'out', prov: 'bank', title: `進貨付款 ${p.vendor}`, sub: '網銀轉帳・貨到付款', amt: p.total, kind: 'buy', books: [j] });
   });
   const jp = addBook({ type: 'hr', group: '薪資／租金', title: `${prevM} 月薪資單`, who: payroll.map(p => p.name).join('、'), sub: '已扣員工自付勞健保', amt: payNet, ts: +today, tag: 'out' });
-  bank.push({ dir: 'out', prov: 'bank', title: '薪資轉帳（3 人）', sub: '網銀批次轉帳', amt: payNet, kind: 'payroll', books: [jp] });
-  const jr = addBook({ type: 'rent', group: '薪資／租金', title: `${today.getMonth() + 1} 月店面租金`, who: '房東 王＊＊', sub: '25,000 扣繳 10% 後實付', amt: 22500, ts: +today, tag: 'out' });
-  bank.push({ dir: 'out', prov: 'bank', title: '租金 房東 王＊＊', sub: '網銀轉帳・扣繳 2,500 另行繳庫', amt: 22500, kind: 'rent', books: [jr] });
+  bank.push({ dir: 'out', prov: 'bank', title: `薪資轉帳（${payroll.length} 人）`, sub: payroll.length > 1 ? '網銀批次轉帳' : '網銀轉帳・負責人董事酬勞', amt: payNet, kind: 'payroll', books: [jp] });
+  const jr = addBook({ type: 'rent', group: '薪資／租金', title: `${today.getMonth() + 1} 月店面租金`, who: LANDLORD, sub: `${RENT.toLocaleString()} 扣繳 10% 後實付`, amt: RENT_NET, ts: +today, tag: 'out' });
+  bank.push({ dir: 'out', prov: 'bank', title: `租金 ${LANDLORD}`, sub: `網銀轉帳・扣繳 ${(RENT - RENT_NET).toLocaleString()} 另行繳庫`, amt: RENT_NET, kind: 'rent', books: [jr] });
   bank.push({ dir: 'out', prov: 'bank', title: '跨行轉帳手續費', sub: '銀行自動扣款', amt: 15, kind: 'fee', books: [], anomaly: {
     code: 'fee', cand: [], conf: 99,
     title: '帳上無對應紀錄', text: '於租金轉帳後 1 秒扣款 15 元，摘要為「跨行手續費」，與玉山網銀跨行轉帳收費標準一致。',
@@ -160,6 +195,15 @@ export function payoutTimeline(store, recon, now = new Date()) {
   return items.sort((a, b) => a.ts - b.ts);
 }
 
+// 60 天現金流預測中的大額預購（老闆的錢頁「已承諾支出」同一筆）：依業態大類
+const SUP = TENANT.suppliers || [];
+const supNames = SUP.slice(0, 2).map(s => String(s.vendor).replace(/（虛構）/g, '')).join('、');
+const supBase = SUP.reduce((a, s) => a + (s.base || 0), 0) || 30000;
+const BIG_NAME = { food: '年節檔期食材與包材預購', drink: '年節禮盒原料＋包材預購', dessert: '年節禮盒原料＋包材預購', retail: '年節檔期商品備貨', craft: '年節檔期材料備貨', flower: '年節檔期花材與資材預購', service: '年度耗材與設備預購', farm: '年節禮盒包材與冷鏈運費預付' };
+export const BIG_BUY = AMEI
+  ? { name: '年節禮盒原料＋包材預購', who: '北海乳品、綠紙包裝', due: [11, 12], amt: 360000 }
+  : { name: BIG_NAME[TENANT.cat] || '年節檔期備貨預購', who: supNames || '主要供應商', due: [11, 12], amt: Math.max(30000, Math.round(supBase * 3 / 10000) * 10000) };
+
 // 60 天現金流預測
 export function cashForecast(store, now = new Date()) {
   const rng = mulberry32(6060);
@@ -186,12 +230,12 @@ export function cashForecast(store, now = new Date()) {
     const mm = ((m - 1) % 12) + 1;
     const y = now.getFullYear() + Math.floor((m - 1) / 12);
     push(new Date(y, mm - 1, 5), '薪資', payNet, 'hr', true);
-    push(new Date(y, mm - 1, 5), '店面租金', 22500, 'rent', true);
-    push(new Date(y, mm - 1, 10), '10 日扣繳＋補充保費', 2500 + 528, 'tax', true);
+    push(new Date(y, mm - 1, 5), '店面租金', RENT_NET, 'rent', true);
+    push(new Date(y, mm - 1, 10), '10 日扣繳＋補充保費', (RENT - RENT_NET) + Math.round(RENT * 0.0211), 'tax', true);
     push(new Date(y, mm, 0), '勞健保・勞退', ins, 'hr');
     if (mm % 2 === 1) push(new Date(y, mm - 1, 15), `營業稅（${mm - 2 <= 0 ? mm + 10 : mm - 2}–${mm - 1 <= 0 ? 12 : mm - 1} 月）`, vat, 'vat', true);
   }
-  push(D(11, 12), '年節禮盒原料＋包材預購', 360000, 'buy', true);
+  push(D(BIG_BUY.due[0], BIG_BUY.due[1]), BIG_BUY.name, BIG_BUY.amt, 'buy', true);
   events.sort((a, b) => a.date - b.date);
   const pts = [];
   let bal = cash0;
@@ -209,7 +253,7 @@ export function cashForecast(store, now = new Date()) {
   }
   let min = pts[1];
   for (const p of pts.slice(1)) if (p.v < min.v) min = p;
-  const safe = r0((payNet + 22500 + ins) * 2 / 10000) * 10000;
+  const safe = r0((payNet + RENT_NET + ins) * 2 / 10000) * 10000;
   return { pts, events, min, safe, cash0, baseIn, baseOut };
 }
 
@@ -221,7 +265,7 @@ const PNAME = {
 };
 function itemsIn(items, lang) {
   const sep = lang === 'zh' || lang === 'ja' ? '、' : ', ';
-  return items.map(it => `${lang === 'zh' ? PRODUCT_MAP[it.pid].name : PNAME[lang][it.pid]} ×${it.qty}`).join(sep);
+  return items.map(it => `${lang === 'zh' ? (PRODUCT_MAP[it.pid]?.name || it.pid) : (AMEI && PNAME[lang]?.[it.pid]) || pName(lang, it.pid)} ×${it.qty}`).join(sep);
 }
 export function dunningMessage(o, ageDays) {
   const lang = ['zh', 'ja', 'en', 'vi'].includes(o.lang) ? o.lang : 'zh';
@@ -231,15 +275,15 @@ export function dunningMessage(o, ageDays) {
   const late = ageDays > 30;
   const id = o.id;
   if (lang === 'ja') {
-    return `${o.customer} 様\n\nいつも阿美手作甜點をご利用いただき、誠にありがとうございます。\n${d.getMonth() + 1}月${d.getDate()}日にご注文いただいた「${items}」（ご注文番号 ${id}、${amt}）につきまして、${late ? `お支払い期日より${ageDays - 30}日ほど経過しておりますが、` : ''}まだご入金が確認できておりません。\n\nお手数をおかけいたしますが、下記リンクよりお手続きいただけますと幸いです。行き違いでお支払い済みの場合は、何卒ご容赦ください。`;
+    return `${o.customer} 様\n\nいつも${AMEI ? '阿美手作甜點' : TENANT.name}をご利用いただき、誠にありがとうございます。\n${d.getMonth() + 1}月${d.getDate()}日にご注文いただいた「${items}」（ご注文番号 ${id}、${amt}）につきまして、${late ? `お支払い期日より${ageDays - 30}日ほど経過しておりますが、` : ''}まだご入金が確認できておりません。\n\nお手数をおかけいたしますが、下記リンクよりお手続きいただけますと幸いです。行き違いでお支払い済みの場合は、何卒ご容赦ください。`;
   }
   if (lang === 'en') {
-    return `Hi ${o.customer},\n\nThank you for ordering from A-Mei Handmade Desserts! This is a friendly reminder that payment for order ${id} (${items}, ${amt}) placed on ${d.getMonth() + 1}/${d.getDate()} ${late ? 'is now past due' : "hasn't come through yet"}.\n\nYou can complete it securely via the link below. If you've already paid, please disregard this message. Have a lovely day!`;
+    return `Hi ${o.customer},\n\nThank you for ordering from ${AMEI ? 'A-Mei Handmade Desserts' : TENANT.en || TENANT.name}! This is a friendly reminder that payment for order ${id} (${items}, ${amt}) placed on ${d.getMonth() + 1}/${d.getDate()} ${late ? 'is now past due' : "hasn't come through yet"}.\n\nYou can complete it securely via the link below. If you've already paid, please disregard this message. Have a lovely day!`;
   }
   if (lang === 'vi') {
-    return `Chào ${o.customer},\n\nCảm ơn bạn đã đặt bánh tại A-Mei Handmade Desserts! Đơn hàng ${id} (${items}, ${amt}) ngày ${d.getDate()}/${d.getMonth() + 1} hiện ${late ? 'đã quá hạn thanh toán' : 'chưa được thanh toán'}.\n\nBạn có thể thanh toán nhanh qua liên kết bên dưới. Nếu bạn đã thanh toán rồi, xin vui lòng bỏ qua tin nhắn này. Chúc bạn một ngày tốt lành!`;
+    return `Chào ${o.customer},\n\nCảm ơn bạn đã ${AMEI ? 'đặt bánh' : 'đặt hàng'} tại ${AMEI ? 'A-Mei Handmade Desserts' : TENANT.en || TENANT.name}! Đơn hàng ${id} (${items}, ${amt}) ngày ${d.getDate()}/${d.getMonth() + 1} hiện ${late ? 'đã quá hạn thanh toán' : 'chưa được thanh toán'}.\n\nBạn có thể thanh toán nhanh qua liên kết bên dưới. Nếu bạn đã thanh toán rồi, xin vui lòng bỏ qua tin nhắn này. Chúc bạn một ngày tốt lành!`;
   }
-  return `${o.customer} 您好：\n\n感謝您${d.getMonth() + 1}/${d.getDate()} 向阿美手作甜點訂購「${items}」（${o.b2b ? o.kind + '，' : ''}單號 ${id}），金額 ${amt}。${late ? `目前帳款已超過約定付款期限 ${ageDays - 30} 天，` : '目前系統尚未收到款項，'}想跟您確認一下付款狀況。\n\n可直接點選下方連結付款；若您已經付款，請忽略此訊息，謝謝您！`;
+  return `${o.customer} 您好：\n\n感謝您${d.getMonth() + 1}/${d.getDate()} 向${AMEI ? '阿美手作甜點' : TENANT.name}訂購「${items}」（${o.b2b ? o.kind + '，' : ''}單號 ${id}），金額 ${amt}。${late ? `目前帳款已超過約定付款期限 ${ageDays - 30} 天，` : '目前系統尚未收到款項，'}想跟您確認一下付款狀況。\n\n可直接點選下方連結付款；若您已經付款，請忽略此訊息，謝謝您！`;
 }
 export const LANG_NAME = { zh: '中文', ja: '日本語', en: 'English', vi: 'Tiếng Việt' };
 

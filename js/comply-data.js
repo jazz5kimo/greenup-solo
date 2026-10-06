@@ -1,15 +1,21 @@
 // 合規與文件：示範資料（健檢項目、文件櫃、到期提醒）
 // 所有內容為虛構示範，法規說明以保守措辭撰寫，實際以主管機關規定與專業人士意見為準。
-import { startOfDay, addDays } from './data.js';
+import { startOfDay, addDays, PRODUCTS } from './data.js';
+import { TENANT, TENANT_ID } from './tenant.js';
+import { STAFF } from './ledger.js';
 
+const AMEI = TENANT_ID === 'amei';
 export const DISCLAIMER = '僅供參考，實際以主管機關規定與專業人士意見為準';
-export const COMPANY = { name: '阿美手作甜點有限公司', brand: '阿美手作甜點', taxId: '90418826', owner: '阿美', addr: '台北市大安區溫州街 ○○ 號 1 樓' };
+const fakeTaxId = (id) => { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 9e7; return String(1e7 + h).slice(0, 8); };
+export const COMPANY = AMEI
+  ? { name: '阿美手作甜點有限公司', brand: '阿美手作甜點', taxId: '90418826', owner: '阿美', addr: '台北市大安區溫州街 ○○ 號 1 樓' }
+  : { name: `${TENANT.name}有限公司`, brand: TENANT.name, taxId: fakeTaxId(TENANT.id), owner: TENANT.owner || (STAFF[0] && STAFF[0].name) || '負責人', addr: `${TENANT.region || '台北市'}○○路 ○○ 號 1 樓（示範）` };
 
 // 健檢分類（雷達圖六軸）
 export const CATS = [
   { id: 'tax', name: '稅務發票', icon: 'receipt', color: '#2DB674' },
   { id: 'labor', name: '勞動與保險', icon: 'users', color: '#2E97D4' },
-  { id: 'food', name: '食品安全與標示', icon: 'leaf', color: '#F0A531' },
+  { id: 'food', name: AMEI ? '食品安全與標示' : (IND().axis), icon: 'leaf', color: '#F0A531' },
   { id: 'ecom', name: '電商與消費者保護', icon: 'cart', color: '#DD5597' },
   { id: 'privacy', name: '個資與資安', icon: 'lock', color: '#7C62E6' },
   { id: 'corp', name: '公司登記', icon: 'bank', color: '#5EE0C4' },
@@ -21,7 +27,7 @@ export const LAST_SCORES = { tax: 75, labor: 70, food: 45, ecom: 50, privacy: 50
 
 // status：pass 通過／warn 注意／todo 待辦
 // fix：可由 AI 一鍵處理（模擬）；go：前往相關頁
-export const CHECKS = [
+const AMEI_CHECKS = [
   // 稅務發票
   { id: 'einv', cat: 'tax', status: 'pass', title: '電子發票自動開立',
     plain: 'POS 門市、LINE、官網訂單結帳後都會自動開立電子發票，並上傳至財政部電子發票平台（示範串接）。',
@@ -123,6 +129,8 @@ export const CHECKS = [
     go: null },
 ];
 
+export const CHECKS = AMEI ? AMEI_CHECKS : tenantChecks();
+
 /* ---------- 文件櫃 ---------- */
 // kind：lease 租約／contract 合約／insurance 保險／license 證照／report 報告／reg 登記
 export const KIND = {
@@ -136,7 +144,8 @@ export const KIND = {
 };
 
 // 依「今天」產生相對日期，讓示範永遠合理
-export function buildDocs(now = new Date(), dairyYear = 0) {
+export function buildDocs(now = new Date(), dairyYear = 0) { return AMEI ? ameiDocs(now, dairyYear) : tenantDocs(now, dairyYear); }
+function ameiDocs(now = new Date(), dairyYear = 0) {
   const t = startOfDay(now);
   const D = (n) => addDays(t, n);
   const yearBefore = (d) => { const x = new Date(d); x.setFullYear(x.getFullYear() - 1); return addDays(x, 1); };
@@ -207,7 +216,8 @@ export function buildDocs(now = new Date(), dairyYear = 0) {
 }
 
 // 未來 12 個月到期與續約（含文件櫃以外的項目）
-export function buildTimeline(now = new Date()) {
+export function buildTimeline(now = new Date()) { return AMEI ? ameiTimeline(now) : tenantTimeline(now); }
+function ameiTimeline(now = new Date()) {
   const t = startOfDay(now);
   const D = (n) => addDays(t, n);
   return [
@@ -257,3 +267,258 @@ export function guessDoc(name, now = new Date(), seed = 1) {
 }
 
 export function fmt(d) { d = new Date(d); return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; }
+
+/* ====================================================================
+ * 其他業主：依業態大類（TENANT.cat）產生合規健檢、文件櫃與到期提醒
+ * 用 TENANT.typeName、PRODUCTS、STAFF、TENANT.suppliers 帶入；內容為虛構示範，
+ * 法規說明一律保守措辭，實際以主管機關公告與專業人士意見為準。
+ * ==================================================================== */
+// （以下用 function 宣告：模組前段的 CATS／CHECKS 會先呼叫到）
+function pn(i) { return PRODUCTS.length ? PRODUCTS[i % PRODUCTS.length].name : '主力商品'; }
+function SUPS() { return (TENANT.suppliers || []).map(x => ({ ...x, short: String(x.vendor).replace(/（虛構）/g, '') })); }
+function supOf(re, fb) { return SUPS().find(x => re.test(x.item + x.vendor)) || fb; }
+function mainSup() { return SUPS()[0] || { vendor: '主要供應商（虛構）', short: '主要供應商', item: '主要進貨', base: 20000 }; }
+export const MAIN_VENDOR = AMEI ? '北海乳品貿易' : mainSup().vendor;
+export const MAIN_SHORT = AMEI ? '北海' : mainSup().short.replace(/(有限公司|股份有限公司|貿易|批發商?|材料行|資材行|食品行)$/, '') || mainSup().short;
+export const SHORT_TL = AMEI ? { ins: '產品責任險', dairy: '北海乳品供貨合約', lease: '店面租約' }
+  : { ins: IND().ins, dairy: `${mainSup().short}供貨合約`, lease: '店面租約' };
+
+function IND() {
+  const FOODISH = { fields: [['品名', 'n'], ['成分', 'i'], ['過敏原', 'a'], ['有效日期', 'e'], ['廠商', 'm']], miss: { 4: 'a', 5: 'm' } };
+  const c = TENANT.cat;
+  const foodChecks = (extra) => ({
+    reg: { id: 'fbo', status: 'warn', title: '食品業者登錄資料',
+      plain: `已在「食品業者登錄平台」完成登錄；今年新增${extra}，登錄的營業型態與品項建議確認是否需要更新。`,
+      why: '依相關法規，特定食品業者需完成登錄，資料變更時也應更新；未登錄或資料不符可能被要求限期改正。實際以主管機關公告為準。',
+      fix: ['AI 產生資料更新清單', '已比對目前販售品項與通路，列出建議更新的登錄資料，請至食品業者登錄平台確認（示範）'] },
+  });
+  const T = {
+    food: { axis: '食品安全與標示', short: '食品安全', ins: '產品責任險', scope: '餐館業、食品什貨零售（示範）', use: '限餐飲使用', tmClass: '餐飲服務、調理食品（示範）',
+      ...foodChecks(`外送與「${pn(5)}」等外帶品項`), label: { title: '外帶包裝與菜單標示：品名、成分、過敏原、有效日期、廠商', plain: `6 項商品中，「${pn(4)}」未標示過敏原（例如花生、甲殼類），「${pn(5)}」包裝缺少製造廠商電話。`, ...FOODISH },
+      third: 'health', liabPlain: '產品責任險＋公共意外責任險將在 45 天後到期，目前保單未包含外送途中的餐點。',
+      cancel: ['現做餐點、易腐敗食品等可能屬於七天解除權的例外，但需在銷售頁事先清楚揭露。官網已揭露，LINE 與電話訂餐流程尚未說明。', '已在 LINE、電話語音的 AI 下單流程加入「現做餐點不適用七天解除權」說明（示範）'],
+      lab: ['食品衛生檢驗報告', '食品衛生檢驗', 2] },
+    drink: { axis: '食品安全與標示', short: '食品安全', ins: '產品責任險', scope: '飲料店業、食品什貨零售（示範）', use: '限飲品製作與零售使用', tmClass: '咖啡、茶葉、飲料（示範）',
+      ...foodChecks(`宅配與「${pn(4)}」等品項`), label: { title: '包裝標示：品名、成分、淨重、有效日期、廠商', plain: `6 項商品中，「${pn(3)}」包裝未標示有效日期，「${pn(5)}」缺少製造廠商電話。`, fields: [['品名', 'n'], ['成分', 'i'], ['淨重', 'w'], ['有效日期', 'e'], ['廠商', 'm']], miss: { 3: 'e', 5: 'm' } },
+      third: 'health', liabPlain: '產品責任險＋公共意外責任險將在 45 天後到期，目前保單未包含跨境寄送的商品。',
+      cancel: ['開封後難以回復原狀、保存期限較短的食品飲品可能屬於七天解除權的例外，但需在銷售頁事先清楚揭露。官網已揭露，LINE 與 Messenger 下單流程尚未說明。', '已在 LINE、Messenger 的 AI 下單流程加入「短效期食品飲品不適用七天解除權」說明（示範）'],
+      lab: ['食品衛生檢驗報告', '食品衛生檢驗', 2] },
+    dessert: { axis: '食品安全與標示', short: '食品安全', ins: '產品責任險', scope: '食品什貨零售、糕餅製造（示範）', use: '限食品製造與零售使用', tmClass: '糕點類（示範）',
+      ...foodChecks(`冷藏宅配與「${pn(4)}」等品項`), label: { title: '產品標示：品名、成分、過敏原、有效日期、製造廠商', plain: `6 項商品中，「${pn(4)}」標籤未標示「堅果」過敏原，「${pn(5)}」缺少製造廠商電話。`, ...FOODISH },
+      third: 'health', liabPlain: '產品責任險＋公共意外責任險將在 45 天後到期，目前保單未包含跨境寄送的商品。',
+      cancel: ['易腐敗、保存期限較短的食品可能屬於七天解除權的例外，但需在銷售頁事先清楚揭露。官網已揭露，LINE 與 WhatsApp 下單流程尚未說明。', '已在 LINE、WhatsApp 的 AI 下單流程加入「短效期食品不適用七天解除權」說明（示範）'],
+      lab: ['食品衛生檢驗報告', '食品衛生檢驗', 2] },
+    farm: { axis: '農產品安全與標示', short: '農產安全', ins: '產品責任險', scope: '農產品零售、食品什貨零售（示範）', use: '限農產品理貨與零售使用', tmClass: '新鮮蔬果、農產加工品（示範）',
+      reg: { id: 'origin', status: 'warn', title: '產地與生產者資訊揭露', plain: `「${pn(0)}」等品項已標示產地，但「${pn(4)}」的生產者資訊與包裝日期尚未在官網揭露。`, why: '農產品的產地與生產資訊揭露不完整，容易引起消費疑慮；有相關驗證標章的品項，標示方式需依規定辦理，實際以主管機關公告為準。', fix: ['AI 補齊產地與生產資訊', '已依進貨紀錄補上產地、生產者與包裝日期欄位，請確認後發布（示範）'] },
+      label: { title: '包裝標示：品名、產地、重量、包裝日期、生產者', plain: `6 項商品中，「${pn(3)}」未標示重量，「${pn(5)}」缺少生產者聯絡資訊。`, fields: [['品名', 'n'], ['產地', 'o'], ['重量', 'w'], ['包裝日期', 'e'], ['生產者', 'm']], miss: { 3: 'w', 5: 'm' } },
+      third: 'pest', liabPlain: '產品責任險將在 45 天後到期，目前保單未包含冷藏宅配途中的商品。',
+      cancel: ['生鮮農產品屬易腐敗商品，可能屬於七天解除權的例外，但需在銷售頁事先清楚揭露。官網已揭露，LINE 下單流程尚未說明。', '已在 LINE 的 AI 下單流程加入「生鮮農產品不適用七天解除權」說明（示範）'],
+      lab: ['農藥殘留檢驗報告', '農藥殘留自主送驗', 2] },
+    retail: { axis: '商品標示與安全', short: '商品標示', ins: '產品責任險', scope: '日常用品零售、其他零售（示範）', use: '限零售門市使用', tmClass: '日用品、雜貨（示範）',
+      reg: { id: 'insp', status: 'warn', title: '應施檢驗商品確認', plain: `目前販售的「${pn(0)}」「${pn(1)}」等商品中，若含電器、兒童用品等品項，可能屬於應施檢驗商品，建議確認是否需具備檢驗標識。`, why: '依商品檢驗相關規定，部分商品需完成檢驗並貼附標識才能陳列販售；實際以標準檢驗局公告為準。', fix: ['AI 產生檢驗確認清單', '已列出需向供應商確認檢驗標識的商品清單（示範）'] },
+      label: { title: '商品標示：品名、材質、產地、使用方法、廠商', plain: `6 項商品中，「${pn(2)}」未標示產地，「${pn(5)}」缺少廠商聯絡資訊。`, fields: [['品名', 'n'], ['材質', 'i'], ['產地', 'o'], ['使用方法', 'u'], ['廠商', 'm']], miss: { 2: 'o', 5: 'm' } },
+      third: 'import', liabPlain: '產品責任險將在 45 天後到期，目前保單未包含跨境寄送的商品。',
+      cancel: ['網購一般商品，消費者通常有 7 天可無條件解除契約；拆封後難以回復原狀的個人衛生用品等可能屬於例外，但需事先清楚揭露。官網已揭露，LINE 與 Messenger 下單流程尚未說明。', '已在 LINE、Messenger 的 AI 下單流程加入七天解除權與例外說明（示範）'],
+      lab: ['商品材質檢測報告', '商品材質送驗', 2] },
+    craft: { axis: '商品標示與保固', short: '商品標示', ins: '產品責任險', scope: '手工藝品製造、其他零售（示範）', use: '限工作室製作與零售使用', tmClass: '手工藝品、配件（示範）',
+      reg: { id: 'material', status: 'warn', title: '材料來源與安全資料', plain: `「${pn(0)}」使用的材料已保存供應商出貨證明；新款「${pn(3)}」的染料與五金材質說明尚未取得供應商資料。`, why: '材料成分可能涉及商品標示與消費者過敏疑慮，保存供應商證明較能回應客訴與通路查核。', fix: ['AI 產生索取清單', '已列出需向供應商索取的材料說明清單（示範）'] },
+      label: { title: '商品標示：品名、材質、產地、保養方式、廠商', plain: `6 項商品中，「${pn(1)}」未標示保養方式，「${pn(5)}」缺少廠商聯絡資訊。`, fields: [['品名', 'n'], ['材質', 'i'], ['產地', 'o'], ['保養方式', 'c'], ['廠商', 'm']], miss: { 1: 'c', 5: 'm' } },
+      third: 'warranty', liabPlain: '產品責任險將在 45 天後到期，目前保單未包含跨境寄送的商品。',
+      cancel: ['網購一般商品，消費者通常有 7 天可無條件解除契約；依客人需求客製（例如刻字）的商品可能屬於例外，但需在銷售頁事先清楚揭露。官網已揭露，LINE 與 Messenger 下單流程尚未說明。', '已在 AI 下單流程加入「客製商品不適用七天解除權」說明（示範）'],
+      lab: ['材料成分檢測報告', '材料成分送驗', 2] },
+    flower: { axis: '花材與商品標示', short: '花材標示', ins: '公共意外責任險', scope: '花卉零售、景觀與花藝設計（示範）', use: '限花藝零售與工作室使用', tmClass: '花卉、花藝設計（示範）',
+      reg: { id: 'quar', status: 'warn', title: '進口花材來源與檢疫文件', plain: '部分進口花材由批發商提供，目前只保存發票，沒有留存檢疫或來源證明影本。', why: '進口植物依相關規定需經檢疫，向合法批發商進貨並保存單據，較能回應查核與客訴；實際以主管機關公告為準。', fix: ['AI 產生索取清單', '已列出需向批發商索取的來源與檢疫文件清單（示範）'] },
+      label: { title: '商品標示：品名、花材、保存方式、產地、廠商', plain: `6 項商品中，「${pn(2)}」未標示保存方式，「${pn(5)}」缺少廠商聯絡資訊。`, fields: [['品名', 'n'], ['花材', 'i'], ['保存方式', 'c'], ['產地', 'o'], ['廠商', 'm']], miss: { 2: 'c', 5: 'm' } },
+      third: 'cold', liabPlain: '公共意外責任險將在 45 天後到期，目前保單未包含外送與場地佈置現場。',
+      cancel: ['鮮花屬易腐敗商品，可能屬於七天解除權的例外，但需在銷售頁事先清楚揭露。官網已揭露，LINE 與電話訂花流程尚未說明。', '已在 LINE、電話語音的 AI 下單流程加入「鮮花不適用七天解除權」說明（示範）'],
+      lab: ['進口花材檢疫證明（批發商提供）', '花材來源文件更新', 1] },
+    service: { axis: '衛生與消費安全', short: '衛生安全', ins: '公共意外責任險', scope: '其他個人服務業（示範）', use: '限個人服務工作室使用', tmClass: '個人服務（示範）',
+      reg: { id: 'hyg', status: 'warn', title: '營業場所衛生與器具消毒', plain: '器具每次使用後都有消毒，但一次性耗材的拆封與丟棄紀錄還沒有固定格式。', why: '依地方衛生相關規定，服務業者需維持營業場所與器具清潔，衛生稽查時可能查看紀錄；實際以地方主管機關公告為準。', fix: ['AI 產生消毒紀錄表', '已建立每日器具消毒與耗材紀錄表，可在平板上勾選（示範）'] },
+      label: { title: '服務價目與說明：項目、價格、時間、注意事項、退改規則', plain: `6 項服務中，「${pn(4)}」未說明注意事項，「${pn(5)}」缺少使用期限與退改規則。`, fields: [['項目', 'n'], ['價格', 'p'], ['時間', 't'], ['注意事項', 'i'], ['退改規則', 'm']], miss: { 4: 'i', 5: 'm' } },
+      third: 'health', liabPlain: '公共意外責任險將在 45 天後到期，到期前需洽詢續保。',
+      cancel: ['線上預約的取消時限與禮券使用期限已寫在官網，但 LINE 預約流程沒有說明，近 3 個月有 2 件改期爭議。', '已在 LINE 預約流程加入取消時限與禮券使用規則說明（示範）'],
+      cancelTitle: '預約取消與禮券退費規則揭露', cancelWhy: '預約與禮券的取消、退費規則若沒有事先揭露，容易產生消費爭議；禮券另有相關記載規定，實際以主管機關公告為準。',
+      lab: ['器具消毒設備保養紀錄', '消毒設備年度保養', 1] },
+  };
+  return T[c] || T.retail;
+}
+
+export const LABEL = AMEI ? null : (() => {
+  const L = IND().label;
+  return { fields: L.fields, rows: PRODUCTS.slice(0, 7).map((p, i) => [p.name, L.miss[i] || 1]) };
+})();
+
+function staffNames() { return STAFF.map(x => x.name).join('、'); }
+function tenantChecks() {
+  const I = IND();
+  const O = COMPANY.owner;
+  const emps = STAFF.filter(x => x.kind !== 'owner');
+  const ft = emps.find(x => x.kind === 'full'), pt = emps.find(x => x.kind === 'part');
+  const third = {
+    health: { id: 'health', status: 'pass', title: TENANT.cat === 'service' ? '從業人員健康檢查與技能證照' : '食品從業人員健康檢查', plain: `${staffNames()}今年度的健康檢查報告都已上傳，下次到期前 30 天提醒。`, why: TENANT.cat === 'service' ? '部分服務業依地方衛生規定需定期健康檢查，衛生稽查時可能查看紀錄；實際以地方主管機關公告為準。' : '食品從業人員依相關規定需定期健康檢查，衛生稽查時會查看紀錄。', go: null },
+    pest: { id: 'pest', status: 'pass', title: '農藥殘留自主檢驗', plain: '本季已抽驗 2 項農產品送驗，結果符合送驗時的判定標準（示範），報告已上傳文件櫃。', why: '自主檢驗紀錄能證明品質管理，通路上架與客訴時都用得到。', go: null },
+    import: { id: 'import', status: 'pass', title: '進口商品報關與來源文件保存', plain: '向國外採購的商品已保存報關、發票與供應商資料，可隨時匯出。', why: '來源文件完整，遇到商品標示或安全疑慮時才能追溯。', go: null },
+    warranty: { id: 'warranty', status: 'todo', title: '保固與維修條款揭露', plain: '手作商品的保固期間與人為損壞的維修收費，目前只寫在出貨小卡上，官網與聊天下單流程沒有說明。', why: '保固與維修規則事先說清楚，可以減少售後爭議。', fix: ['AI 產生保固條款', '已產生保固與維修條款草稿，並加入官網與 AI 下單流程（示範）'], go: ['listing', '前往商品上架'] },
+    cold: { id: 'cold', status: 'pass', title: '鮮花冷藏溫度紀錄', plain: '冷藏櫃溫度每日自動記錄，超出設定範圍時推播提醒。', why: '保存溫度紀錄能證明花材品質，遇到客訴時也有依據。', go: null },
+  }[I.third];
+  const labor = emps.length ? [
+    { id: 'enroll', cat: 'labor', status: 'pass', title: '到職當日加保勞保、健保、勞退提繳',
+      plain: `${emps.map(e => `${e.name}（${e.kind === 'full' ? '全職' : '兼職'}）`).join('與')}都在到職當天完成勞保、就業保險、職災保險、健保加保，並提繳 6% 勞退。`,
+      why: '依相關法規，雇主應在員工到職當日辦理加保；晚加保期間若員工發生事故，雇主可能需自行負擔賠償。', go: ['staff', '前往排班打卡'] },
+    pt ? { id: 'contract', cat: 'labor', status: 'todo', title: '兼職人員書面勞動契約',
+      plain: `${pt.name}（${String(pt.title || '').split('・')[0] || '兼職'}）目前只有 LINE 對話約定，還沒有簽署書面契約，工時、時薪、休假規則沒有白紙黑字。`,
+      why: '書面契約可以避免日後對工時、工資與離職規定的爭議，也是勞動檢查時常被問到的文件。',
+      fix: ['AI 產生兼職契約草稿', `已依${pt.name}目前的時薪與班表產生兼職勞動契約草稿，可傳 LINE 請對方線上簽署（示範）`], go: ['staff', `查看${pt.name}班表`] }
+      : { id: 'contract', cat: 'labor', status: 'todo', title: '員工書面勞動契約',
+        plain: `${ft.name}的勞動契約已簽，但加班與特休規則的附件還沒有更新為今年版本。`,
+        why: '書面契約可以避免日後對工時、工資與離職規定的爭議，也是勞動檢查時常被問到的文件。',
+        fix: ['AI 產生契約附件', '已產生加班與特休規則附件草稿，可傳 LINE 請員工線上確認（示範）'], go: ['staff', '前往排班打卡'] },
+    { id: 'attend', cat: 'labor', status: 'pass', title: '出勤紀錄與工資清冊保存', plain: '打卡紀錄、加班申請與每月薪資單都自動保存，可隨時匯出。', why: '出勤紀錄與工資清冊依相關法規需保存一定年限，勞檢時無法提出可能會被處罰。', go: ['staff', '查看打卡紀錄'] },
+    { id: 'wage', cat: 'labor', status: 'pass', title: '時薪與月薪不低於基本工資', plain: `${emps.map(e => `${e.name}${e.kind === 'part' ? '時薪' : '月薪'}`).join('與')}都高於系統內建的基本工資參數；基本工資調整時系統會提醒你檢查。`, why: '工資低於基本工資可能被處罰並需補發差額，每年調整時最容易忘記。', go: ['staff', '查看薪資設定'] },
+  ] : [
+    { id: 'enroll', cat: 'labor', status: 'pass', title: '負責人本人勞健保', plain: `目前只有負責人${O}一人、沒有受僱員工；負責人本人的勞健保依規定以雇主身分投保。`, why: '負責人本人的投保方式與身分有關，建議與記帳士確認；實際以勞保局、健保署公告為準。', go: ['staff', '前往排班打卡'] },
+    { id: 'contract', cat: 'labor', status: 'todo', title: '聘人前準備：勞動契約範本', plain: '目前沒有員工；旺季若要找兼職幫手，建議先備好書面勞動契約範本與到職加保流程。', why: '到職當天就要加保，事先準備好文件可以避免手忙腳亂。', fix: ['AI 產生契約範本', '已產生兼職勞動契約範本與到職加保檢查表，放進文件櫃（示範）'], go: ['staff', '前往排班打卡'] },
+    { id: 'attend', cat: 'labor', status: 'pass', title: '出勤與工資紀錄（聘人後啟用）', plain: '目前只有負責人，系統先記錄負責人工時供參考；聘人後打卡與薪資單會自動保存。', why: '出勤紀錄與工資清冊依相關法規需保存一定年限。', go: ['staff', '查看排班'] },
+    { id: 'wage', cat: 'labor', status: 'pass', title: '基本工資參數已更新', plain: '系統已內建今年度基本工資參數，聘人時會自動檢查時薪與月薪。', why: '工資低於基本工資可能被處罰並需補發差額。', go: null },
+  ];
+  const acc = emps.length
+    ? { plain: `${emps[emps.length - 1].name}（${String(emps[emps.length - 1].title || '').split('・')[0] || '員工'}）帳號仍有「會計帳務」與「會員匯出」權限；${O}的管理員帳號尚未開啟雙重驗證。`, fix: `已將${emps[emps.length - 1].name}權限調整為工作所需的最小範圍，並寄出雙重驗證設定連結給${O}（示範）` }
+    : { plain: `記帳士協作帳號仍有「會員匯出」權限；${O}的管理員帳號尚未開啟雙重驗證。`, fix: `已將記帳士帳號調整為「帳務檢視與審核」，並寄出雙重驗證設定連結給${O}（示範）` };
+  return [
+    AMEI_CHECKS.find(x => x.id === 'einv'), AMEI_CHECKS.find(x => x.id === 'taxid'), AMEI_CHECKS.find(x => x.id === 'vat'), AMEI_CHECKS.find(x => x.id === 'withhold'),
+    ...labor,
+    { ...I.reg, cat: 'food' },
+    { id: 'label', cat: 'food', status: 'todo', title: I.label.title, plain: I.label.plain,
+      why: TENANT.cat === 'service' ? '服務內容、價格與退改規則清楚公開，可減少消費爭議。' : ['food', 'drink', 'dessert', 'farm'].includes(TENANT.cat) ? '包裝食品標示不完整可能被要求下架改正；過敏原等資訊沒標清楚更可能造成消費者健康風險。實際以主管機關公告為準。' : '依商品標示相關法規，商品應標示必要資訊；標示不全可能被要求限期改正。實際以主管機關公告為準。',
+      fix: ['AI 產生標示草稿', '已產生 2 項商品的修正版標示（補齊缺漏欄位），列印或更新商品頁即可（示範）'], go: ['listing', '前往商品上架'] },
+    { ...third, cat: 'food' },
+    { id: 'liab', cat: 'food', status: 'warn', title: `${I.ins}有效`, plain: I.liabPlain,
+      why: I.ins === '產品責任險' ? '依相關法規，部分業者需投保產品責任保險；保單過期或範圍不足，出事時需自行賠償。實際以主管機關公告為準。' : '營業場所若有人受傷，沒有保險需自行賠償；部分場地或活動也會要求提供保單。',
+      fix: ['AI 整理續保比價需求', '已整理續保需求，並建立「到期前 30 天」提醒（示範）'] },
+    { id: 'cancel7', cat: 'ecom', status: 'warn', title: I.cancelTitle || '網路銷售七天解除契約權揭露',
+      plain: I.cancelTitle ? I.cancel[0] : `網購一般商品，消費者通常有 7 天可無條件解除契約（俗稱鑑賞期）；${I.cancel[0]}`.replace('；網購一般商品，消費者通常有 7 天可無條件解除契約；', '；'),
+      why: I.cancelWhy || '沒有事先清楚揭露例外情形，可能無法主張排除七天解除權，容易產生退貨爭議。',
+      fix: ['AI 補上下單須知', I.cancel[1]], go: ['agent', '前往 AI 店員設定'] },
+    { ...AMEI_CHECKS.find(x => x.id === 'pageinfo'), plain: TENANT.cat === 'service' ? '官網與各通路服務頁都有價格、服務時間、付款方式、公司名稱與客服電話。' : '官網與各通路商品頁都有售價、運費門檻、付款方式、公司名稱與客服電話。' },
+    AMEI_CHECKS.find(x => x.id === 'refund'),
+    AMEI_CHECKS.find(x => x.id === 'notice'), AMEI_CHECKS.find(x => x.id === 'optout'),
+    { ...AMEI_CHECKS.find(x => x.id === 'access'), plain: acc.plain, fix: ['AI 套用最小權限', acc.fix] },
+    AMEI_CHECKS.find(x => x.id === 'backup'),
+    { ...AMEI_CHECKS.find(x => x.id === 'scope'), plain: `登記的營業項目包含「${I.scope}」，但目前實際也做「網路銷售」與「跨境寄送」，建議確認是否需要增列營業項目。` },
+    { ...AMEI_CHECKS.find(x => x.id === 'addr'), plain: '公司登記、稅籍登記與營業場所租約地址一致；搬遷時系統會提醒同步辦理變更。' },
+    { ...AMEI_CHECKS.find(x => x.id === 'tm'), plain: `「${TENANT.name}」商標已註冊於${I.tmClass}，專用期間 10 年，到期前系統會提醒延展。` },
+  ].filter(Boolean).map(x => ({ ...x }));
+}
+
+function tenantDocs(now = new Date(), supYear = 0) {
+  const I = IND();
+  const t = startOfDay(now);
+  const D = (n) => addDays(t, n);
+  const yearBefore = (d) => { const x = new Date(d); x.setFullYear(x.getFullYear() - 1); return addDays(x, 1); };
+  const leaseEnd = D(118), supEnd = D(52), insEnd = D(45);
+  const leaseStart = (() => { const x = new Date(leaseEnd); x.setFullYear(x.getFullYear() - 2); return addDays(x, 1); })();
+  const rent = TENANT.fixed?.rent || 20000;
+  const sup = mainSup();
+  const equip = TENANT.fixed?.equip || '營業設備';
+  const [labName, , labN] = I.lab;
+  const labItems = PRODUCTS.slice(0, labN).map(p => p.name).join('、') || '主力商品';
+  return [
+    { id: 'lease', kind: 'lease', name: '營業場所租約', file: '營業場所租賃契約.pdf', size: 2.4e6, pages: 12, up: D(-412),
+      sum: {
+        parties: `出租人：房東（個人・示範）／承租人：${COMPANY.name}`,
+        period: `${fmt(leaseStart)} 至 ${fmt(leaseEnd)}（2 年）`,
+        amount: `月租 NT$ ${rent.toLocaleString('en-US')}（每月 5 日前匯款），押金 NT$ ${(rent * 2).toLocaleString('en-US')}（2 個月）`,
+        expire: leaseEnd, autoRenew: '無自動續約：期滿需重新簽訂新約', notice: 90,
+        noticeText: '是否續租需於到期前 90 天以書面告知房東',
+        duties: [`不得轉租或變更用途（${I.use}）`, '室內裝修與招牌需經房東書面同意', '退租時恢復原狀，押金於點交後 14 日內返還'],
+        risks: ['續約租金調整幅度未約定上限，建議提前議價', '提前解約需支付 1 個月租金作為違約金', `${equip}的損壞與維修責任歸屬寫得不清楚，建議補充附約`],
+      } },
+    { id: 'dairy', kind: 'contract', name: `${sup.short}供貨合約`, file: `${sup.short}_年度供貨合約.pdf`, size: 1.1e6, pages: 6, up: D(-318),
+      sum: {
+        parties: `供應商：${sup.vendor}／採購方：${COMPANY.name}`,
+        period: `${fmt(yearBefore(supEnd))} 至 ${fmt(supEnd)}（1 年）`,
+        amount: `依訂單計價（${sup.item}），近 13 週實際進貨推估年度約 ${supYear ? 'NT$ ' + Math.round(supYear).toLocaleString('en-US') : '—'}，月結 30 天`,
+        expire: supEnd, autoRenew: '有：期滿自動續約 1 年', notice: 30,
+        noticeText: '不續約需於到期前 30 天以書面（含 Email）通知',
+        duties: ['每月需達最低訂購金額', '交貨時附出貨單與品質說明', '品質異常需於收貨 24 小時內反映'],
+        risks: ['自動續約：忘了通知就會再綁 1 年', '原物料漲幅超過 8% 時供應商可調價，僅需提前 15 天通知', '未達最低訂購量需補差額，淡季要特別注意'],
+      } },
+    { id: 'ins', kind: 'insurance', name: `${I.ins}保單`, file: `${I.ins}_保單.pdf`, size: 3.6e6, pages: 18, up: D(-322),
+      sum: {
+        parties: `保險人：示範產險（虛構）／被保險人：${COMPANY.name}`,
+        period: `${fmt(yearBefore(insEnd))} 至 ${fmt(insEnd)}（1 年）`,
+        amount: '年繳保費 NT$ 12,000，每一事故體傷 NT$ 300 萬、累計 NT$ 1,200 萬（示範）',
+        expire: insEnd, autoRenew: '無：需重新要保', notice: 30,
+        noticeText: '建議到期前 30 天洽詢續保並比價',
+        duties: ['營業項目或地址變更需通知保險公司', '發生事故需儘速通知並保留證據（商品、單據、照片）', '自負額每次事故 NT$ 5,000'],
+        risks: [I.liabPlain.replace(/^.*?到期，?/, '') || '承保範圍建議每年檢視一次', '45 天後到期，空窗期內發生事故需自行負擔'],
+      } },
+    { id: 'lab', kind: 'report', name: labName, file: `${labName.replace(/（.*）/, '')}_${labItems.replace(/、/g, '_')}.pdf`, size: 0.8e6, pages: 4, up: D(-96),
+      sum: {
+        parties: `出具單位：示範檢驗科技（虛構）／委託人：${COMPANY.name}`,
+        period: `採樣（或出具）日 ${fmt(D(-104))}，報告日 ${fmt(D(-96))}`,
+        amount: `費用 NT$ 6,800（${labN} 項）`,
+        expire: D(269), autoRenew: '不適用：建議每年更新一次', notice: 30,
+        noticeText: '建議下次更新日前 30 天預約',
+        duties: [`項目：${labItems}（示範）`, '結果：皆符合當次的判定標準（示範）', '報告需保存，稽查或通路上架時可能被要求提供'],
+        risks: [`新品「${pn(5)}」尚未納入，若要上架百貨或量販通路可能需要`, '報告僅代表當次樣品或設備狀態，原料或供應商變更時建議重新辦理'],
+      } },
+    { id: 'reg', kind: 'reg', name: '公司設立登記表', file: '公司設立登記表.pdf', size: 1.5e6, pages: 5, up: D(-980),
+      sum: {
+        parties: `公司名稱：${COMPANY.name}／代表人：${COMPANY.owner}／統一編號 ${COMPANY.taxId}（示範）`,
+        period: `核准設立日 ${fmt(D(-990))}`,
+        amount: '資本額 NT$ 500,000（有限公司・示範）',
+        expire: null, autoRenew: '不適用：登記事項長期有效', notice: 0,
+        noticeText: '地址、代表人、營業項目、資本額變更時，需在期限內申請變更登記（建議確認）',
+        duties: [`登記地址：${COMPANY.addr}`, `營業項目：${I.scope}`, '每年需留意公司相關申報事項（建議與記帳士確認）'],
+        risks: ['實際經營網路銷售與跨境寄送，建議確認營業項目是否需增列', '未來若搬遷或增設據點，記得同步辦理地址變更'],
+      } },
+    { id: 'tm', kind: 'license', name: '商標註冊證', file: `商標註冊證_${TENANT.name}.pdf`, size: 0.6e6, pages: 2, up: D(-640),
+      sum: {
+        parties: `商標權人：${COMPANY.name}／商標：「${TENANT.name}」（文字＋圖形）`,
+        period: `專用期間 ${fmt(D(-640))} 至 ${fmt(addDays(new Date(new Date(D(-640)).setFullYear(D(-640).getFullYear() + 10)), -1))}（10 年）`,
+        amount: '申請規費與代理費合計約 NT$ 9,500（示範）',
+        expire: null, autoRenew: '需申請延展：到期前一定期間內可申請（建議確認）', notice: 180,
+        noticeText: '系統會在專用期間屆滿前 6 個月提醒你辦理延展',
+        duties: [`指定類別：${I.tmClass}`, '商標需實際使用，長期未使用可能被申請廢止', '授權他人使用建議簽訂書面授權契約'],
+        risks: ['跨境販售不受台灣商標保護，建議評估在當地註冊', '包裝上的商標圖樣與註冊圖樣不一致時，建議確認是否影響權利'],
+      } },
+  ];
+}
+
+function tenantTimeline(now = new Date()) {
+  const I = IND();
+  const t = startOfDay(now);
+  const D = (n) => addDays(t, n);
+  const B = TENANT.name, O = COMPANY.owner;
+  const sup = mainSup();
+  const ship = supOf(/物流|運費|配送|宅配/, { vendor: '綠野物流（虛構）', short: '綠野物流' });
+  const pack = supOf(/包裝|包材|提袋|紙盒|禮盒/, { vendor: '好包裝材料行（虛構）', short: '好包裝材料行' });
+  const equip = TENANT.fixed?.equip || '營業設備';
+  const n = STAFF.length;
+  const foodish = ['food', 'drink', 'dessert'].includes(TENANT.cat);
+  const [, labTl] = I.lab;
+  return [
+    { id: 'ins', kind: 'insurance', title: I.ins, party: '示範產險（虛構）業務 陳先生', date: D(45), remind: 30, autoRenew: false, action: '洽詢續保與比價', doc: 'ins',
+      msg: `陳先生您好，我是${B}的${O}。我們的${I.ins}將於 {date} 到期，想請您協助續保報價，也想確認承保範圍是否需要調整，再麻煩您了，謝謝！` },
+    { id: 'dairy', kind: 'contract', title: `${sup.short}供貨合約（自動續約）`, party: `${sup.vendor} 業務窗口`, date: D(52), remind: 30, autoRenew: true, notice: 30, action: '決定是否續約、議價', doc: 'dairy',
+      msg: `您好，我是${B}的${O}。我們的年度供貨合約將於 {date} 到期，想在續約前約個時間聊聊明年的價格與最低訂購量，請問您這兩週哪天方便呢？` },
+    { id: 'lease', kind: 'lease', title: '營業場所租約', party: '房東（個人・示範）', date: D(118), remind: 90, notice: 90, autoRenew: false, action: '表明續租意願、議定租金', doc: 'lease',
+      msg: `房東您好，我是${B}的${O}。租約將於 {date} 到期，我們希望繼續承租，想跟您約時間討論續約條件，請問您什麼時候方便呢？謝謝！` },
+    { id: 'ssl', kind: 'license', title: '官網網域與 SSL 憑證', party: '網站代管業者（示範）', date: D(96), remind: 30, autoRenew: true, notice: 0, action: '確認自動扣款信用卡有效',
+      msg: `您好，我是${B}。我們的網域與 SSL 憑證將於 {date} 到期，想確認自動續約與付款方式是否正常，謝謝！` },
+    foodish || TENANT.cat === 'service'
+      ? { id: 'health', kind: 'license', title: `${TENANT.cat === 'service' ? '從業人員' : '食品從業人員'}健康檢查（${n} 人）`, party: '合作診所（示範）', date: D(158), remind: 30, autoRenew: false, action: '預約體檢時段',
+        msg: `您好，我是${B}的${O}，想幫${n > 1 ? `店內 ${n} 位同仁` : '自己'}預約 {date} 前的健康檢查，請問有哪些時段可以安排？` }
+      : { id: 'health', kind: 'license', title: `${equip}年度保養`, party: '設備保養廠商（示範）', date: D(158), remind: 30, autoRenew: false, action: '預約保養時段',
+        msg: `您好，我是${B}的${O}，想預約 {date} 前的${equip}年度保養，請問有哪些時段可以安排？` },
+    { id: 'cold', kind: 'contract', title: `${ship.short}配送合約`, party: `${ship.vendor} 客服`, date: D(203), remind: 45, autoRenew: true, notice: 30, action: '檢視運費與破損理賠條款',
+      msg: `您好，我是${B}。我們的配送合約將於 {date} 到期，想了解明年的運費方案與破損理賠條款，再麻煩提供資料，謝謝！` },
+    { id: 'lab', kind: 'license', title: labTl, party: '示範檢驗科技（虛構）', date: D(269), remind: 30, autoRenew: false, action: `預約辦理（含新品${pn(5)}）`, doc: 'lab',
+      msg: `您好，我是${B}，想預約 {date} 前的${labTl}，這次預計加入新品「${pn(5)}」，請問如何安排？` },
+    { id: 'fire', kind: 'insurance', title: '營業場所火險（含設備）', party: '示範產險（虛構）業務 陳先生', date: D(296), remind: 30, autoRenew: false, action: '確認設備投保金額',
+      msg: `陳先生您好，營業場所火險將於 {date} 到期，今年新增${equip}，想調整設備投保金額，麻煩您協助報價，謝謝！` },
+    { id: 'pack', kind: 'contract', title: `${pack.short}包材年約`, party: pack.vendor, date: D(331), remind: 60, autoRenew: true, notice: 30, action: '確認節慶檔期備貨量',
+      msg: `您好，我是${B}。包材年約將於 {date} 到期，想先討論明年節慶檔期的包裝款式與備貨量，請問方便約時間嗎？` },
+  ];
+}

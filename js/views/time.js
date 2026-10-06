@@ -6,7 +6,7 @@ import { makeChart } from '../charts.js';
 import { addDays, startOfDay } from '../data.js';
 import {
   OWNER, WD, wdOf, md, hh, weekMessages, blocked, workWeek, savedTime, vacationEstimate, shipSamples, nightSample,
-  SUPPLIERS, URGENT, DAY_SIM, LANGS, REASONS, notice, PROXIES,
+  SUPPLIERS, URGENT, DAY_SIM, LANGS, REASONS, notice, PROXIES, AVATAR, CUSTOM_TXT, URGENT_PING,
 } from '../time-data.js';
 
 const MOON = (s = 18) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
@@ -390,9 +390,9 @@ function renderNotice(anim) {
       </div>`;
   } else {
     pv.innerHTML = `
-      <div class="tm-lhead"><span class="tm-lav">美</span><b>${esc(n.shop)}</b><small>官方帳號</small></div>
+      <div class="tm-lhead"><span class="tm-lav">${esc(AVATAR)}</span><b>${esc(n.shop)}</b><small>官方帳號</small></div>
       <div class="tm-lbody">
-        <div class="tm-lmsg"><span class="tm-lav sm">美</span><div class="tm-lbub"><b>【${esc(n.title)}】</b>${esc(n.body)}</div><time>${fmtTime(new Date())}</time></div>
+        <div class="tm-lmsg"><span class="tm-lav sm">${esc(AVATAR)}</span><div class="tm-lbub"><b>【${esc(n.title)}】</b>${esc(n.body)}</div><time>${fmtTime(new Date())}</time></div>
         <div class="tm-lcard"><b>${icon('calendar', 13)} ${md(S.from)}–${md(S.to)}</b><span>${S.pickup === 'pause' ? '門市取貨暫停' : `可預約 ${md(back)} 之後`}</span></div>
       </div>`;
   }
@@ -405,7 +405,7 @@ function renderBack(anim) {
   $('#tmBackWhen', root).textContent = `${md(S.to)} 20:00 自動產生`;
   $('#tmBackLead', root).innerHTML = `休假 ${days} 天，AI 預估處理 <b>${est.msgs.toLocaleString()}</b> 則訊息、<b>${est.ord}</b> 筆訂單。${md(back)} 回來後，你只需要看這幾件：`;
   const todo = [
-    { p: 'hi', t: '2 位客人想跟你本人討論客製蛋糕', s: 'AI 已先收訂金、記下需求與日期' },
+    { p: 'hi', t: `2 位客人想跟你本人討論${CUSTOM_TXT}`, s: 'AI 已先收訂金、記下需求與日期' },
     { p: 'hi', t: '1 筆退款等你按同意（NT$ 580）', s: '客人已附照片，AI 已先致歉' },
     { p: 'mid', t: `確認 ${nShip} 筆延後宅配的出貨順序`, s: `AI 已依下單時間排好，${md(back)} 一早可直接印託運單` },
     { p: 'low', t: `確認${SUPPLIERS[0].name} ${md(back)} 恢復送貨的數量`, s: 'AI 依預估銷量建議了數量' },
@@ -592,7 +592,7 @@ async function testPing() {
     </div>
     <div class="tm-phone"><div class="tm-ph-top"><b>GreenUP</b><small>現在</small></div>
       <b>【急件・示範】${esc(OWNER)}休假中，需要協助</b>
-      <p>王太太反映吃了草莓生乳捲後嘴巴腫起來。AI 已請客人先就醫並記下批號，請協助聯絡客人（0922-***-305）。</p>
+      <p>${esc(URGENT_PING)}</p>
       <small>${icon('lock', 11)} 你的權限：唯讀・不能退款或修改訂單</small></div>`;
   const steps = $$('.tm-ping-steps span', ping);
   gsap.set($('.tm-phone', ping), { opacity: 0, y: 14 });

@@ -10,11 +10,19 @@ import {
   DEFAULT_KB, GUARDS, DISCOUNT_OPTS, discountLabel, foldText, TEST_Q,
   IMPORT_SAMPLE, IMPORT_URL, IMPORT_FAQ, UNKNOWN_SEED, TOP_FAQ, HANDOFF_SEED, weekSeries,
   NO_NUT_GIFTS, NUTS, pname, allergenText, storageText,
+  GEN_ALIASES, MODE_ID, IS_FOODISH, unitWord, IMPORT_TRY, TRY_Q, PRESET_Q,
 } from '../agent-data.js';
+import { TENANT } from '../tenant.js';
+import { IS_AMEI } from '../brief-data.js';
 
-const OWNER = '阿美';
+// 阿美維持原本的人名與甜點劇本；其他業主用 TENANT.owner／TENANT.aiName，回覆依業態大類調整
+const OWNER = IS_AMEI ? '阿美' : TENANT.owner;
+const OWNER_SHE = IS_AMEI ? '她' : TENANT.owner; // 指老闆本人時（其他業主不假設性別）
+const AI_DEFAULT = IS_AMEI ? '小美' : (TENANT.aiName || 'AI 店員');
+const SHOP = IS_AMEI ? '阿美手作甜點' : TENANT.name;
+const T_ = (amei, gen) => IS_AMEI ? amei : gen;
 const S = {
-  live: true, name: '小美', avatar: 'girl', tone: 'warm',
+  live: true, name: AI_DEFAULT, avatar: 'girl', tone: 'warm',
   langs: { zh: true, en: true, ja: true, vi: true, ms: false },
   hours: '24h', sim: 'open',
   kb: DEFAULT_KB(),
@@ -51,22 +59,28 @@ function bigrams(s) {
   (String(s).toLowerCase().match(/[a-z]{4,}/g) || []).forEach(w => { if (!['have', 'does', 'what', 'your', 'with', 'from', 'this', 'that', 'there'].includes(w)) out.add(w); });
   return [...out];
 }
-const wrapName = (s) => s.replace(/\{name\}/g, S.name || '小美');
-function findPid(q) {
+const wrapName = (s) => s.replace(/\{name\}/g, S.name || AI_DEFAULT);
+function findPid(q, minLen = 1) {
   const ql = q.toLowerCase();
-  for (const [pid, al] of Object.entries(PRODUCT_ALIASES)) if (al.some(a => ql.includes(a.toLowerCase()))) return pid;
-  return null;
+  if (IS_AMEI) {
+    for (const [pid, al] of Object.entries(PRODUCT_ALIASES)) if (al.some(a => ql.includes(a.toLowerCase()))) return pid;
+    return null;
+  }
+  // 其他業主：取最長（最具體）的命中別名
+  let best = null, bl = 0;
+  for (const [pid, al] of Object.entries(GEN_ALIASES)) for (const a of al) { const w = String(a || '').toLowerCase(); if (w.length > bl && ql.includes(w)) { best = pid; bl = w.length; } }
+  return bl >= minLen ? best : null;
 }
 const CITY = { 台南: ['台南', 'tainan'], 台中: ['台中', 'taichung'], 高雄: ['高雄', 'kaohsiung'], 台北: ['台北', 'taipei'], 新北: ['新北'], 桃園: ['桃園', 'taoyuan'], 新竹: ['新竹', 'hsinchu'], 嘉義: ['嘉義', 'chiayi'], 屏東: ['屏東'], 宜蘭: ['宜蘭', 'yilan'], 花蓮: ['花蓮', 'hualien'], 台東: ['台東', 'taitung'] };
 const CITY_EN = { 台南: 'Tainan', 台中: 'Taichung', 高雄: 'Kaohsiung', 台北: 'Taipei', 新北: 'New Taipei', 桃園: 'Taoyuan', 新竹: 'Hsinchu', 嘉義: 'Chiayi', 屏東: 'Pingtung', 宜蘭: 'Yilan', 花蓮: 'Hualien', 台東: 'Taitung' };
 function findCity(q) { const ql = q.toLowerCase(); for (const [c, al] of Object.entries(CITY)) if (al.some(a => ql.includes(a))) return c; return ''; }
 function notifyVia() {
   const v = [S.guard.line && 'LINE 推播', S.guard.phone && '電話'].filter(Boolean);
-  return v.length ? v.join('＋') : '待她上線查看';
+  return v.length ? v.join('＋') : `待${OWNER_SHE}上線查看`;
 }
 
 // ---------- 規則式回覆引擎（真的依設定回答） ----------
-const RE = {
+const RE_AMEI = {
   reaction: /(吃了|吃完|吃到|吃).{0,8}(過敏|癢|腫|紅疹|起疹|不舒服)|過敏反應|蕁麻疹|喉嚨.{0,4}(癢|腫)|呼吸困難|allergic reaction|itchy|swollen|rash|can'?t breathe|アレルギー(が出|反応|症状)|かゆ|じんましん|息苦し/i,
   complaint: /退款|退錢|壓壞|壓扁|壞掉|爛掉|發霉|客訴|很差|太扯|refund|damaged|broken|complain|moldy|返金|潰れ|壊れ|クレーム/i,
   medical: /血糖|糖尿病|血壓|治療|療效|減肥|瘦身|孕婦|cure|diabetes|diabetic|weight loss|lose weight|血糖値|ダイエット|妊婦/i,
@@ -83,6 +97,16 @@ const RE = {
   hours: /營業|幾點|開門|門市|自取|地址|公休|opening|hours|pick ?up|営業|受け取り|店舗/i,
   ret: /退貨|換貨|退換|return|exchange|返品|交換/i,
 };
+// 其他業主：擴充非食品情境（用了／做完後不適）、各種量詞、刻字／改期／研磨等客製關鍵字
+const RE = IS_AMEI ? RE_AMEI : {
+  ...RE_AMEI,
+  reaction: new RegExp(RE_AMEI.reaction.source + '|(喝了|喝完|用了|擦了|做完|戴了|摸了|接觸).{0,10}(過敏|癢|腫|紅疹|起疹|不舒服|心悸)', 'i'),
+  qty: /(\d{1,4})\s*([^\d\s，。、？?！!]{0,3})/,
+  ship: new RegExp(RE_AMEI.ship.source + '|外送費|配送費', 'i'),
+  deliver: new RegExp(RE_AMEI.deliver.source + '|多久會到|外送多久|送得到嗎', 'i'),
+  storage: new RegExp(RE_AMEI.storage.source + '|保養|照顧', 'i'),
+  custom: new RegExp(RE_AMEI.custom.source + '|刻字|研磨|磨成|磨粉|改期|改時間|團體|分裝|花禮|engrav|grind|reschedul|変更|刻印', 'i'),
+};
 
 function answer(q) {
   const det = detectLang(q) || 'zh';
@@ -92,7 +116,7 @@ function answer(q) {
     return r;
   }
   if (S.hours === 'after' && S.sim === 'open') {
-    r.mode = 'human'; r.text = `現在是營業時間 ${BIZ_HOURS.label}，由${OWNER}親自回覆；${S.name}在旁待命，幫她先查好答案。`;
+    r.mode = 'human'; r.text = `現在是營業時間 ${BIZ_HOURS.label}，由${OWNER}親自回覆；${S.name}在旁待命，幫${OWNER_SHE}先查好答案。`;
     return r;
   }
   let lang = det;
@@ -132,14 +156,15 @@ function intent(q, cl, r) {
   if (RE.reaction.test(q)) {
     r.calm = true;
     kb('allergen');
-    const safety = T('請先停止食用。如果出現呼吸困難、嘴唇或喉嚨腫脹，請立刻撥打 119 或就醫。',
-      'Please stop eating it right away. If you have trouble breathing or swelling of the lips or throat, call 119 or see a doctor immediately.',
-      'すぐに食べるのをやめてください。息苦しさや唇・喉の腫れがある場合は、すぐに119番または医療機関を受診してください。');
+    const eat = IS_AMEI || IS_FOODISH;
+    const safety = T(`請先停止${eat ? '食用' : '使用'}。如果出現呼吸困難、嘴唇或喉嚨腫脹，請立刻撥打 119 或就醫。`,
+      `Please stop ${eat ? 'eating' : 'using'} it right away. If you have trouble breathing or swelling of the lips or throat, call 119 or see a doctor immediately.`,
+      `すぐに${eat ? '食べる' : '使用する'}のをやめてください。息苦しさや唇・喉の腫れがある場合は、すぐに119番または医療機関を受診してください。`);
     if (g.escalate) {
       gd('escalate', '敏感狀況立即轉給你');
       r.handoff = { reason: '過敏反應', urgent: true };
-      return safety + T(`我已經通知${OWNER}，她會馬上跟您聯繫；方便的話請告訴我您吃的品項與購買日期。`,
-        `I have alerted ${OWNER}, the owner, and she will contact you right away. Could you tell me which item you ate and when you bought it?`,
+      return safety + T(IS_AMEI ? `我已經通知${OWNER}，她會馬上跟您聯繫；方便的話請告訴我您吃的品項與購買日期。` : `我已經通知${OWNER}，會馬上跟您聯繫；方便的話請告訴我您${eat ? '吃' : '使用'}的品項與購買日期。`,
+        IS_AMEI ? `I have alerted ${OWNER}, the owner, and she will contact you right away. Could you tell me which item you ate and when you bought it?` : `I have alerted ${OWNER}, the owner, who will contact you right away. Could you tell me which item you ${eat ? 'ate' : 'used'} and when you bought it?`,
         `店主の${OWNER}にすぐ連絡しました。折り返しご連絡します。召し上がった商品と購入日を教えていただけますか。`);
     }
     risk(`未開護欄：過敏反應沒有通知${OWNER}，只由 AI 處理`);
@@ -153,7 +178,7 @@ function intent(q, cl, r) {
       if (rc) kb('return');
       r.handoff = { reason: '客訴退款' };
       r.calm = true;
-      return T(`非常抱歉讓您收到不完美的甜點！${rc ? `依店規，收到 ${rc.params.hours} 小時內的壓損可以免費補寄或全額退款。` : ''}麻煩拍張照片傳給我，我已經轉給${OWNER}親自處理，今天內一定回覆您。`,
+      return T(`非常抱歉讓您收到不完美的${T_('甜點', MODE_ID === 'service' ? '服務' : '商品')}！${rc ? `依店規，收到 ${rc.params.hours} 小時內的壓損可以免費補寄或全額退款。` : ''}麻煩拍張照片傳給我，我已經轉給${OWNER}親自處理，今天內一定回覆您。`,
         `We're so sorry your order arrived like this! ${rc ? `Damage reported within ${rc.params.hours} hours qualifies for a free replacement or full refund. ` : ''}Please send us a photo — I've passed this to ${OWNER}, who will personally reply today.`,
         `ご不便をおかけして大変申し訳ございません。${rc ? `到着後${rc.params.hours}時間以内の破損は無料再送または全額返金いたします。` : ''}お写真をお送りください。店主の${OWNER}に引き継ぎ、本日中にご連絡します。`);
     }
@@ -163,6 +188,17 @@ function intent(q, cl, r) {
   // 3. 醫療功效
   if (RE.medical.test(q)) {
     const low = PRODUCTS.filter(p => p.sweet <= 2).map(p => pname(p.id, cl));
+    if (!IS_AMEI) {
+      const food = IS_FOODISH;
+      if (g.promise) {
+        gd('promise', '不亂承諾：不說醫療功效');
+        return T(`謝謝您的詢問～我們的${food ? '商品是一般食品' : MODE_ID === 'service' ? '服務是一般美容保養' : '商品'}，沒有醫療或保健功效，也不能取代藥物或治療喔。如果有健康上的疑慮，建議先問問醫師。`,
+          `Thanks for asking! Our ${food ? 'products are ordinary food' : MODE_ID === 'service' ? 'services are cosmetic care' : 'products'} with no medical or health benefits, and can't replace medication or treatment. If you have health concerns, please check with your doctor first.`,
+          `お問い合わせありがとうございます。当店の${food ? '商品は一般食品' : '商品・サービス'}で、医療・健康効果はなく、薬や治療の代わりにはなりません。気になる方は医師にご相談ください。`);
+      }
+      risk('未開護欄：AI 暗示了健康功效，可能違反廣告與衛生法規');
+      return T(`${PRODUCTS[0].name}對身體很好，可以放心！`, `${pname(PRODUCTS[0].id, 'en')} is great for your health, no worries!`, `${pname(PRODUCTS[0].id, 'ja')}は体にとても良いので安心です！`);
+    }
     if (g.promise) {
       gd('promise', '不亂承諾：不說醫療功效');
       return T(`謝謝您的詢問～我們的甜點是一般食品，沒有醫療或保健功效，也不能取代藥物喔。如果正在控制血糖，建議先問問醫師；想吃甜度低一點的，可以參考${low.join('、')}。`,
@@ -182,18 +218,18 @@ function intent(q, cl, r) {
   // 5. 大量訂購
   const qm = q.match(RE.qty); const qpid = findPid(q);
   if (qm && qpid && +qm[1] >= 5) {
-    const qty = +qm[1]; const p = PRODUCT_MAP[qpid]; const amt = qty * p.price;
-    const nm = pname(qpid, cl); const freeShip = free != null && amt >= free;
+    const qty = +qm[1]; const p = PRODUCT_MAP[qpid]; const amt = qty * p.price; const uw = IS_AMEI ? '盒' : unitWord(p);
+    const nm = pname(qpid, cl); const freeShip = free != null && amt >= free && (IS_AMEI || MODE_ID !== 'service');
     if (g.approve && amt >= g.amt) {
       gd('approve', `大額訂單：${money(g.amt)} 以上要你點頭`);
       r.handoff = { reason: '大額訂單', detail: `${qty} × ${p.name}・${money(amt)}` };
-      return T(`${qty} 盒${nm}共 ${money(amt)}，謝謝您的支持！因為數量比較多，我先幫您保留，請${OWNER}確認產能和出貨日後，30 分鐘內回覆您。`,
+      return T(`${qty} ${uw}${nm}共 ${money(amt)}，謝謝您的支持！因為數量比較多，我先幫您保留，請${OWNER}確認產能和${IS_AMEI ? '出貨日' : '日期'}後，30 分鐘內回覆您。`,
         `${qty} × ${nm} comes to ${money(amt)} — thank you! As it's a large order, I've reserved the stock and ${OWNER} will confirm production and delivery date within 30 minutes.`,
         `${nm} ${qty}点で ${money(amt)} です。ありがとうございます！数量が多いため在庫を確保し、${OWNER}が製造・発送日を確認のうえ30分以内にご連絡します。`);
     }
     if (ship) kb('ship');
     if (!g.approve && amt >= g.amt) risk(`未開護欄：AI 直接成立 ${money(amt)} 大單，產能可能來不及`);
-    return T(`沒問題！${qty} 盒${nm}共 ${money(amt)}${freeShip ? '，已達免運' : ''}。我現在傳付款連結給您，付款後會自動開立電子發票。`,
+    return T(`沒問題！${qty} ${uw}${nm}共 ${money(amt)}${freeShip ? '，已達免運' : ''}。我現在傳付款連結給您，付款後會自動開立電子發票。`,
       `No problem! ${qty} × ${nm} is ${money(amt)}${freeShip ? ' with free shipping' : ''}. I'll send you the payment link now; the e-invoice is issued automatically after payment.`,
       `かしこまりました！${nm} ${qty}点で ${money(amt)}${freeShip ? '、送料無料です' : 'です'}。お支払いリンクをお送りします。お支払い後、電子インボイスを自動発行します。`);
   }
@@ -209,7 +245,7 @@ function intent(q, cl, r) {
     gd('discount', `折扣上限：${discountLabel(g.cap)}`);
     if (free != null) kb('ship');
     if (g.cap >= 100) {
-      return T(`我們的甜點都是每天少量手作、實價販售，沒有提供折扣喔。${freeTxt}`, `Our desserts are handmade in small batches daily and sold at fixed prices, so we don't offer discounts.${freeTxt}`, `毎日少量手作りのため、定価販売で割引は行っておりません。${freeTxt}`);
+      return T(IS_AMEI ? `我們的甜點都是每天少量手作、實價販售，沒有提供折扣喔。${freeTxt}` : `我們的${MODE_ID === 'service' ? '服務' : '商品'}都是實價販售，沒有提供折扣喔。${freeTxt}`, IS_AMEI ? `Our desserts are handmade in small batches daily and sold at fixed prices, so we don't offer discounts.${freeTxt}` : `Our prices are fixed, so we don't offer discounts.${freeTxt}`, `毎日少量手作りのため、定価販売で割引は行っておりません。${freeTxt}`);
     }
     if (asked && asked >= g.cap) {
       return T(`可以的！這次幫您打 ${foldText(asked)}，結帳時會自動套用。`, `Yes! I can give you ${foldText(asked, 'en')}; it applies automatically at checkout.`, `はい、${foldText(asked, 'ja')}でご案内できます。お会計で自動適用されます。`);
@@ -223,6 +259,13 @@ function intent(q, cl, r) {
     const c = kbCard('allergen');
     if (!c) return fallback(q, cl, r);
     kb('allergen');
+    if (!IS_AMEI) {
+      const pid = findPid(q, 3);
+      let txt = (pid ? T(`${PRODUCT_MAP[pid].name}：`, `${pname(pid, 'en')}: `, `${pname(pid, 'ja')}：`) : '') + cardText(c, cl);
+      if (g.promise) gd('promise', '不亂承諾：不保證零過敏');
+      else { txt += T('完全不會過敏，百分之百可以放心！', ' Zero allergy risk, 100% guaranteed!', 'アレルギーの心配は一切ありません！'); risk('未開護欄：AI 保證了「完全不會過敏」，實際上無法保證'); }
+      return txt;
+    }
     const giftQ = /禮盒|送禮|伴手禮|gift|box|ギフト|贈/i.test(q);
     let txt;
     if (giftQ) {
@@ -249,6 +292,9 @@ function intent(q, cl, r) {
   // 8. 海外寄送
   if (RE.overseas.test(q)) {
     if (!kb('area')) return fallback(q, cl, r);
+    if (!IS_AMEI) return MODE_ID === 'ship'
+      ? T('可以寄海外，國際運費 NT$450 起，約 5–10 天送達；部分品項依當地法規可能無法寄送，下單前 AI 會先幫您確認。', 'Yes, we ship overseas from NT$450, taking about 5–10 days. Some items may be restricted by local rules; our AI will check before you order.', '海外発送できます。国際送料は NT$450 から、約5〜10日で届きます。一部商品は現地の規制で発送できない場合があります。')
+      : T('目前只服務國內，沒有提供海外配送喔。', 'Sorry, we only serve customers locally and do not ship overseas.', '申し訳ありません、海外への配送は行っておりません。');
     return T('冷藏蛋糕沒辦法寄海外；常溫的鳳梨酥禮盒、手工餅乾禮盒可以寄，國際運費 NT$450 起，約 5–10 天送達。',
       'Chilled cakes can\'t be shipped overseas, but our Pineapple Cake and Cookie Gift Boxes can. International shipping starts at NT$450 and takes about 5–10 days.',
       '冷蔵ケーキは海外発送できませんが、パイナップルケーキとクッキーのギフトは発送できます。国際送料は NT$450 から、到着まで約5〜10日です。');
@@ -256,6 +302,7 @@ function intent(q, cl, r) {
   // 9. 運費
   if (RE.ship.test(q)) {
     if (!kb('ship')) return fallback(q, cl, r);
+    if (!IS_AMEI) return cardText(ship, cl);
     const { fee, free: fr } = ship.params;
     return T(`宅配運費 NT$${fmtN(fee)}，單筆滿 NT$${fmtN(fr)} 就免運；門市自取不用運費喔。`, `Delivery is NT$${fmtN(fee)}, and orders of NT$${fmtN(fr)} or more ship free. Store pickup is free.`, `配送料は NT$${fmtN(fee)}、NT$${fmtN(fr)}以上のご注文で送料無料です。店頭受け取りは無料です。`);
   }
@@ -264,18 +311,20 @@ function intent(q, cl, r) {
     const a = kbCard('area');
     if (!a) return fallback(q, cl, r);
     kb('area');
+    if (!IS_AMEI && MODE_ID !== 'ship') return cardText(a, cl);
     if (/離島|澎湖|金門|馬祖|綠島|蘭嶼|island/i.test(q)) {
+      if (!IS_AMEI) return T('離島可以寄送，約 2–3 天到。', 'We can ship to outlying islands; it takes about 2–3 days.', '離島へも発送でき、2〜3日で届きます。');
       return T('冷藏蛋糕不寄離島；常溫禮盒（磅蛋糕、餅乾、鳳梨酥、可麗露）可以寄，約 2–3 天到。', 'Chilled cakes can\'t go to outlying islands, but room-temperature gift boxes can, arriving in about 2–3 days.', '離島へは冷蔵ケーキを発送できません。常温ギフトは発送可能で、2〜3日で届きます。');
     }
     const city = findCity(q); const cityT = T(city, CITY_EN[city] || '', city);
     const t = SIM_TIMES[S.sim]; const cut = a.params.cutoff;
     const before = t.h * 60 + t.m < cut * 60;
     let txt = before
-      ? T(`現在下單付款，今天 ${cut}:00 前就會出貨，冷藏宅配明天可以送到${cityT || '本島各地'}。`, `If you order and pay now, we'll ship before ${cut}:00 today and it should reach ${cityT || 'you'} tomorrow by chilled courier.`, `今ご注文・お支払いいただければ、本日${cut}時までに発送し、明日${cityT ? cityT + 'に' : ''}お届けの予定です。`)
+      ? T(`現在下單付款，今天 ${cut}:00 前就會出貨，${IS_AMEI ? '冷藏' : ''}宅配明天可以送到${cityT || '本島各地'}。`, `If you order and pay now, we'll ship before ${cut}:00 today and it should reach ${cityT || 'you'} tomorrow by ${IS_AMEI ? 'chilled ' : ''}courier.`, `今ご注文・お支払いいただければ、本日${cut}時までに発送し、明日${cityT ? cityT + 'に' : ''}お届けの予定です。`)
       : T(`今天 ${cut}:00 已經截單了，現在下單會在明天出貨，後天送到${cityT || '本島各地'}。`, `Today's ${cut}:00 cut-off has passed, so we'll ship tomorrow and it should reach ${cityT || 'you'} the day after.`, `本日の${cut}時の締め切りを過ぎたため、明日発送・明後日${cityT ? cityT + 'に' : ''}お届けとなります。`);
     if (g.promise) {
       gd('promise', '不亂承諾：不保證送達時間');
-      txt += T('物流偶爾會延誤，實際到貨以黑貓配送為準，沒辦法百分之百保證時間喔。', ' Courier delays can happen, so we can\'t guarantee the exact time.', '配送遅延が起こる場合もあるため、到着時間はお約束できかねます。');
+      txt += T(IS_AMEI ? '物流偶爾會延誤，實際到貨以黑貓配送為準，沒辦法百分之百保證時間喔。' : '物流偶爾會延誤，實際到貨以物流配送為準，沒辦法百分之百保證時間喔。', ' Courier delays can happen, so we can\'t guarantee the exact time.', '配送遅延が起こる場合もあるため、到着時間はお約束できかねます。');
     } else {
       txt += T('保證一定準時送到！', ' Guaranteed to arrive on time!', '必ず時間通りにお届けします！');
       risk('未開護欄：AI 保證了送達時間，延誤時容易被客訴');
@@ -287,7 +336,8 @@ function intent(q, cl, r) {
     const c = kbCard('storage');
     if (!c) return fallback(q, cl, r);
     kb('storage');
-    const pid = findPid(q);
+    const pid = IS_AMEI ? findPid(q) : findPid(q, 3);
+    if (!IS_AMEI) return (pid ? T(`${PRODUCT_MAP[pid].name}：`, `${pname(pid, 'en')}: `, `${pname(pid, 'ja')}：`) : '') + cardText(c, cl);
     if (pid) {
       const p = PRODUCT_MAP[pid]; const fr = p.storage === 'fridge';
       return T(`${p.name}要${fr ? '冷藏' : '常溫'}保存，可以放 ${p.days} 天，${fr ? '收到後請盡快放冰箱喔。' : '避免陽光直射就好。'}`,
@@ -306,7 +356,7 @@ function fallback(q, cl, r) {
   r.unknown = true; r.cites = [];
   r.flags.push({ k: 'info', t: '已記到「AI 不會回答的問題」，建議補一條店規' });
   const T = (zh, en, ja) => cl === 'en' ? en : cl === 'ja' ? ja : zh;
-  return T(`這個問題${S.name}還沒學過，不想亂回答您。我已經記下來請${OWNER}確認，稍後由她親自回覆！`,
+  return T(`這個問題${S.name}還沒學過，不想亂回答您。我已經記下來請${OWNER}確認，稍後由${OWNER_SHE}親自回覆！`,
     `${S.name} hasn't learned this one yet and doesn't want to guess. I've noted it for ${OWNER}, who will reply to you shortly!`,
     `申し訳ありません、この質問はまだ学習していないため、店主の${OWNER}に確認してからお返事します。`);
 }
@@ -365,7 +415,7 @@ export default {
     renderKb(); renderGuards(); renderQ(); renderUnknown(); renderHandoffs(); renderTop(); renderChecks();
     bind(st);
     // 預先放兩則對話，讓畫面一打開就有內容
-    ['有沒有不含堅果的禮盒？', '可以打 8 折嗎？'].forEach(q => S.chat.push({ q, res: answer(q) }));
+    PRESET_Q.forEach(q => S.chat.push({ q, res: answer(q) }));
     updateIdentity();
     renderChat(false);
     requestAnimationFrame(() => { msgsEl.scrollTop = msgsEl.scrollHeight; });
@@ -381,7 +431,7 @@ function heroHtml(st) {
     <div class="ag-hero-txt">
       <div class="ag-kicker">${icon('bot', 15)} AI 店員 <span class="demo-badge">示範資料</span></div>
       <h2><span data-name-out>${esc(S.name)}</span> <em data-live-txt>上班中</em>，幫你 24 小時顧店</h2>
-      <p>教一次店規，她就會用 5 種語言回答客人；遇到客訴、過敏、大單，第一時間轉給${OWNER}。</p>
+      <p>教一次店規，她就會用 5 種語言回答客人；遇到客訴、過敏、大單，第一時間轉給${esc(OWNER)}。</p>
       <div class="ag-checks" data-checks></div>
     </div>
     <div class="ag-hero-side">
@@ -474,7 +524,7 @@ function sandboxHtml() {
       <div class="ag-ph-bar"><b data-clock>14:20</b><i class="ag-notch"></i><span>${icon('cloud', 12)} 5G</span></div>
       <div class="ag-ph-h">
         <span data-av-sm>${avatarSvg(S.avatar, 34)}</span>
-        <div><b data-name-out>${esc(S.name)}</b><small data-ph-st>阿美手作甜點・AI 店員</small></div>
+        <div><b data-name-out>${esc(S.name)}</b><small data-ph-st>${esc(SHOP)}・AI 店員</small></div>
         <span class="chip-sm">${chIcon('line', 14)}LINE（模擬）</span>
       </div>
       <div class="ag-msgs"></div>
@@ -534,10 +584,10 @@ function renderGuards() {
   const host = $('[data-guards]', root);
   host.innerHTML = GUARDS.map((d, i) => {
     let ctrl = '', tryQ = '';
-    if (d.id === 'promise') { ctrl = `<div class="ag-g-tags">${['醫療功效', '保證送達時間', '保證零過敏原'].map(t => `<span class="chip-sm">${icon('x', 11)}${t}</span>`).join('')}</div>`; tryQ = '吃這個可以降血糖嗎？'; }
-    if (d.id === 'discount') { ctrl = `<div class="ag-g-seg">${DISCOUNT_OPTS.map(v => `<button class="seg ${g.cap === v ? 'on' : ''}" data-cap="${v}">${discountLabel(v)}</button>`).join('')}</div><small class="ag-g-hint">${g.cap >= 100 ? 'AI 一律不給折扣' : `AI 最多給到 ${discountLabel(g.cap)}`}，更低的折扣請客人等你決定</small>`; tryQ = '可以打 8 折嗎？'; }
-    if (d.id === 'approve') { ctrl = `<div class="ag-g-amt"><span>單筆超過</span><label>NT$ <input class="ag-num ag-num-lg" type="number" data-amt value="${g.amt}" min="1000" max="200000" step="1000"></label><span>就先問你</span></div>`; tryQ = '公司尾牙要訂 30 盒鳳梨酥'; }
-    if (d.id === 'escalate') { ctrl = `<div class="ag-g-tags">${['客訴', '退款', '吃了過敏'].map(t => `<span class="chip-sm">${icon('alert', 11)}${t}</span>`).join('')}</div><div class="ag-g-notify"><span>通知方式</span><button class="ag-nt ${g.line ? 'on' : ''}" data-nt="line">${chIcon('line', 16)}LINE 推播</button><button class="ag-nt ${g.phone ? 'on' : ''}" data-nt="phone">${icon('phone', 14)}電話（過敏反應時）</button></div>`; tryQ = '我吃了過敏怎麼辦'; }
+    if (d.id === 'promise') { ctrl = `<div class="ag-g-tags">${['醫療功效', '保證送達時間', '保證零過敏原'].map(t => `<span class="chip-sm">${icon('x', 11)}${t}</span>`).join('')}</div>`; tryQ = TRY_Q.promise; }
+    if (d.id === 'discount') { ctrl = `<div class="ag-g-seg">${DISCOUNT_OPTS.map(v => `<button class="seg ${g.cap === v ? 'on' : ''}" data-cap="${v}">${discountLabel(v)}</button>`).join('')}</div><small class="ag-g-hint">${g.cap >= 100 ? 'AI 一律不給折扣' : `AI 最多給到 ${discountLabel(g.cap)}`}，更低的折扣請客人等你決定</small>`; tryQ = TRY_Q.discount; }
+    if (d.id === 'approve') { ctrl = `<div class="ag-g-amt"><span>單筆超過</span><label>NT$ <input class="ag-num ag-num-lg" type="number" data-amt value="${g.amt}" min="1000" max="200000" step="1000"></label><span>就先問你</span></div>`; tryQ = TRY_Q.approve; }
+    if (d.id === 'escalate') { ctrl = `<div class="ag-g-tags">${['客訴', '退款', IS_AMEI || IS_FOODISH ? '吃了過敏' : '使用後不適'].map(t => `<span class="chip-sm">${icon('alert', 11)}${t}</span>`).join('')}</div><div class="ag-g-notify"><span>通知方式</span><button class="ag-nt ${g.line ? 'on' : ''}" data-nt="line">${chIcon('line', 16)}LINE 推播</button><button class="ag-nt ${g.phone ? 'on' : ''}" data-nt="phone">${icon('phone', 14)}電話（過敏反應時）</button></div>`; tryQ = TRY_Q.escalate; }
     const on = g[d.id];
     return `<div class="ag-g ${on ? '' : 'off'}" data-g="${d.id}" id="ag-g-${d.id}" style="--c:${d.color}">
       <span class="ag-g-ic">${icon(d.icon, 18)}</span>
@@ -840,7 +890,7 @@ function bind() {
       $$('[data-faq]', root).forEach(i => { if (i.checked) { i.disabled = true; i.closest('.ag-faq').classList.add('dup'); } });
       t.hidden = true;
       cards.forEach(c => flashCard(c.id));
-      toast(`已加入 ${cards.length} 條店規`, `現在共 ${S.kb.length} 條，試著問「可以代寫卡片嗎？」`, { icon: icon('wand', 18) });
+      toast(`已加入 ${cards.length} 條店規`, `現在共 ${S.kb.length} 條，試著問「${IMPORT_TRY}」`, { icon: icon('wand', 18) });
       return;
     }
     if (d.cap) { S.guard.cap = +d.cap; renderGuards(); renderChat(true); return; }
@@ -866,7 +916,7 @@ function bind() {
   });
   root.addEventListener('input', (e) => {
     const t = e.target;
-    if (t.matches('[data-name]')) { S.name = t.value.trim() || '小美'; updateIdentity(); renderChecks(); refreshSoon(); }
+    if (t.matches('[data-name]')) { S.name = t.value.trim() || AI_DEFAULT; updateIdentity(); renderChecks(); refreshSoon(); }
     if (t.matches('.ag-num[data-card]')) {
       const c = S.kb.find(x => x.id === t.dataset.card); if (!c) return;
       const v = Math.max(0, Math.round(+t.value || 0)); c.params[t.dataset.p] = v;
@@ -886,7 +936,7 @@ function updateIdentity() {
   const t = SIM_TIMES[S.sim];
   $('[data-clock]', root).textContent = `${t.h}:${String(t.m).padStart(2, '0')}`;
   const standby = S.hours === 'after' && S.sim === 'open';
-  $('[data-ph-st]', root).textContent = !S.live ? `休息中・訊息直接給${OWNER}` : standby ? `營業時間由${OWNER}回覆・AI 待命` : '阿美手作甜點・AI 店員';
+  $('[data-ph-st]', root).textContent = !S.live ? `休息中・訊息直接給${OWNER}` : standby ? `營業時間由${OWNER}回覆・AI 待命` : `${SHOP}・AI 店員`;
   $('[data-live-txt]', root).textContent = S.live ? '上班中' : '休息中';
   $('[data-live-lbl]', root).textContent = S.live ? '上班中' : '休息中';
   root.classList.toggle('ag-off', !S.live);

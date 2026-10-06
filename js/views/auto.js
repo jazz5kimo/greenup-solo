@@ -2,9 +2,16 @@
 import { store, itemsText } from '../state.js';
 import { $, $$, el, gsap, esc, money, pad, fmtTime, sleep, countUp, toast } from '../util.js';
 import { icon, chIcon } from '../icons.js';
-import { mulberry32, startOfDay, addDays, PRODUCT_MAP, LANG_LABEL } from '../data.js';
+import { mulberry32, startOfDay, addDays, PRODUCT_MAP, PRODUCTS, LANG_LABEL } from '../data.js';
 import { taxCalendar } from '../ledger.js';
-import { RECIPES, RECIPE_MAP, CATS, CAT_MAP, CH_LABEL, LANG_NAME, n8nWorkflow } from '../auto-data.js';
+import { RECIPES, RECIPE_MAP, CATS, CAT_MAP, CH_LABEL, LANG_NAME, n8nWorkflow, NOTIFY_WHO } from '../auto-data.js';
+import { TENANT } from '../tenant.js';
+import { IS_AMEI, VOC, SHIPPER } from '../brief-data.js';
+
+// 示範帳號名稱：依業主英文店名產生（阿美維持原本）
+const SLUG = IS_AMEI ? 'amei-sweets' : (String(TENANT.en || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || TENANT.id);
+const SHOP_HOST = IS_AMEI ? 'amei' : (SLUG.split('-')[0] || TENANT.id);
+const SHIP_VERB = IS_AMEI ? '出貨' : VOC.ship;
 
 let root, ctxGo;
 const S = {
@@ -30,7 +37,7 @@ const STEPS = [
 
 const WIZ = [
   { title: '開通接單', icon: 'chat', color: '#2DB674', desc: '客人從哪裡來都能接，AI 24 小時回覆。',
-    items: [['LINE 官方帳號', '@amei-sweets（示範）'], ['官網商店', 'amei.greenup.shop（示範）'], ['電話', 'AI 電話客服代接']],
+    items: [['LINE 官方帳號', `@${SLUG}（示範）`], ['官網商店', `${SHOP_HOST}.greenup.shop（示範）`], ['電話', 'AI 電話客服代接']],
     auth: ['開啟 LINE 官方帳號授權頁…', '確認你是帳號管理員…', '連結官網商店與購物車…', '設定 AI 電話客服轉接…'] },
   { title: '開通收款', icon: 'coins', color: '#2E97D4', desc: '客人付款後，錢和訂單自動對起來。',
     items: [['信用卡', '綠界科技（示範）'], ['LINE Pay', '行動支付'], ['轉帳虛擬帳號', '玉山銀行・每筆訂單一個帳號']],
@@ -515,7 +522,7 @@ function dailySummary() {
   const low = store.inventory().filter(p => p.low);
   const v = nextVat();
   const todo = [];
-  if (ship) todo.push(`包裝出貨 ${ship} 件（小傑負責，託運單已建好）`);
+  if (ship) todo.push(IS_AMEI ? `包裝出貨 ${ship} 件（小傑負責，託運單已建好）` : `${SHIP_VERB} ${ship} 筆（${SHIPPER ? `${SHIPPER.name}負責` : '由你處理'}${/出貨|配送/.test(SHIP_VERB) ? '，託運單已建好' : ''}）`);
   for (const p of low.slice(0, 2)) todo.push(`補貨：${p.name}剩 ${p.current} 件，低於安全量 ${p.safety}（採購單草稿已備好）`);
   if (pend.length) todo.push(`${pend.length} 筆未付款，AI 明早 10:00 會用客人的語言再提醒`);
   if (v.days <= 14) todo.push(`營業稅 ${v.period} 申報資料待你確認（${fmtMDx(v.d)} 截止）`);
@@ -618,8 +625,8 @@ function stepInfo(run, i) {
     case 5: {
       if (o.channel === 'pos') return { v: '現場取貨', sub: '門市已交付，不需出貨' };
       if (run.steps[5] === 'skip') return { v: '出貨通知已關閉', sub: '請自行通知出貨' };
-      const who = { jie: '小傑', me: '我', both: '小傑和我' }[cfg('paid').notify];
-      return { v: o.pickup ? '門市自取通知' : (o.region ? `宅配・${o.region}` : '冷藏宅配'), sub: `已通知${who}出貨・用${lang}告知客人` };
+      const who = NOTIFY_WHO[cfg('paid').notify] || '我';
+      return { v: o.pickup ? '門市自取通知' : (o.region ? `宅配・${o.region}` : (IS_AMEI ? '冷藏宅配' : '宅配')), sub: `已通知${who}${SHIP_VERB}・用${lang}告知客人` };
     }
   }
   return { v: '', sub: '' };
@@ -773,6 +780,15 @@ function simulate(kind, btn) {
   if (btn) { btn.disabled = true; setTimeout(() => { btn.disabled = false; }, 1200); }
   const live = $('.au-live', root);
   if (live && live.getBoundingClientRect().top > window.innerHeight - 200) live.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  if (kind === 'pending') store.createOrder({ channel: 'line', customer: '佐藤 ゆき', lang: 'ja', items: [{ pid: 'roll', qty: 1 }, { pid: 'canele', qty: 1 }], payment: 'LINE Pay', status: 'pending' });
-  else store.createOrder({ channel: 'web', customer: '測試客人', lang: 'zh', items: [{ pid: 'lemon', qty: 1 }], payment: '信用卡', status: 'paid' });
+  if (IS_AMEI) {
+    if (kind === 'pending') store.createOrder({ channel: 'line', customer: '佐藤 ゆき', lang: 'ja', items: [{ pid: 'roll', qty: 1 }, { pid: 'canele', qty: 1 }], payment: 'LINE Pay', status: 'pending' });
+    else store.createOrder({ channel: 'web', customer: '測試客人', lang: 'zh', items: [{ pid: 'lemon', qty: 1 }], payment: '信用卡', status: 'paid' });
+    return;
+  }
+  // 其他業主：用自己的商品；未付款示範用該店最常見的外語客人
+  const lang = Object.keys(TENANT.langs || {}).find(l => l !== 'zh') || 'en';
+  const who = { ja: '佐藤 ゆき', en: 'Daniel Tan', vi: 'Nguyễn Thị Lan', ms: 'Aisyah R.' }[lang] || 'Daniel Tan';
+  const p = (i) => (PRODUCTS[i] || PRODUCTS[0]).id;
+  if (kind === 'pending') store.createOrder({ channel: lang === 'vi' ? 'zalo' : 'line', customer: who, lang, items: [{ pid: p(1), qty: 1 }, { pid: p(4), qty: 1 }], payment: 'LINE Pay', status: 'pending' });
+  else store.createOrder({ channel: 'web', customer: '測試客人', lang: 'zh', items: [{ pid: p(0), qty: 1 }], payment: '信用卡', status: 'paid' });
 }

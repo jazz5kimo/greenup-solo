@@ -7,8 +7,17 @@ import { productArt } from '../art.js';
 import { makeChart } from '../charts.js';
 import { MAT, LABOR_RATE, bom } from '../inventory-data.js';
 import {
-  LS_LANGS, NEW_PRODUCT, NEW_BOM, COPY, KW, hashtags, ALG_I18N, STORE_I18N, UI_I18N, META, LS_CH, buildListed, LANG_FUNNEL, yuzuArt,
+  LS_LANGS, NEW_PRODUCT, NEW_BOM, COPY, KW, hashtags, ALG_I18N, STORE_I18N, UI_I18N, META, LS_CH, buildListed, LANG_FUNNEL, yuzuArt, specLine, LISTING_CAT,
 } from '../listing-data.js';
+import { IS_AMEI, KIT, FOODISH } from '../inventory-data.js';
+import { TENANT } from '../tenant.js';
+import { promoInfo, onPromos } from '../promo.js';
+
+// 店家資訊（阿美沿用原本示範字樣；其他業主依目前業主產生）
+const SHOP = IS_AMEI ? { name: '阿美手作甜點', av: '美', domain: 'amei-sweets.tw', ig: 'amei.sweets', igLoc: '台北・手作甜點', kind: '甜點店', margin: '甜點業常見 55–65%', peers: '周邊 12 家甜點店・示範', algLabel: '過敏原與保存（沿用商品主檔）' }
+  : { name: TENANT.name, av: KIT.avatar, domain: KIT.domain, ig: KIT.handle, igLoc: `${String(KIT.region).slice(0, 2)}・${KIT.typeName}`, kind: KIT.typeName, margin: LISTING_CAT.margin, peers: '周邊 12 家同業・示範', algLabel: FOODISH ? '過敏原與保存（沿用商品主檔）' : '商品標示（沿用商品主檔）' };
+// 預覽用：過敏原（食品業）或商品標示
+const algText = (p, L) => IS_AMEI || p.allergens.length ? p.allergens.map(a => ALG_I18N[a][L]).join('・') : specLine(p, L).txt;
 
 /* ---------- 內嵌圖示 ---------- */
 const svg = (d, s = 18, extra = '') => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
@@ -41,7 +50,7 @@ const S = {
 let root, chart, timerId;
 const BG = [
   { id: 'studio', name: '純白攝影棚' },
-  { id: 'cream', name: '奶油粉彩' },
+  { id: 'cream', name: IS_AMEI ? '奶油粉彩' : '米白粉彩' },
   { id: 'marble', name: '大理石桌面' },
   { id: 'forest', name: '森林綠' },
 ];
@@ -71,23 +80,28 @@ function costInfo(pid = S.pid) {
     const pack = rows.filter(r => r.cat === 'pack').reduce((s, r) => s + r.sub, 0);
     const labor = NEW_BOM.labor * LABOR_RATE;
     const total = Math.round(raw + pack + labor + NEW_BOM.mfg);
-    return { total, parts: [['原料', raw], ['包材', pack], ['人工', labor], ['製造費用', NEW_BOM.mfg]], src: 'BOM 估算（8 項原料・人工 9 分鐘）', rows };
+    return { total, parts: [['原料', raw], ['包材', pack], ['人工', labor], ['製造費用', NEW_BOM.mfg]], src: `BOM 估算（${NEW_BOM.lines.length} 項原料・人工 ${NEW_BOM.labor} 分鐘）`, rows };
   }
   const p = PRODUCT_MAP[pid];
   const b = bom(pid);
-  const k = p.cost / b.total;
-  return { total: p.cost, parts: [['原料', b.raw * k], ['包材', b.pack * k], ['人工', b.labor * k], ['製造費用', b.mfg * k]], src: '商品主檔成本（與 BOM 連動）', rows: null };
+  const cost = Math.max(0, +p.cost || 0);
+  // 禮券、純服務等成本為 0 或沒有 BOM 的商品：成本全部歸在「製造費用」，避免除以 0
+  if (!cost || !b.total) return { total: cost, parts: [['原料', 0], ['包材', 0], ['人工', 0], ['製造費用', cost]], src: cost ? '商品主檔成本' : '無直接成本（禮券／服務）', rows: null };
+  const k = cost / b.total;
+  return { total: cost, parts: [['原料', b.raw * k], ['包材', b.pack * k], ['人工', b.labor * k], ['製造費用', b.mfg * k]], src: '商品主檔成本（與 BOM 連動）', rows: null };
 }
 function baseInfo(pid = S.pid) {
   const now = new Date();
   const list = store.ordersBetween(addDays(startOfDay(now), -29), addDays(startOfDay(now), 1));
   const qtyOf = (id) => list.reduce((s, o) => s + o.items.filter(it => it.pid === id).reduce((a, it) => a + it.qty, 0), 0);
-  if (pid === 'yuzu') return { vol: Math.max(40, Math.round(qtyOf('lemon') * 0.55)), ref: META.yuzu.range[1], cur: null };
+  if (pid === 'yuzu') return { vol: Math.max(40, Math.round(qtyOf(IS_AMEI ? 'lemon' : NEW_PRODUCT.baseId) * 0.55)), ref: META.yuzu.range[1], cur: null };
   const p = PRODUCT_MAP[pid];
-  return { vol: Math.max(20, qtyOf(pid)), ref: p.price, cur: p.price };
+  const lp = p.listPrice ?? p.price;
+  return { vol: Math.max(20, qtyOf(pid)), ref: lp, cur: lp, promo: promoInfo(p) };
 }
 const E = 1.6;
 function volAt(P, base, range) {
+  if (!(P > 0) || !(base.ref > 0)) return 0;
   let v = base.vol * Math.pow(base.ref / P, E);
   if (P > range[2]) v *= Math.exp(-(P - range[2]) / range[2] * 2.5);
   return v;
@@ -97,11 +111,12 @@ function plans() {
   const c = costInfo(); const base = baseInfo(); const range = META[S.pid].range;
   const mk = (id, name, m, extraCost, volK, note) => {
     const cost = c.total + extraCost;
-    const P = priceFor(cost, Math.min(85, Math.max(15, m)));
+    // 沒有直接成本的商品（禮券、純服務）：以目前售價為基準分三檔，不套成本加成
+    const P = cost > 0 ? priceFor(cost, Math.min(85, Math.max(15, m))) : round10((base.ref || 100) * (id === 'lite' ? 0.9 : id === 'prem' ? 1.15 : 1));
     const net = P / 1.05;
     const unit = net - cost;
     const vol = Math.round(volAt(P, base, range) * volK);
-    return { id, name, P, cost, unit, mgn: unit / net * 100, vol, month: unit * vol, note };
+    return { id, name, P, cost, unit, mgn: net > 0 ? unit / net * 100 : 0, vol, month: unit * vol, note };
   };
   return [
     mk('lite', '薄利多銷', S.margin - 12, 0, 1, '衝新客、搭配組合價'),
@@ -165,7 +180,7 @@ function layout() {
         <div class="ls-meta" id="lsMeta">
           <div class="ls-mb"><label>${svg(I.search, 14)} SEO 關鍵字</label><div class="ls-chips" id="lsKw"></div></div>
           <div class="ls-mb"><label>${svg(I.hash, 14)} Hashtag</label><div class="ls-chips ls-ht" id="lsHt"></div></div>
-          <div class="ls-mb"><label>${icon('alert', 14)} 過敏原與保存（沿用商品主檔）</label><div id="lsAlg"></div></div>
+          <div class="ls-mb"><label>${icon('alert', 14)} ${SHOP.algLabel}</label><div id="lsAlg"></div></div>
           <div class="ls-mb"><label>${svg(I.tag, 14)} 建議分類與標籤</label><div id="lsCat"></div></div>
         </div>
       </div>
@@ -197,7 +212,7 @@ function layout() {
           <div class="ls-slider">
             <div class="ls-sl-h"><span>目標毛利率</span><b id="lsMgnV">60%</b></div>
             <input type="range" min="40" max="75" step="1" value="60" id="lsMgn" aria-label="目標毛利率">
-            <div class="ls-sl-s"><span>40%</span><span>甜點業常見 55–65%</span><span>75%</span></div>
+            <div class="ls-sl-s"><span>40%</span><span>${SHOP.margin}</span><span>75%</span></div>
           </div>
         </div>
         <div class="ls-range" id="lsRange"></div>
@@ -293,9 +308,10 @@ function renderMeta(anim = false) {
   const p = prod(); const m = META[S.pid]; const L = S.lang; const ui = UI_I18N[L];
   $('#lsKw', root).innerHTML = KW[S.pid][L].map(k => `<span class="ls-kw">${esc(k)}</span>`).join('');
   $('#lsHt', root).innerHTML = hashtags(S.pid, L).map(k => `<span class="ls-h">${esc(k)}</span>`).join('');
+  const keep = IS_AMEI ? { cold: p.storage === 'fridge', txt: STORE_I18N[p.storage][L](p.days) } : specLine(p, L);
   $('#lsAlg', root).innerHTML = `
     <div class="ls-alg">${p.allergens.map(a => `<span class="ls-a">${esc(ALG_I18N[a][L])}</span>`).join('')}<small>${esc(ui.alg)}</small></div>
-    <div class="ls-keep ${p.storage}">${p.storage === 'fridge' ? icon('snow', 15) : icon('box', 15)}<span>${esc(STORE_I18N[p.storage][L](p.days))}</span></div>`;
+    <div class="ls-keep ${keep.cold ? 'fridge' : 'room'}">${keep.cold ? icon('snow', 15) : icon('box', 15)}<span>${esc(keep.txt)}</span></div>`;
   $('#lsCat', root).innerHTML = `<div class="ls-cat"><b>${esc(m.cat)}</b><small>信心度 ${m.conf}%</small></div>
     <div class="ls-chips">${m.tags.map(t => `<span class="ls-t">${esc(t)}</span>`).join('')}</div>`;
   if (anim) gsap.fromTo($$('#lsMeta .ls-kw, #lsMeta .ls-h, #lsMeta .ls-a, #lsMeta .ls-keep, #lsMeta .ls-cat, #lsMeta .ls-t', root), { opacity: 0, y: 8, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, stagger: 0.03, duration: 0.35, ease: 'back.out(2)' });
@@ -372,8 +388,8 @@ function renderPrice(anim = false) {
   const tot = c.parts.reduce((s, x) => s + x[1], 0);
   const col = ['#2DB674', '#5EE0C4', '#F0A531', '#7C62E6'];
   $('#lsCost', root).innerHTML = `
-    <div class="ls-cost-t"><span>單位成本</span><b>${money(c.total)}</b><small>／${esc(p.unit)}${base.cur ? `・目前售價 ${money(base.cur)}` : '・新品尚未定價'}</small></div>
-    <div class="ls-cbar">${c.parts.map((x, i) => `<i style="width:${x[1] / tot * 100}%;background:${col[i]}" title="${x[0]} ${money(x[1])}"></i>`).join('')}</div>
+    <div class="ls-cost-t"><span>單位成本</span><b>${money(c.total)}</b><small>／${esc(p.unit)}${base.cur ? `・${base.promo ? '原價' : '目前售價'} ${money(base.cur)}${base.promo ? `・<b class="ls-promo">${esc(base.promo.badge)} ${money(base.promo.price)}</b>（至 ${esc(base.promo.to.slice(5).replace('-', '/'))}）` : ''}` : '・新品尚未定價'}</small></div>
+    <div class="ls-cbar">${c.parts.map((x, i) => `<i style="width:${tot ? x[1] / tot * 100 : 0}%;background:${col[i]}" title="${x[0]} ${money(x[1])}"></i>`).join('')}</div>
     <div class="ls-clg">${c.parts.map((x, i) => `<span><i style="background:${col[i]}"></i>${x[0]} ${Math.round(x[1])}</span>`).join('')}</div>`;
   $('#lsMgnV', root).textContent = S.margin + '%';
   $('#lsMgn', root).value = S.margin;
@@ -381,7 +397,7 @@ function renderPrice(anim = false) {
   const lo = Math.min(range[0], ps[0].P) * 0.92, hi = Math.max(range[2], ps[2].P) * 1.05;
   const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
   $('#lsRange', root).innerHTML = `
-    <div class="ls-rg-h"><span>同類商品價格區間（周邊 12 家甜點店・示範）</span><b>${money(range[0])} – ${money(range[2])}</b></div>
+    <div class="ls-rg-h"><span>同類商品價格區間（${SHOP.peers}）</span><b>${money(range[0])} – ${money(range[2])}</b></div>
     <div class="ls-rg"><i class="ls-rg-band" style="left:${pos(range[0])}%;width:${pos(range[2]) - pos(range[0])}%"></i>
       <i class="ls-rg-med" style="left:${pos(range[1])}%"><em>中位數 ${range[1]}</em></i>
       ${ps.map(x => `<i class="ls-rg-pt ${x.id} ${x.id === S.plan ? 'on' : ''}" style="left:${pos(x.P)}%"><em>${x.P}</em></i>`).join('')}
@@ -435,22 +451,22 @@ function drawChart(c, base, range, ps) {
 const IGICON = (d) => svg(d, 20);
 function preview(ch) {
   const L = S.lang; const [name, tag, desc] = copy(L); const ui = UI_I18N[L]; const p = prod(); const P = curPlan().P;
-  const algs = p.allergens.map(a => ALG_I18N[a][L]).join('・');
+  const algs = algText(p, L);
   const tags = hashtags(S.pid, L);
   const slug = META[S.pid].slug;
   switch (ch.id) {
     case 'web': return `
       <div class="ls-pv-web">
-        <div class="ls-bar"><i></i><i></i><i></i><span>amei-sweets.tw/p/${slug}</span></div>
+        <div class="ls-bar"><i></i><i></i><i></i><span>${SHOP.domain}/p/${slug}</span></div>
         <div class="ls-pv-img r169">${shotHTML()}</div>
         <div class="ls-web-b"><small>${esc(META[S.pid].cat)}</small><b>${esc(name)}</b><p>${esc(tag)}</p>
           <div class="ls-web-p"><span>${money(P)}</span><small>${esc(p.unit)}</small></div>
-          <div class="ls-web-a">${esc(ui.alg)}：${esc(algs)}</div>
+          <div class="ls-web-a">${esc(IS_AMEI || p.allergens.length || !FOODISH ? ui.alg : ui.keep)}：${esc(algs)}</div>
           <span class="ls-web-btn">${esc(ui.buy)}</span></div>
       </div>`;
     case 'line': return `
       <div class="ls-pv-line">
-        <div class="ls-line-top"><span class="ls-av">美</span><b>阿美手作甜點</b><small>官方帳號</small></div>
+        <div class="ls-line-top"><span class="ls-av">${esc(SHOP.av)}</span><b>${esc(SHOP.name)}</b><small>官方帳號</small></div>
         <div class="ls-line-chat"><small class="ls-line-time">今天 10:30</small>
           <div class="ls-flex"><div class="ls-pv-img r11">${shotHTML()}</div>
             <div class="ls-flex-b"><b>${esc(name)}</b><p>${esc(tag)}</p><div class="ls-flex-p">${money(P)} <small>${esc(p.unit)}</small></div></div>
@@ -458,10 +474,10 @@ function preview(ch) {
       </div>`;
     case 'ig': return `
       <div class="ls-pv-ig">
-        <div class="ls-ig-h"><span class="ls-ig-av"><i>美</i></span><b>amei.sweets</b><small>台北・手作甜點</small><span class="ls-ig-dots">•••</span></div>
+        <div class="ls-ig-h"><span class="ls-ig-av"><i>${esc(SHOP.av)}</i></span><b>${esc(SHOP.ig)}</b><small>${esc(SHOP.igLoc)}</small><span class="ls-ig-dots">•••</span></div>
         <div class="ls-pv-img r45">${shotHTML()}<span class="ls-ig-tagp">${esc(name)}・${money(P)}</span></div>
         <div class="ls-ig-ic">${IGICON(I.heart)}${IGICON(I.comment)}${IGICON(I.share)}<span></span>${IGICON(I.save)}</div>
-        <div class="ls-ig-cap"><b>amei.sweets</b> ${esc(tag)} <span class="ls-ig-ht">${tags.map(esc).join(' ')}</span></div>
+        <div class="ls-ig-cap"><b>${esc(SHOP.ig)}</b> ${esc(tag)} <span class="ls-ig-ht">${tags.map(esc).join(' ')}</span></div>
       </div>`;
     case 'shopee': return `
       <div class="ls-pv-shp">
@@ -475,7 +491,7 @@ function preview(ch) {
       </div>`;
     case 'google': return `
       <div class="ls-pv-ggl">
-        <div class="ls-ggl-h"><b>阿美手作甜點</b><span>4.9 ${svg(I.star, 11, 'fill="currentColor"')} (238)・甜點店</span></div>
+        <div class="ls-ggl-h"><b>${esc(SHOP.name)}</b><span>4.9 ${svg(I.star, 11, 'fill="currentColor"')} (238)・${esc(SHOP.kind)}</span></div>
         <div class="ls-ggl-tabs"><span>總覽</span><span class="on">產品</span><span>評論</span></div>
         <div class="ls-pv-img r43">${shotHTML()}</div>
         <div class="ls-ggl-b"><b>${esc(name)}</b><div class="ls-ggl-p">${money(P)}</div><p>${esc(desc.length > 90 ? desc.slice(0, L === 'zh' || L === 'ja' ? 52 : 92) + '…' : desc)}</p>
@@ -598,7 +614,8 @@ function bind() {
       if (t.dataset.pid === S.pid && !S.photo && S.generated) return;
       S.pid = t.dataset.pid; S.photo = null; S.plan = 'std';
       const p = prod();
-      S.margin = p.isNew ? 60 : Math.round((p.price / 1.05 - p.cost) / (p.price / 1.05) * 100);
+      const lp = p.listPrice ?? p.price;
+      S.margin = p.isNew ? 60 : Math.min(85, Math.max(15, Math.round((lp / 1.05 - (+p.cost || 0)) / (lp / 1.05) * 100)));
       gsap.fromTo(t, { scale: 0.92 }, { scale: 1, duration: 0.4, ease: 'back.out(3)' });
       onProductChange(); return;
     }
@@ -644,6 +661,7 @@ export default {
     renderPhoto(); renderImage(); renderPrice(); renderLangTabs(); renderChannels(); renderListed();
     fillCopy(); renderMeta();
     bind();
+    onPromos(() => { if (!S.generating) renderPrice(); });
   },
   show() {
     if (firstShow) {

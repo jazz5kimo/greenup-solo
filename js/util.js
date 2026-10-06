@@ -9,7 +9,7 @@ export function el(html) {
   return t.content.firstElementChild;
 }
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const money = (n) => `NT$ ${Math.round(n).toLocaleString('en-US')}`;
+export const money = (n) => { const v = Math.round(n); return `${v < 0 ? '−' : ''}NT$ ${Math.abs(v).toLocaleString('en-US')}`; };
 export const pad = (n) => String(n).padStart(2, '0');
 export const fmtDate = (d) => { d = new Date(d); return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`; };
 export const fmtMD = (d) => { d = new Date(d); return `${d.getMonth() + 1}/${d.getDate()}`; };
@@ -23,7 +23,7 @@ export function countUp(node, to, { prefix = '', suffix = '', decimals = 0, dura
   const start = from ?? (parseFloat(node.dataset.value) || 0);
   const obj = { v: start };
   node.dataset.value = to;
-  const render = (v) => { node.textContent = prefix + Number(v).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix; };
+  const render = (v) => { const neg = v < 0 && /NT\$/.test(prefix); node.textContent = (neg ? '−' : '') + prefix + Number(neg ? -v : v).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix; };
   if (!gsap) { render(to); return; }
   gsap.to(obj, { v: to, duration, ease: 'power3.out', onUpdate: () => render(obj.v) });
 }

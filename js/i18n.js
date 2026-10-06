@@ -1,3 +1,4 @@
+import { TENANT } from './tenant.js';
 // 多語言字典：繁體中文／English／日本語／Tiếng Việt／Bahasa Melayu
 export const LANGS = [
   { id: 'zh', label: '繁體中文', short: '中', speech: 'zh-TW' },
@@ -279,9 +280,18 @@ export function t(lang, key, vars = {}) {
   if (typeof s === 'string') s = s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
   return s;
 }
-export function pName(lang, id) { return (PRODUCT_I18N[id][lang] || PRODUCT_I18N[id].zh)[0]; }
-export function pUnit(lang, id) { return (PRODUCT_I18N[id][lang] || PRODUCT_I18N[id].zh)[1]; }
-export function pDesc(lang, id) { return (PRODUCT_I18N[id][lang] || PRODUCT_I18N[id].zh)[2]; }
+// 其他業主的商品：用商品本身的中英文欄位（日文、越南文等沒有翻譯時用英文）
+function pI18n(lang, id) {
+  const t = PRODUCT_I18N[id];
+  if (t) return t[lang] || t.zh;
+  const p = (TENANT.products || []).find(x => x.id === id);
+  if (!p) return [id, '', ''];
+  if (p.i18n && p.i18n[lang]) return p.i18n[lang];
+  return lang === 'zh' ? [p.name, p.unit, p.desc] : [p.en || p.name, p.unit, p.descEn || p.desc];
+}
+export function pName(lang, id) { return pI18n(lang, id)[0]; }
+export function pUnit(lang, id) { return pI18n(lang, id)[1]; }
+export function pDesc(lang, id) { return pI18n(lang, id)[2]; }
 
 // 語言偵測：假名 → 日文；越南文變音 → 越南文；漢字 → 中文；拉丁字母 → 馬來文關鍵字或英文
 const VI_RE = /[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/i;

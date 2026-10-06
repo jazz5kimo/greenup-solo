@@ -1,6 +1,13 @@
 // 自動化中心：食譜定義 + n8n 流程範本（示範格式，正式版由 GreenUP API 提供端點）
 // 所有內容皆為示範用途，不代表真實串接。
 
+import { IS_AMEI, VOC, SHIPPER } from './brief-data.js';
+
+// 出貨通知對象：阿美＝小傑；其他業主＝負責出貨的人員（沒有就只有負責人自己）
+const SHIP_NAME = SHIPPER ? SHIPPER.name : '';
+const SHIP_VERB = IS_AMEI ? '出貨' : VOC.ship;
+export const NOTIFY_WHO = { jie: SHIP_NAME || '我', me: '我', both: SHIP_NAME ? `${SHIP_NAME}和我` : '我' };
+const NOTIFY_OPTS = SHIPPER ? [['jie', `${SHIP_NAME}（${(SHIPPER.title || '').split('・')[0] || '出貨'}）`], ['me', '我自己'], ['both', `${SHIP_NAME}和我`]] : [['me', '我自己（目前只有負責人）']];
 export const CH_LABEL = { line: 'LINE', web: '官網 AI 導購', pos: '門市 POS', phone: 'AI 電話客服', whatsapp: 'WhatsApp', zalo: 'Zalo', messenger: 'Messenger' };
 export const LANG_NAME = { zh: '中文', ja: '日文', en: '英文', vi: '越南文', ms: '馬來文' };
 
@@ -33,14 +40,14 @@ export const RECIPES = [
   },
   {
     id: 'paid', cat: 'pay', icon: 'receipt', color: '#2E97D4', mins: 6, core: true,
-    title: '客人付款成功，自動開發票、記帳、扣庫存、通知出貨',
-    chain: (s) => ({ when: '客人付款成功', then: ['開電子發票', '記帳', '扣庫存', `通知${s.notify === 'jie' ? '小傑' : s.notify === 'me' ? '我' : '小傑和我'}出貨`] }),
+    title: `客人付款成功，自動開發票、記帳、扣庫存、通知${SHIP_VERB}`,
+    chain: (s) => ({ when: '客人付款成功', then: ['開電子發票', '記帳', '扣庫存', `通知${NOTIFY_WHO[s.notify] || '我'}${SHIP_VERB}`] }),
     settings: [
-      sel('notify', '出貨通知給誰', [['jie', '小傑（包裝出貨）'], ['me', '我自己'], ['both', '小傑和我']]),
+      sel('notify', `${SHIP_VERB}通知給誰`, NOTIFY_OPTS),
       sel('invoice', '發票類型', [['auto', '自動判斷（有統編開三聯）'], ['b2c', '一律二聯（存載具）']]),
       tog('print', '門市訂單同時列印發票證明聯'),
     ],
-    defaults: { notify: 'jie', invoice: 'auto', print: true },
+    defaults: { notify: SHIPPER ? 'jie' : 'me', invoice: 'auto', print: true },
     offWarn: '關掉後，客人付款不會再自動開電子發票、記帳和扣庫存。你需要每筆訂單手動開票（依法 48 小時內）、自己記帳，庫存數字也會不準。',
   },
   {
@@ -212,7 +219,7 @@ export function n8nWorkflow(id, s) {
       api('GreenUP API：完成訂單交易（開發票＋記帳＋扣庫存，單一交易）', 'POST', `/v1/orders/${ord}/complete`, { payment_id: '{{ $json.body.payment_id }}', amount: '{{ $json.body.amount }}', invoice: { type: s.invoice === 'auto' ? 'auto' : 'b2c', print_proof: !!s.print }, ledger: true, inventory: true }, { headers: { 'Idempotency-Key': '={{ $json.body.payment_id }}' }, retry: true }),
       cond('是否宅配？', '={{ $json.fulfillment.method }}', 'equals', 'home_delivery'),
       api('GreenUP API：建立託運單', 'POST', '/v1/shipments', { order_id: '{{ $json.order_id }}', carrier: '{{ $json.fulfillment.carrier }}', temperature: '{{ $json.fulfillment.temperature }}' }),
-      api(`LINE 推播：通知${s.notify === 'jie' ? '小傑' : s.notify === 'me' ? '我' : '小傑和我'}出貨`, 'POST', '/v1/notify/staff', { channel: 'line', to: s.notify === 'both' ? ['jie', 'owner'] : [s.notify === 'me' ? 'owner' : s.notify], template: 'ship_order', order_id: '{{ $json.order_id }}' }),
+      api(`LINE 推播：通知${NOTIFY_WHO[s.notify] || '我'}${SHIP_VERB}`, 'POST', '/v1/notify/staff', { channel: 'line', to: s.notify === 'both' ? ['jie', 'owner'] : [s.notify === 'me' ? 'owner' : s.notify], template: 'ship_order', order_id: '{{ $json.order_id }}' }),
     ], [[0, 1], [1, 2], [2, 3, 0], [3, 4], [2, 4, 1]], [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]]);
 
     case 'remind': {

@@ -5,11 +5,14 @@ import { $, $$, el, gsap, esc, money, pad, fmtTime, fmtMD, fmtDate, countUp, toa
 import { icon, chIcon } from '../icons.js';
 import { PRODUCTS, PRODUCT_MAP, startOfDay, addDays, mulberry32 } from '../data.js';
 import { productArt } from '../art.js';
+import { promoInfo, onPromos } from '../promo.js';
+import { TENANT, TENANT_ID } from '../tenant.js';
+import { IS_AMEI, CAT, FOODISH, KIT } from '../inventory-data.js';
 
 // ---------- 常數與模擬資料 ----------
 const CH = { line: 'LINE', web: '官網', pos: '門市', phone: '電話', whatsapp: 'WhatsApp', zalo: 'Zalo', messenger: 'Messenger' };
-const CATS = [{ id: 'all', name: '全部' }, { id: 'cake', name: '塔類蛋糕' }, { id: 'gift', name: '禮盒' }, { id: 'ltd', name: '限定' }];
-const PMETA = {
+const A_CATS = [{ id: 'all', name: '全部' }, { id: 'cake', name: '塔類蛋糕' }, { id: 'gift', name: '禮盒' }, { id: 'ltd', name: '限定' }];
+const A_PMETA = {
   lemon: { cat: ['cake'], code: '4719853100018', tag: '' },
   roll: { cat: ['cake', 'ltd'], code: '4719853100025', tag: '草莓季限定' },
   basque: { cat: ['cake', 'ltd'], code: '4719853100032', tag: '每日限量' },
@@ -19,20 +22,20 @@ const PMETA = {
   canele: { cat: ['cake', 'ltd'], code: '4719853100070', tag: '秋季限定' },
 };
 const ALG = { egg: '蛋', milk: '奶', gluten: '麩質', nuts: '堅果' };
-const PN = {
+const A_PN = {
   lemon: { en: 'Lemon Tart', ja: 'レモンタルト' }, roll: { en: 'Strawberry Roll', ja: 'いちごロール' },
   basque: { en: 'Taro Basque', ja: 'タロバスク' }, pound: { en: 'Oolong Pound Cake', ja: '烏龍茶パウンド' },
   cookie: { en: 'Cookie Gift Box', ja: 'クッキー詰合せ' }, pineapple: { en: 'Pineapple Cake Box', ja: 'パイナップルケーキ' },
   canele: { en: 'Earl Grey Canelé', ja: 'アールグレイカヌレ' },
 };
 const TODAY = startOfDay(new Date());
-const MEMBERS = [
+const A_MEMBERS = [
   { id: 'M-000128', phone: '0912345678', name: '林小姐', full: '林佳穎', tier: '金卡', c: '#F0A531', points: 1280, visits: 23, last: { d: addDays(TODAY, -7), items: [['lemon', 2]] }, allergy: ['nuts'], lang: 'zh', bday: true, pref: '偏好低甜度' },
   { id: 'M-000342', phone: '0922876543', name: '陳先生', full: '陳冠宇', tier: '銀卡', c: '#9fd6f5', points: 460, visits: 9, last: { d: addDays(TODAY, -14), items: [['pineapple', 3]] }, allergy: [], lang: 'zh', taxId: '53212539', company: '示範貿易有限公司', pref: '公司送禮常客・需統編' },
   { id: 'M-000517', phone: '0933556677', name: '佐藤 ゆき', full: '佐藤 ゆき', tier: '一般', c: '#5EE0C4', points: 120, visits: 2, last: { d: addDays(TODAY, -30), items: [['canele', 1]] }, allergy: [], lang: 'ja', pref: '日本旅客・LINE 會員' },
 ];
-const PAIR = { lemon: ['pound', 'canele'], roll: ['canele', 'lemon'], basque: ['cookie', 'pound'], pound: ['lemon', 'pineapple'], cookie: ['pineapple', 'pound'], pineapple: ['cookie', 'pound'], canele: ['roll', 'lemon'] };
-const WHY = {
+const A_PAIR = { lemon: ['pound', 'canele'], roll: ['canele', 'lemon'], basque: ['cookie', 'pound'], pound: ['lemon', 'pineapple'], cookie: ['pineapple', 'pound'], pineapple: ['cookie', 'pound'], canele: ['roll', 'lemon'] };
+const A_WHY = {
   'lemon>pound': '酸甜檸檬塔配低甜烏龍茶香，回購組合第 1 名', 'lemon>canele': '下午茶雙拼，可套用第二件 8 折',
   'roll>canele': '生乳捲＋可麗露是週末下午茶熱門組合', 'roll>lemon': '水果系雙主角，冷藏 2 天內享用',
   'basque>cookie': '芋泥巴斯克送禮常加購餅乾禮盒', 'basque>pound': '6 吋蛋糕搭常溫磅蛋糕，隔天也有得吃',
@@ -41,7 +44,7 @@ const WHY = {
   'pineapple>cookie': '鳳梨酥＋餅乾雙禮盒，公司送禮首選', 'pineapple>pound': '常溫禮盒雙件組，適合拜訪長輩',
   'canele>roll': '可麗露搭草莓生乳捲，限定組合', 'canele>lemon': '伯爵茶香配檸檬，日本旅客最愛',
 };
-const CODES = {
+const A_CODES = {
   AMEI100: { desc: '滿 NT$800 折 NT$100', type: 'amt', v: 100, min: 800 },
   TEA20: { desc: '烏龍茶磅蛋糕 8 折', type: 'pid', pid: 'pound', pct: 0.2 },
   BDAY15: { desc: '會員生日月 85 折', type: 'pct', v: 0.15, bday: true },
@@ -58,13 +61,79 @@ const Z_COLOR = { 現金: '#2DB674', 信用卡: '#2E97D4', 'LINE Pay': '#3ddc84'
 const DONATE = [{ code: '5299', name: '（示範）偏鄉兒童閱讀計畫' }, { code: '9527', name: '（示範）流浪動物之家' }, { code: '168', name: '（示範）食物銀行' }];
 const SELLER_MASK = '83****47';
 const FLOAT = 5000;
-const CDL = {
+const A_CDL = {
   zh: { k: '中', welcome: '歡迎光臨', idle: '今日現烤・草莓生乳捲限量供應', due: '應付金額', saved: '已為您節省', thanks: '謝謝光臨，歡迎再來！', sub: '電子發票已開立', change: '找零', points: '本次累積 {n} 點', more: '另 {n} 項', mar: '今日限定：伯爵可麗露第二件 8 折・加入 LINE 會員首購送 50 點' },
   en: { k: 'EN', welcome: 'Welcome!', idle: 'Freshly baked today', due: 'Amount Due', saved: 'You saved', thanks: 'Thank you! See you again.', sub: 'Your e-invoice has been issued', change: 'Change', points: '+{n} points earned', more: '+{n} more', mar: 'Today: 20% off your 2nd Earl Grey Canelé · Join our LINE membership for 50 bonus points' },
   ja: { k: '日', welcome: 'いらっしゃいませ', idle: '本日焼きたて', due: 'お支払い金額', saved: '割引', thanks: 'ありがとうございました！', sub: '電子レシートを発行しました', change: 'おつり', points: '{n} ポイント獲得', more: '他 {n} 点', mar: '本日限定：カヌレ 2 個目 20% オフ・LINE 会員登録で 50 ポイント' },
   vi: { k: 'VI', welcome: 'Xin chào quý khách', idle: 'Bánh mới nướng hôm nay', due: 'Số tiền cần trả', saved: 'Đã giảm', thanks: 'Cảm ơn quý khách! Hẹn gặp lại.', sub: 'Hóa đơn điện tử đã được xuất', change: 'Tiền thừa', points: '+{n} điểm', more: '+{n} món', mar: 'Hôm nay: giảm 20% cho chiếc canelé thứ hai' },
   ms: { k: 'MY', welcome: 'Selamat datang', idle: 'Dibakar segar hari ini', due: 'Jumlah Perlu Dibayar', saved: 'Jimat', thanks: 'Terima kasih! Jumpa lagi.', sub: 'E-invois telah dikeluarkan', change: 'Baki', points: '+{n} mata ganjaran', more: '+{n} lagi', mar: 'Hari ini: diskaun 20% untuk canelé kedua' },
 };
+
+// ---------- 其他業主：依業態大類與商品主檔產生（示範） ----------
+const G = IS_AMEI ? null : (() => {
+  const pop = KIT.byPop(), byP = KIT.byPrice();
+  const hot = new Set(pop.slice(0, 3).map(p => p.id));
+  const giftRe = /禮|組|券|盒|套|束|籃|訂閱/;
+  const gifts = new Set(PRODUCTS.filter(p => giftRe.test(p.name)).map(p => p.id));
+  if (!gifts.size) byP.slice(-2).forEach(p => gifts.add(p.id));
+  const ltdP = PRODUCTS.find(p => !hot.has(p.id) && !gifts.has(p.id)) || PRODUCTS[PRODUCTS.length - 1];
+  const GN = { food: '套餐加購', drink: '禮盒組合', dessert: '禮盒', retail: '送禮推薦', craft: '送禮推薦', flower: '花禮', service: '加購・禮券', farm: '禮盒組合' }[CAT];
+  const cats = [{ id: 'all', name: '全部' }, { id: 'cake', name: '熱銷' }, { id: 'gift', name: GN }, { id: 'ltd', name: '限定' }];
+  const pmeta = Object.fromEntries(PRODUCTS.map((p, i) => [p.id, {
+    cat: [...(hot.has(p.id) ? ['cake'] : []), ...(gifts.has(p.id) ? ['gift'] : []), ...(p === ltdP ? ['ltd'] : [])],
+    code: `4719853${String(310 + i * 7).padStart(5, '0')}${(i * 3 + 1) % 10}`,
+    tag: p.id === pop[0].id ? '人氣第一' : p === ltdP ? (CAT === 'service' ? '本月限定' : '季節限定') : '',
+  }]));
+  const pn = Object.fromEntries(PRODUCTS.map(p => [p.id, { en: p.en || p.name, ja: p.en || p.name }]));
+  const T = addDays(startOfDay(new Date()), 0);
+  const PREF = { food: '偏好少辣・不加香菜', drink: '偏好淺焙・少糖', dessert: '偏好低甜度', retail: '喜歡簡約款・常買送禮', craft: '偏好深色系・常加購刻字', flower: '偏好淡色系花材', service: '偏好裸色系・約每 3 週回訪', farm: '偏好當季蔬果箱' }[CAT];
+  const members = [
+    { id: 'M-000128', phone: '0912345678', name: '林小姐', full: '林佳穎', tier: '金卡', c: '#F0A531', points: 1280, visits: 23, last: { d: addDays(T, -7), items: [[pop[0].id, 2]] }, allergy: FOODISH ? ['nuts'] : [], lang: 'zh', bday: true, pref: PREF },
+    { id: 'M-000342', phone: '0922876543', name: '陳先生', full: '陳冠宇', tier: '銀卡', c: '#9fd6f5', points: 460, visits: 9, last: { d: addDays(T, -14), items: [[[...gifts][0] || byP[byP.length - 1].id, 3]] }, allergy: [], lang: 'zh', taxId: '53212539', company: '示範貿易有限公司', pref: '公司送禮常客・需統編' },
+    { id: 'M-000517', phone: '0933556677', name: '佐藤 ゆき', full: '佐藤 ゆき', tier: '一般', c: '#5EE0C4', points: 120, visits: 2, last: { d: addDays(T, -30), items: [[pop[Math.min(2, pop.length - 1)].id, 1]] }, allergy: [], lang: 'ja', pref: '日本旅客・LINE 會員' },
+  ];
+  const pair = Object.fromEntries(PRODUCTS.map(p => [p.id, pop.filter(x => x.id !== p.id).slice(0, 2).map(x => x.id)]));
+  const word = (KIT.slug.split('-')[0] || 'shop').toUpperCase().slice(0, 6);
+  const top = pop[1] || pop[0];
+  const codes = {
+    [`${word}100`]: { desc: '滿 NT$800 折 NT$100', type: 'amt', v: 100, min: 800 },
+    HOT20: { desc: `${top.name} 8 折`, type: 'pid', pid: top.id, pct: 0.2 },
+    BDAY15: { desc: '會員生日月 85 折', type: 'pct', v: 0.15, bday: true },
+  };
+  const IDLE = {
+    food: ['今日現做・外帶外送都可以', 'Freshly made today', '本日の手作り', 'Món mới làm hôm nay', 'Disediakan segar hari ini'],
+    drink: ['每日新鮮製作・歡迎試飲', 'Freshly made daily', '毎日丁寧に仕上げています', 'Pha chế mới mỗi ngày', 'Dibuat segar setiap hari'],
+    dessert: ['今日現做・數量有限', 'Handmade today', '本日の手作り', 'Làm mới hôm nay', 'Buatan tangan hari ini'],
+    retail: ['店主選品・可包裝送禮', 'Curated by the owner · gift wrap available', '店主セレクト・ギフト包装可', 'Chủ tiệm tuyển chọn · có gói quà', 'Pilihan pemilik · bungkusan hadiah'],
+    craft: ['全手工製作・可現場刻字', 'Handmade · engraving available', 'ハンドメイド・刻印承ります', 'Làm thủ công · khắc tên tại chỗ', 'Buatan tangan · ukiran nama'],
+    flower: ['今日到貨鮮花・現場配花', 'Fresh flowers in today', '本日入荷の生花', 'Hoa tươi về hôm nay', 'Bunga segar tiba hari ini'],
+    service: ['一對一預約・器具一客一消毒', 'One-to-one · tools sterilised for every guest', 'マンツーマン・器具はお客様ごとに消毒', 'Phục vụ 1 kèm 1 · khử trùng cho từng khách', 'Satu-ke-satu · peralatan disterilkan'],
+    farm: ['今日採收・產地直送', 'Harvested today · farm direct', '本日収穫・産地直送', 'Thu hoạch hôm nay · từ nông trại', 'Dituai hari ini · terus dari ladang'],
+  }[CAT];
+  const en = top.en || top.name;
+  const MAR = CAT === 'service'
+    ? [`本月限定：${top.name}平日 9 折・加入 LINE 會員首次預約送 50 點`, `This month: 10% off ${en} on weekdays · Join our LINE membership for 50 bonus points`, `今月限定：平日の${en} 10% オフ・LINE 会員登録で 50 ポイント`, `Tháng này: giảm 10% ${en} ngày thường`, `Bulan ini: diskaun 10% ${en} pada hari biasa`]
+    : [`今日限定：${top.name}第二件 8 折・加入 LINE 會員首購送 50 點`, `Today: 20% off your 2nd ${en} · Join our LINE membership for 50 bonus points`, `本日限定：${en} 2 点目 20% オフ・LINE 会員登録で 50 ポイント`, `Hôm nay: giảm 20% cho ${en} thứ hai`, `Hari ini: diskaun 20% untuk ${en} kedua`];
+  const cdl = Object.fromEntries(Object.entries(A_CDL).map(([k, v], i) => [k, { ...v, idle: IDLE[i], mar: MAR[i] }]));
+  const CHIPS = { food: ['不要香菜', '加辣', '分開裝', '外帶餐具', '湯麵分開'], drink: ['禮盒包裝', '研磨（手沖）', '研磨（義式）', '附提袋', '少冰'], dessert: ['加蠟燭', '保冷袋', '禮盒包裝', '切 8 片', '附小卡'], retail: ['禮物包裝', '附提袋', '拆吊牌', '附小卡', '分開包'], craft: ['刻字', '禮盒包裝', '附保養油', '附小卡', '防塵袋'], flower: ['附賀卡', '加購花瓶', '保水處理', '指定送達', '不要百合'], service: ['指定時段', '加購保養', '卸甲', '加長', '禮券包裝'], farm: ['附提袋', '冷藏', '分裝', '附食譜', '挑大顆'] }[CAT];
+  const gp = [...gifts][0] || byP[byP.length - 1].id;
+  const hold = { id: 'H-0001', ts: Date.now() - 18 * 60e3, label: CAT === 'service' ? '現場・顧客先去領車' : '外帶・顧客回車上拿錢包', memberId: 'M-000342', cart: [{ pid: gp, qty: 2, note: `${CHIPS[1]}・${CHIPS[0]}` }, { pid: pop.find(x => x.id !== gp)?.id || gp, qty: 1, note: '' }], rules: { second: true, threshold: true }, wholePct: 0, code: null };
+  return { cats, pmeta, pn, members, pair, codes, cdl, chips: CHIPS, hold, pop };
+})();
+const CATS = IS_AMEI ? A_CATS : G.cats;
+const PMETA = IS_AMEI ? A_PMETA : G.pmeta;
+const PN = IS_AMEI ? A_PN : G.pn;
+const MEMBERS = IS_AMEI ? A_MEMBERS : G.members;
+const PAIR = IS_AMEI ? A_PAIR : G.pair;
+const WHY = IS_AMEI ? A_WHY : {};
+const CODES = IS_AMEI ? A_CODES : G.codes;
+const CDL = IS_AMEI ? A_CDL : G.cdl;
+const NOTE_CHIPS = IS_AMEI ? ['加蠟燭', '保冷袋', '禮盒包裝', '切 8 片', '生日卡'] : G.chips;
+const SHOP_NAME = IS_AMEI ? '阿美手作甜點' : (TENANT.name || '本店');
+const CASHIER = IS_AMEI ? '阿美' : KIT.owner;
+const NEXT_SHIFT = IS_AMEI ? '小芸' : KIT.helper;
+// 本機暫存 key：阿美沿用原本名稱，其他業主加上業主 id，避免讀到別家的掛單與作廢紀錄
+const LSK = (k) => IS_AMEI ? `greenup-pos:${k}:v1` : `greenup-pos:${TENANT_ID}:${k}:v1`;
 
 // ---------- 內嵌圖示 ----------
 const svg = (d, s = 18, sw = 1.8) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -136,7 +205,7 @@ let rules = { second: true, threshold: true }, wholePct = 0, code = null, codeDr
 let cat = 'all', query = '', editNote = null;
 let online = true, queue = [], syncing = false;
 let holds = [];
-let adj = lsGet('greenup-pos:adj:v1', {});
+let adj = lsGet(LSK('adj'), {});
 let tab = 'tx', txFilter = 'all';
 let cdLang = 'zh', cdAuto = false, cdThanks = null, cdTimer = null, tick = null;
 let ticketSeq = 1, scanSeq = 0, memScanSeq = 0, aiKey = '';
@@ -144,7 +213,7 @@ const scanRng = mulberry32(8517);
 
 // ---------- 價格計算 ----------
 function calc() {
-  const lines = cart.map(l => { const p = PRODUCT_MAP[l.pid]; return { ...l, p, amt: p.price * l.qty, second: 0 }; });
+  const lines = cart.map(l => { const p = PRODUCT_MAP[l.pid]; return { ...l, p, pr: promoInfo(p), amt: p.price * l.qty, second: 0 }; });
   const subtotal = lines.reduce((s, l) => s + l.amt, 0);
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const discounts = [];
@@ -157,7 +226,7 @@ function calc() {
   if (code) {
     const C = CODES[code]; let d = 0;
     if (C.type === 'amt') { if (after >= C.min) d = C.v; else codeMsg = `未達門檻：還差 ${money(C.min - after)}`; }
-    if (C.type === 'pid') { const l = lines.find(x => x.pid === C.pid); if (l) d = Math.round((l.amt - l.second) * C.pct); else codeMsg = '購物車內沒有烏龍茶磅蛋糕'; }
+    if (C.type === 'pid') { const l = lines.find(x => x.pid === C.pid); if (l) d = Math.round((l.amt - l.second) * C.pct); else codeMsg = `購物車內沒有${PRODUCT_MAP[C.pid]?.name || '指定商品'}`; }
     if (C.type === 'pct') { if (member && member.bday) d = Math.round(after * C.v); else codeMsg = '限本月壽星會員使用'; }
     if (d) { discounts.push({ key: 'code', label: `折扣碼 ${code}（${C.desc}）`, amt: d }); after -= d; }
   }
@@ -173,12 +242,13 @@ function calc() {
 
 // ---------- 掛單 ----------
 function loadHolds() {
-  const h = lsGet('greenup-pos:holds:v1', null);
-  if (h) return h;
+  const h = lsGet(LSK('holds'), null);
+  if (Array.isArray(h)) return h.filter(x => x && Array.isArray(x.cart) && x.cart.every(l => PRODUCT_MAP[l.pid]));
+  if (!IS_AMEI) return [G.hold];
   const ts = Date.now() - 18 * 60e3;
   return [{ id: 'H-0001', ts, label: '外帶・顧客回車上拿錢包', memberId: 'M-000342', cart: [{ pid: 'pineapple', qty: 2, note: '禮盒包裝・附提袋' }, { pid: 'cookie', qty: 1, note: '' }], rules: { second: true, threshold: true }, wholePct: 0, code: null }];
 }
-function saveHolds() { lsSet('greenup-pos:holds:v1', holds); }
+function saveHolds() { lsSet(LSK('holds'), holds); }
 
 // ---------- mount ----------
 export default {
@@ -221,7 +291,7 @@ export default {
         </section>
         <section class="glass px-cd anim-in">
           <div class="px-sec-h"><h3>${svg(I.monitor, 16)} <span class="px-h3t">客顯</span></h3><div class="px-langs" id="pxLangs">${Object.entries(CDL).map(([k, v]) => `<button data-act="cdlang" data-l="${k}" class="${k === cdLang ? 'on' : ''}">${v.k}</button>`).join('')}<button data-act="cdauto" class="px-auto" title="多語輪播">${icon('refresh', 12)}</button></div></div>
-          <div class="px-screen"><div class="px-scr-h"><span>${icon('leaf', 13)} 阿美手作甜點</span><small id="pxScrClock">--:--</small></div><div class="px-scr-b" id="pxScr"></div><div class="px-scr-f"><span id="pxMar"></span></div></div>
+          <div class="px-screen"><div class="px-scr-h"><span>${icon('leaf', 13)} ${esc(SHOP_NAME)}</span><small id="pxScrClock">--:--</small></div><div class="px-scr-b" id="pxScr"></div><div class="px-scr-f"><span id="pxMar"></span></div></div>
         </section>
         <section class="glass px-cart anim-in">
           <div class="px-cart-h"><div><h3>${icon('cart', 17)} 目前訂單</h3><small class="mono" id="pxTicket"></small></div>
@@ -264,6 +334,7 @@ export default {
     store.on('order', ({ order }) => { renderAll(true, order.id); renderTiles(); });
     store.on('order-updated', ({ order }) => renderAll(true, order.id));
     store.on('reset', () => { renderAll(false); renderTiles(); });
+    onPromos(() => { aiKey = ''; renderTiles(); renderCart(); });
   },
   show() { renderAll(false); renderTiles(); startTick(); },
   hide() { stopTick(); },
@@ -330,14 +401,15 @@ function renderTiles(anim) {
   const q = query.trim().toLowerCase();
   const list = PRODUCTS.filter(p => (cat === 'all' || PMETA[p.id].cat.includes(cat)) && (!q || p.name.toLowerCase().includes(q) || PMETA[p.id].code.includes(q) || (PN[p.id].en.toLowerCase().includes(q))));
   grid.innerHTML = list.length ? list.map(p => {
-    const m = PMETA[p.id], s = inv[p.id];
-    return `<button class="px-tile" data-act="add" data-pid="${p.id}" style="--pc:${p.color}">
-      ${m.tag ? `<span class="px-ribbon">${m.tag}</span>` : ''}
+    const m = PMETA[p.id], s = inv[p.id] || { current: p.stock, low: false };
+    const pr = promoInfo(p);
+    return `<button class="px-tile ${pr ? 'promo' : ''}" data-act="add" data-pid="${p.id}" style="--pc:${p.color}">
+      ${pr ? `<span class="px-ribbon px-ribbon-promo">${esc(pr.badge)}</span>` : m.tag ? `<span class="px-ribbon">${m.tag}</span>` : ''}
       <span class="px-tile-art">${productArt(p.id, 78)}</span>
       <b>${p.name}</b>
-      <span class="px-tile-f"><em>${money(p.price)}</em><small class="${s.low ? 'low' : ''}">${s.low ? '剩 ' : '存 '}${s.current}</small></span>
+      <span class="px-tile-f"><em>${money(p.price)}${pr ? `<s class="px-was">${money(pr.list)}</s>` : ''}</em><small class="${s.low ? 'low' : ''}">${s.low ? '剩 ' : '存 '}${s.current}</small></span>
       <i class="px-q" hidden>0</i></button>`;
-  }).join('') : `<div class="px-empty">${svg(I.search, 28)}<span>找不到「${esc(query)}」，試試「檸檬」或條碼 4719853</span></div>`;
+  }).join('') : `<div class="px-empty">${svg(I.search, 28)}<span>找不到「${esc(query)}」，試試「${IS_AMEI ? '檸檬' : esc(KIT.short(PRODUCTS[0]))}」或條碼 4719853</span></div>`;
   updateBadges();
   if (anim) gsap.fromTo($$('.px-tile', grid), { opacity: 0, y: 14, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.03, ease: 'power3.out' });
 }
@@ -444,7 +516,7 @@ async function scanMember() {
 }
 
 // ---------- 購物車 ----------
-function renderTicket() { const n = $('#pxTicket', root); if (n) n.textContent = `POS-01・單號 ${fmtMD(new Date()).replace('/', '')}-${String(ticketSeq).padStart(3, '0')}・收銀 阿美`; }
+function renderTicket() { const n = $('#pxTicket', root); if (n) n.textContent = `POS-01・單號 ${fmtMD(new Date()).replace('/', '')}-${String(ticketSeq).padStart(3, '0')}・收銀 ${CASHIER}`; }
 function renderCart(hiPid) {
   const c = calc();
   const box = $('#pxLines', root);
@@ -457,15 +529,15 @@ function renderCart(hiPid) {
       return `<div class="px-line ${hit && hit.length ? 'warn' : ''}" data-pid="${l.pid}">
         <span class="px-line-art">${productArt(l.pid, 42)}</span>
         <div class="px-line-b"><b>${l.p.name}</b>
-          <small>${money(l.p.price)}／${l.p.unit}${l.second ? ` <em>第二件 8 折 −${nf(l.second)}</em>` : ''}</small>
+          <small>${money(l.p.price)}／${l.p.unit}${l.pr ? ` <s class="px-was">${money(l.pr.list)}</s> <i class="px-pbadge">${esc(l.pr.badge)}</i>` : ''}${l.second ? ` <em>第二件 8 折 −${nf(l.second)}</em>` : ''}</small>
           ${l.note && editNote !== l.pid ? `<span class="px-note">${svg(I.pen, 11)} ${esc(l.note)}</span>` : ''}
           ${hit && hit.length ? `<span class="px-awarn">${icon('alert', 11)} 含${hit.map(a => ALG[a]).join('、')}・會員過敏</span>` : ''}
         </div>
         <div class="px-qty"><button data-act="dec" aria-label="減少">${icon('minus', 13)}</button><b>${l.qty}</b><button data-act="inc" aria-label="增加">${icon('plus', 13)}</button></div>
         <b class="px-line-amt">${money(l.amt)}</b>
         <button class="px-note-btn ${l.note ? 'has' : ''}" data-act="note" title="單品備註">${svg(I.pen, 13)}</button>
-        ${editNote === l.pid ? `<div class="px-note-ed"><input class="px-note-in" maxlength="40" value="${esc(l.note)}" placeholder="例：加蠟燭 2 支、生日卡文字…"><button class="btn btn-primary btn-sm" data-act="note-ok">確定</button>
-          <div class="px-note-chips">${['加蠟燭', '保冷袋', '禮盒包裝', '切 8 片', '生日卡'].map(v => `<button data-act="note-chip" data-v="${v}">${v}</button>`).join('')}</div></div>` : ''}
+        ${editNote === l.pid ? `<div class="px-note-ed"><input class="px-note-in" maxlength="40" value="${esc(l.note)}" placeholder="${IS_AMEI ? '例：加蠟燭 2 支、生日卡文字…' : `例：${NOTE_CHIPS[0]}、${NOTE_CHIPS[3]}…`}"><button class="btn btn-primary btn-sm" data-act="note-ok">確定</button>
+          <div class="px-note-chips">${NOTE_CHIPS.map(v => `<button data-act="note-chip" data-v="${v}">${v}</button>`).join('')}</div></div>` : ''}
       </div>`;
     }).join('');
     if (hiPid) { const n = $(`.px-line[data-pid="${hiPid}"]`, box); if (n) { gsap.fromTo(n, { backgroundColor: 'rgba(45,182,116,.28)' }, { backgroundColor: 'rgba(45,182,116,0)', duration: 1.2 }); n.scrollIntoView({ block: 'nearest' }); } }
@@ -495,7 +567,7 @@ function applyCode() {
   const v = ($('#pxCode', root)?.value || codeDraft).trim().toUpperCase();
   if (!v) return;
   if (!CODES[v]) {
-    toast('折扣碼無效', `「${v}」不存在或已過期。示範可用：AMEI100、TEA20、BDAY15`, { kind: 'warn', icon: icon('alert', 18) });
+    toast('折扣碼無效', `「${v}」不存在或已過期。示範可用：${Object.keys(CODES).join('、')}`, { kind: 'warn', icon: icon('alert', 18) });
     const n = $('.px-code', root); n && gsap.fromTo(n, { x: -6 }, { x: 0, duration: 0.5, ease: 'elastic.out(1, 0.3)' });
     return;
   }
@@ -510,7 +582,7 @@ function renderAI() {
   let base, head;
   if (member && member.last) { base = member.last.items[0][0]; head = `${member.name}上次買了${PRODUCT_MAP[base].name}，推薦搭配：`; }
   if (cart.length) { base = cart[cart.length - 1].pid; head = member && member.last ? `${member.name}上次買${PRODUCT_MAP[member.last.items[0][0]].name}，這次有${PRODUCT_MAP[base].name}，推薦搭配：` : `購物車有${PRODUCT_MAP[base].name}，常一起買：`; }
-  if (!base) { base = 'lemon'; head = '今日門市熱賣，適合推薦給新客人：'; }
+  if (!base) { base = IS_AMEI ? 'lemon' : G.pop[0].id; head = '今日門市熱賣，適合推薦給新客人：'; }
   const avoid = member ? member.allergy : [];
   let recs = (PAIR[base] || []).filter(p => !inCart.has(p) && !PRODUCT_MAP[p].allergens.some(a => avoid.includes(a)));
   if (recs.length < 2) recs = recs.concat(PRODUCTS.map(p => p.id).filter(p => p !== base && !inCart.has(p) && !recs.includes(p) && !PRODUCT_MAP[p].allergens.some(a => avoid.includes(a)))).slice(0, 2);
@@ -538,7 +610,7 @@ function renderCD(anim) {
     box.innerHTML = `<div class="cd-thanks"><span class="cd-ok">${icon('check', 22)}</span><b>${L.thanks}</b><small>${L.sub}</small>
       <div class="cd-row">${cdThanks.change ? `<span><small>${L.change}</small><b>${money(cdThanks.change)}</b></span>` : ''}${cdThanks.earn ? `<span><small>Points</small><b>+${cdThanks.earn}</b></span>` : ''}</div></div>`;
   } else if (!cart.length) {
-    box.innerHTML = `<div class="cd-idle"><div class="cd-arts">${['lemon', 'roll', 'canele'].map(p => productArt(p, 46)).join('')}</div><b>${L.welcome}</b><small>${L.idle}</small></div>`;
+    box.innerHTML = `<div class="cd-idle"><div class="cd-arts">${(IS_AMEI ? ['lemon', 'roll', 'canele'] : G.pop.slice(0, 3).map(p => p.id)).map(p => productArt(p, 46)).join('')}</div><b>${L.welcome}</b><small>${L.idle}</small></div>`;
   } else {
     const c = calc();
     const shown = c.lines.slice(-3);
@@ -775,9 +847,9 @@ function einvoiceHtml(d) {
   const bar = `${roc}${pad(s + 1)}${(d.invoice || 'XX00000000').replace('-', '')}${rnd}`;
   const b2b = !!d.buyerTaxId;
   const stamp = d.carrier ? `<div class="ei-stamp">已存入${esc(d.carrier.type)}<small>不列印證明聯（示意）</small></div>` : d.donate ? `<div class="ei-stamp">已捐贈 ${esc(d.donate)}<small>不列印證明聯（示意）</small></div>` : !d.invoice ? '<div class="ei-stamp off">離線暫存<small>恢復連線後上傳</small></div>' : '';
-  const lines = d.items.map(it => `<div><span>${PRODUCT_MAP[it.pid].name}${it.note ? `<i>${esc(it.note)}</i>` : ''}</span><span>${it.qty} × ${it.price}</span><b>${nf(it.qty * it.price)}</b></div>`).join('');
+  const lines = d.items.map(it => `<div><span>${PRODUCT_MAP[it.pid]?.name || it.pid}${it.list && it.list > it.price ? `<i>${esc(it.promo || '特價')}・原價 ${nf(it.list)}</i>` : ''}${it.note ? `<i>${esc(it.note)}</i>` : ''}</span><span>${it.qty} × ${it.price}</span><b>${nf(it.qty * it.price)}</b></div>`).join('');
   return `<div class="ei">
-    <div class="ei-logo">${icon('leaf', 15)} 阿美手作甜點</div>
+    <div class="ei-logo">${icon('leaf', 15)} ${esc(SHOP_NAME)}</div>
     <div class="ei-title">電子發票證明聯</div>
     <div class="ei-period">${roc}年${pad(s)}-${pad(s + 1)}月</div>
     <div class="ei-no">${esc(no)}</div>
@@ -796,12 +868,12 @@ function einvoiceHtml(d) {
     <div class="tot"><span>合計</span><span></span><b>NT$ ${nf(d.total)}</b></div>
     <div><span>${esc(d.payment)}</span><span></span><b>${d.tendered != null ? nf(d.tendered) : nf(d.total)}</b></div>
     ${d.change ? `<div><span>找零</span><span></span><b>${nf(d.change)}</b></div>` : ''}
-    <div class="ei-meta">${d.id ? `${d.id}・` : ''}POS-01・收銀 阿美${d.member ? `<br>會員 ${esc(d.member.name)}（${esc(d.member.tier)}）` : ''}</div>
+    <div class="ei-meta">${d.id ? `${d.id}・` : ''}POS-01・收銀 ${CASHIER}${d.member ? `<br>會員 ${esc(d.member.name)}（${esc(d.member.tier)}）` : ''}</div>
   </div>`;
 }
 function openDone(order, info) {
   const c = info.c;
-  const d = order ? { ...order } : { tmp: queue[queue.length - 1].tmp, ts: queue[queue.length - 1].ts, items: c.lines.map(l => ({ pid: l.pid, qty: l.qty, price: l.p.price, note: l.note })), total: c.total, net: c.net, tax: c.tax, discount: c.disc, payment: info.payment, tendered: info.tendered, change: info.change, carrier: info.carrier, donate: info.donate, buyerTaxId: info.buyerTaxId, member: info.memberName ? { name: info.memberName, tier: info.memberTier } : null };
+  const d = order ? { ...order } : { tmp: queue[queue.length - 1].tmp, ts: queue[queue.length - 1].ts, items: c.lines.map(l => ({ pid: l.pid, qty: l.qty, price: l.p.price, note: l.note, ...(l.pr ? { list: l.pr.list, promo: l.pr.badge } : {}) })), total: c.total, net: c.net, tax: c.tax, discount: c.disc, payment: info.payment, tendered: info.tendered, change: info.change, carrier: info.carrier, donate: info.donate, buyerTaxId: info.buyerTaxId, member: info.memberName ? { name: info.memberName, tier: info.memberTier } : null };
   const inv = store.inventory();
   const stockTxt = c.lines.map(l => { const s = inv.find(p => p.id === l.pid); return `${l.p.name} −${l.qty}${order ? `（剩 ${s.current}${s.low ? '，低於安全庫存' : ''}）` : ''}`; }).join('、');
   const debit = order ? store.journalFor(order)[0].lines[0].acct : (info.payment === '現金' ? '現金' : '銀行存款');
@@ -866,7 +938,7 @@ function openAdjust(id, type) {
   $('#adjGo', m).addEventListener('click', () => {
     const amt = isVoid ? o.total : Math.max(1, Math.min(o.total, +st.amt || 0));
     adj[id] = { type, amt, reason: st.reason, ts: Date.now(), no: isVoid ? '' : `D-${fmtMD(new Date()).replace('/', '')}${String(Object.keys(adj).length + 1).padStart(3, '0')}` };
-    lsSet('greenup-pos:adj:v1', adj);
+    lsSet(LSK('adj'), adj);
     close(); renderTx();
     const row = $(`.px-tx[data-id="${id}"]`, root); row && gsap.fromTo(row, { backgroundColor: isVoid ? 'rgba(236,106,85,.35)' : 'rgba(240,165,49,.3)' }, { backgroundColor: 'rgba(0,0,0,0)', duration: 1.6 });
     toast(isVoid ? `發票 ${o.invoice} 已作廢` : `已開立折讓單 ${adj[id].no}`, isVoid ? `原因：${st.reason}；作廢訊息已排程上傳、分錄與庫存已沖回（模擬）` : `折讓 ${money(amt)}（${st.reason}），已產生銷貨退回及折讓分錄（模擬）`, { kind: isVoid ? 'warn' : 'info', icon: isVoid ? svg(I.trash, 18) : svg(I.undo, 18) });
@@ -1035,7 +1107,7 @@ function openZ() {
   const maxH = Math.max(1, ...hrs.map(h => z.hours[h] || 0));
   const now = new Date();
   const { m, close } = modal(`<div class="px-dlg px-z">
-    <div class="px-dlg-h"><div><h3>${svg(I.zr, 18)} 交班日結・Z 帳</h3><small>${fmtDate(now)}・POS-01・收銀員 阿美 → 交班給 小芸・開班 10:30・結帳 ${fmtTime(now)}</small></div><span class="demo-badge">示範資料</span><button class="icon-btn" data-act="close">${icon('x', 18)}</button></div>
+    <div class="px-dlg-h"><div><h3>${svg(I.zr, 18)} 交班日結・Z 帳</h3><small>${fmtDate(now)}・POS-01・收銀員 ${CASHIER}${NEXT_SHIFT ? ` → 交班給 ${NEXT_SHIFT}` : '（單人營業）'}・開班 10:30・結帳 ${fmtTime(now)}</small></div><span class="demo-badge">示範資料</span><button class="icon-btn" data-act="close">${icon('x', 18)}</button></div>
     <div class="px-z-grid">
       <div class="px-z-c px-z-pay"><div class="px-co-lbl">各付款方式</div>
         ${Z_METHODS.map(k => `<div class="px-zp" style="--c:${Z_COLOR[k]}"><span>${k}</span><small>${z.by[k].n} 筆</small><b>${money(z.by[k].amt)}</b><i style="--w:${z.by[k].amt / maxM * 100}%"></i></div>`).join('')}
@@ -1056,7 +1128,7 @@ function openZ() {
       </div>
       <div class="px-z-c px-z-ai"><div class="px-co-lbl">${icon('sparkle', 14)} AI 日結摘要</div><p id="zAi"></p>${queue.length ? `<div class="px-adj-warn">${svg(I.wifiOff, 14)} 尚有 ${queue.length} 筆離線交易未上傳，恢復連線後會自動補入</div>` : ''}</div>
     </div>
-    <div class="px-dlg-f"><span class="px-co-msg ok" id="zMsg"></span><button class="btn btn-ghost" id="zPrint">${svg(I.printer, 16)} 列印日結單</button><button class="btn btn-primary" id="zDone">${icon('check', 16)} 確認交班</button></div>
+    <div class="px-dlg-f"><span class="px-co-msg ok" id="zMsg"></span><button class="btn btn-ghost" id="zPrint">${svg(I.printer, 16)} 列印日結單</button><button class="btn btn-primary" id="zDone">${icon('check', 16)} ${NEXT_SHIFT ? '確認交班' : '確認日結'}</button></div>
     <div class="px-zslip" id="zSlip" hidden><div class="px-paper-wrap"><div class="px-paper"><div class="zs" id="zsBody"></div></div></div></div>
   </div>`, 'px-z-modal');
 
@@ -1086,12 +1158,12 @@ function openZ() {
   $('#zPrint', m).addEventListener('click', () => {
     const { s, diff } = recount();
     const slip = $('#zSlip', m);
-    $('#zsBody', m).innerHTML = `<b class="zs-h">阿美手作甜點・日結單（Z 帳）</b><small>${fmtFull(now)}・POS-01・阿美</small><hr>
+    $('#zsBody', m).innerHTML = `<b class="zs-h">${esc(SHOP_NAME)}・日結單（Z 帳）</b><small>${fmtFull(now)}・POS-01・${CASHIER}</small><hr>
       ${Z_METHODS.map(k => `<div><span>${k}（${z.by[k].n}）</span><b>${nf(z.by[k].amt)}</b></div>`).join('')}<hr>
       <div><span>營業額</span><b>${nf(z.gross)}</b></div><div><span>優惠折扣</span><b>${nf(z.disc)}</b></div><div><span>發票張數</span><b>${z.list.length}</b></div>
       <div><span>起 ${z.inv[0] || '-'}</span></div><div><span>迄 ${z.inv[z.inv.length - 1] || '-'}</span></div><div><span>作廢／折讓</span><b>${z.voids.length}／${z.allows.length}</b></div><hr>
       <div><span>現金應有</span><b>${nf(z.cashExp)}</b></div><div><span>點鈔合計</span><b>${nf(s)}</b></div><div><span>差額</span><b>${diff >= 0 ? '+' : ''}${nf(diff)}</b></div><hr>
-      <div class="zs-bar">${barcodeSvg('Z' + fmtFull(now), 26, 200)}</div><small>交班：阿美 → 小芸</small>`;
+      <div class="zs-bar">${barcodeSvg('Z' + fmtFull(now), 26, 200)}</div><small>${NEXT_SHIFT ? `交班：${CASHIER} → ${NEXT_SHIFT}` : `日結：${CASHIER}（單人營業）`}</small>`;
     slip.hidden = false;
     gsap.fromTo(slip, { opacity: 0 }, { opacity: 1, duration: 0.2 });
     gsap.fromTo($('.px-paper', slip), { yPercent: -100 }, { yPercent: 0, duration: 2.4, ease: 'steps(30)' });
@@ -1101,6 +1173,6 @@ function openZ() {
   $('#zDone', m).addEventListener('click', () => {
     const { diff } = recount();
     close();
-    toast('交班完成：阿美 → 小芸', `今日門市 ${money(z.gross)}、現金${diff === 0 ? '帳實相符' : `差額 ${nf(diff)}`}；日結資料已寫入會計帳務（現金日記帳）`, { icon: icon('users', 18) });
+    toast(NEXT_SHIFT ? `交班完成：${CASHIER} → ${NEXT_SHIFT}` : `日結完成：${CASHIER}`, `今日門市 ${money(z.gross)}、現金${diff === 0 ? '帳實相符' : `差額 ${nf(diff)}`}；日結資料已寫入會計帳務（現金日記帳）`, { icon: icon('users', 18) });
   });
 }

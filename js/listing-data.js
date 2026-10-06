@@ -1,5 +1,8 @@
 // AI 商品上架：五語文案範本、SEO、分類、同類價格區間、已上架商品統計（全部為示範用模擬資料）
-import { PRODUCTS, mulberry32 } from './data.js';
+import { PRODUCTS, PRODUCT_MAP, mulberry32 } from './data.js';
+import { TENANT } from './tenant.js';
+import { productArt } from './art.js';
+import { IS_AMEI, CAT, FOODISH, KIT, RECIPES } from './inventory-data.js';
 
 export const LS_LANGS = [
   { id: 'zh', label: '繁中', full: '繁體中文' },
@@ -10,19 +13,19 @@ export const LS_LANGS = [
 ];
 
 // 新品：柚子乳酪塔（尚未在 data.js 商品主檔，成本以 BOM 估算）
-export const NEW_PRODUCT = {
+const A_NEW_PRODUCT = {
   id: 'yuzu', name: '柚子乳酪塔', unit: '4 入', allergens: ['egg', 'milk', 'gluten'], storage: 'fridge', days: 3,
   color: '#F6C945', accent: '#E89B2A', isNew: true,
 };
 // 柚子乳酪塔 BOM（每 1 盒 4 入）：[原料 id, 用量]；yuzujam 為新原料，以供應商報價估算
-export const NEW_BOM = {
+const A_NEW_BOM = {
   lines: [['flour', 0.1], ['butter', 0.05], ['sugar', 0.06], ['egg', 2], ['cheese', 0.1], ['cream', 0.05], ['yuzujam', 0.06], ['cakebox', 1]],
   extra: { yuzujam: { name: '高知柚子果醬', unit: 'kg', cost: 360, cat: 'raw', note: '新原料・供應商報價' } },
   labor: 9, mfg: 6,
 };
 
 // 每項商品的五語文案：[名稱, 一句話賣點, 完整介紹]
-export const COPY = {
+const A_COPY = {
   yuzu: {
     zh: ['柚子乳酪塔', '日本柚子的清香遇上濃郁乳酪，秋冬限定新品', '以高知產柚子果醬調入北海道奶油乳酪，口感綿密，尾韻帶著柚皮淡淡的微苦清香；塔殼使用發酵奶油烘烤，酥脆輕盈。表面點綴糖漬柚皮絲，冷藏後風味最佳。秋冬限定，4 入一盒，冷藏保存 3 天。'],
     en: ['Yuzu Cheese Tart', 'Fragrant Japanese yuzu meets rich cream cheese – new for autumn & winter.', 'Kochi yuzu marmalade is folded into Hokkaido cream cheese for a velvety filling with a bright citrus lift and a gently bitter peel finish. The cultured-butter crust is light and crisp, topped with candied yuzu zest. Best enjoyed chilled. Autumn–winter limited edition; box of 4 — keep refrigerated and enjoy within 3 days.'],
@@ -82,7 +85,7 @@ export const COPY = {
 };
 
 // SEO 關鍵字（各語言 4 個商品專屬字）
-export const KW = {
+const A_KW = {
   yuzu: { zh: ['柚子乳酪塔', '柚子甜點', '秋冬限定甜點', '乳酪塔宅配'], en: ['yuzu cheese tart', 'yuzu dessert', 'limited edition', 'cheese tart delivery'], ja: ['ゆずチーズタルト', 'ゆずスイーツ', '秋冬限定', 'お取り寄せ'], vi: ['bánh tart phô mai yuzu', 'bánh yuzu', 'phiên bản giới hạn', 'bánh tart phô mai'], ms: ['tart keju yuzu', 'pencuci mulut yuzu', 'edisi terhad', 'tart keju'] },
   lemon: { zh: ['檸檬塔', '屏東檸檬', '下午茶甜點', '冷藏甜點宅配'], en: ['lemon tart', 'Taiwan dessert delivery', 'afternoon tea', 'citrus tart'], ja: ['レモンタルト', '台湾スイーツ', 'お取り寄せ', 'アフタヌーンティー'], vi: ['bánh tart chanh', 'bánh ngọt Đài Loan', 'trà chiều', 'giao bánh tận nơi'], ms: ['tart lemon', 'pencuci mulut Taiwan', 'minum petang', 'penghantaran kek'] },
   roll: { zh: ['草莓生乳捲', '大湖草莓', '北海道鮮奶油', '草莓季限定'], en: ['strawberry cream roll', 'Swiss roll', 'Hokkaido cream', 'seasonal dessert'], ja: ['いちごロール', '生クリーム', '季節限定', '台湾スイーツ'], vi: ['bánh cuộn dâu', 'kem tươi Hokkaido', 'bánh theo mùa', 'bánh ngọt Đài Loan'], ms: ['kek gulung strawberi', 'krim Hokkaido', 'pencuci mulut bermusim', 'kek Taiwan'] },
@@ -92,7 +95,7 @@ export const KW = {
   pineapple: { zh: ['鳳梨酥禮盒', '土鳳梨酥', '台灣伴手禮', '海外寄送'], en: ['pineapple cake', 'Taiwan souvenir', 'native pineapple', 'gift box'], ja: ['パイナップルケーキ', '台湾土産', '鳳梨酥', 'ギフト'], vi: ['bánh dứa Đài Loan', 'quà Đài Loan', 'bánh dứa ta', 'hộp quà'], ms: ['kek nanas Taiwan', 'cenderahati Taiwan', 'nanas tempatan', 'kotak hadiah'] },
   canele: { zh: ['伯爵可麗露', '法式甜點', '可麗露宅配', '下午茶'], en: ['earl grey canelé', 'French pastry', 'canelé delivery', 'afternoon tea'], ja: ['カヌレ', 'アールグレイ', 'フランス菓子', 'お取り寄せ'], vi: ['bánh canelé', 'bánh Pháp', 'trà Bá tước', 'trà chiều'], ms: ['canelé', 'pastri Perancis', 'teh Earl Grey', 'minum petang'] },
 };
-export const GEN_TAGS = {
+const A_GEN_TAGS = {
   zh: ['#阿美手作甜點', '#台灣甜點', '#甜點宅配'],
   en: ['#AmeiSweets', '#TaiwanDessert', '#Handmade'],
   ja: ['#阿美手作甜點', '#台湾スイーツ', '#お取り寄せスイーツ'],
@@ -118,7 +121,7 @@ export const STORE_I18N = {
   fridge: { zh: (d) => `冷藏 0–7°C・${d} 天內食用`, en: (d) => `Keep refrigerated (0–7°C) · within ${d} days`, ja: (d) => `要冷蔵（0〜7°C）・${d}日以内`, vi: (d) => `Bảo quản ngăn mát 0–7°C · dùng trong ${d} ngày`, ms: (d) => `Simpan sejuk 0–7°C · dalam ${d} hari` },
   room: { zh: (d) => `常溫・避免日照・${d} 天內食用`, en: (d) => `Room temperature, away from sunlight · within ${d} days`, ja: (d) => `常温・直射日光を避けて・${d}日以内`, vi: (d) => `Nhiệt độ phòng, tránh nắng · dùng trong ${d} ngày`, ms: (d) => `Suhu bilik, jauh dari cahaya matahari · dalam ${d} hari` },
 };
-export const UI_I18N = {
+const A_UI_I18N = {
   zh: { alg: '過敏原', keep: '保存', buy: '加入購物車', now: '立即購買', ship: '冷藏宅配・滿 NT$1,500 免運', sold: '已售出', more: '查看商品' },
   en: { alg: 'Allergens', keep: 'Storage', buy: 'Add to cart', now: 'Buy now', ship: 'Chilled delivery · free over NT$1,500', sold: 'sold', more: 'View item' },
   ja: { alg: 'アレルゲン', keep: '保存方法', buy: 'カートに入れる', now: '今すぐ購入', ship: 'クール便・NT$1,500以上送料無料', sold: '販売済み', more: '商品を見る' },
@@ -127,7 +130,7 @@ export const UI_I18N = {
 };
 
 // AI 辨識描述、建議分類與標籤、同類價格區間 [低, 中位, 高]
-export const META = {
+const A_META = {
   yuzu: { see: '塔殼・淺黃色乳酪餡・糖漬柚皮絲', cat: '冷藏甜點 › 塔派', tags: ['秋冬限定', '新品', '柑橘系', '冷藏宅配'], conf: 94, range: [380, 460, 600], slug: 'yuzu-cheese-tart' },
   lemon: { see: '塔殼・亮黃色凝乳・檸檬片裝飾', cat: '冷藏甜點 › 塔派', tags: ['水果系', '人氣第一', '下午茶', '冷藏宅配'], conf: 98, range: [360, 430, 560], slug: 'lemon-tart' },
   roll: { see: '蛋糕捲・白色鮮奶油・整顆草莓', cat: '冷藏甜點 › 蛋糕捲', tags: ['草莓季限定', '水果系', '每日限量', '冷藏宅配'], conf: 97, range: [480, 560, 720], slug: 'strawberry-roll' },
@@ -148,7 +151,7 @@ export const LS_CH = [
 ];
 
 // 已上架商品：各通路狀態（on 上架中／review 審核中／off 未上架）與 AI 建議
-const LISTED_DEF = {
+const A_LISTED_DEF = {
   lemon: { st: { web: 'on', line: 'on', ig: 'on', shopee: 'on', google: 'on' }, lang: 'zh', tip: '官網加購率最高，建議 LINE 訊息卡加上「第二件 9 折」，預估客單提高 12%', kind: 'up' },
   roll: { st: { web: 'on', line: 'on', ig: 'on', shopee: 'review', google: 'on' }, lang: 'zh', tip: '蝦皮常被問「能不能寄外縣市」，建議頁面加註冷藏宅配範圍與到貨時間', kind: 'warn' },
   basque: { st: { web: 'on', line: 'on', ig: 'on', shopee: 'on', google: 'off' }, lang: 'zh', tip: '「生日蛋糕」搜尋量上升 32%，建議新增加購蠟燭與生日卡選項，並上架 Google 商家', kind: 'up' },
@@ -160,7 +163,7 @@ const LISTED_DEF = {
 export function buildListed() {
   const rng = mulberry32(20261005);
   return PRODUCTS.map(p => {
-    const d = LISTED_DEF[p.id];
+    const d = LISTED_DEF[p.id] || { st: { web: 'on', line: 'on', ig: 'on', shopee: 'off', google: 'on' }, lang: 'zh', tip: '建議補上英文與日文說明、加上使用情境照，觸及更多觀光客', kind: 'warn' };
     const views = Math.round((1400 + rng() * 2600) * p.pop);
     const atc = +(4.2 + rng() * 6.2).toFixed(1);
     const conv = +(atc * (0.38 + rng() * 0.22)).toFixed(1);
@@ -169,11 +172,11 @@ export function buildListed() {
   });
 }
 // 特定語言點擊高、轉換低的提示資料（日文頁 vs 平均）
-export const LANG_FUNNEL = { canele: { lang: 'ja', ctr: 8.6, avgCtr: 4.1, conv: 0.9, avgConv: 3.4 } };
+const A_LANG_FUNNEL = { canele: { lang: 'ja', ctr: 8.6, avgCtr: 4.1, conv: 0.9, avgConv: 3.4 } };
 
 // 柚子乳酪塔插畫（純 SVG）
 let yid = 0;
-export function yuzuArt(size = 120) {
+function A_yuzuArt(size = 120) {
   const u = 'yz' + (++yid);
   return `<svg class="art" width="${size}" height="${size}" viewBox="0 0 120 120" aria-hidden="true"><defs>
     <radialGradient id="${u}h"><stop offset="0" stop-color="#F6C945" stop-opacity=".55"/><stop offset="1" stop-color="#F6C945" stop-opacity="0"/></radialGradient>
@@ -193,4 +196,173 @@ export function yuzuArt(size = 120) {
       <circle r="1.4" fill="#fff6c8"/></g>
     <path d="M48 52 q6 -8 12 -2 q-6 5 -12 2z" fill="#58b368"/><path d="M48 52 q6 -3 12 -2" stroke="#3f8f4f" stroke-width=".7" fill="none"/>
   </svg>`;
+}
+
+// ───────────────────────────────────────────────────────────────
+// 其他業主：依業態大類（TENANT.cat）與商品主檔產生五語文案、SEO、分類、價格區間與成效建議（示範）
+// ───────────────────────────────────────────────────────────────
+const CAT_LABEL = { food: '餐飲小吃', drink: '飲品茶咖啡', dessert: '糕點點心', retail: '零售選物', craft: '手作工藝', flower: '花藝植栽', service: '預約服務', farm: '農產生鮮' };
+const CX = {
+  food: { zh: '每天現做，外帶、外送都可以，十份以上可預訂團體餐。', en: 'Made fresh every day — takeaway, delivery and group orders welcome.',
+    ja: ['{n}――毎日お店で手作りしています。', '{n}は当店の定番メニューです。食材は毎朝仕入れ、ご注文を受けてから仕上げます。テイクアウト・デリバリーにも対応しています。'],
+    vi: ['{n} – nấu mới mỗi ngày tại quán.', '{n} là món quen thuộc của quán. Nguyên liệu được nhập mỗi sáng và chỉ hoàn thiện khi có đơn. Có bán mang đi và giao hàng.'],
+    ms: ['{n} – dimasak segar setiap hari.', '{n} ialah menu kegemaran kami. Bahan dibeli setiap pagi dan disediakan selepas pesanan diterima. Boleh bungkus dan penghantaran.'],
+    kw: { zh: ['外帶', '外送美食', '團體訂餐'], en: ['takeaway', 'food delivery', 'group order'], ja: ['テイクアウト', 'デリバリー', 'ランチ'], vi: ['mang đi', 'giao đồ ăn', 'đặt theo nhóm'], ms: ['bungkus', 'penghantaran makanan', 'pesanan berkumpulan'] },
+    tags: ['現做', '外帶外送', '團體訂餐'], see: '餐點主體・配料・外帶餐盒', margin: '餐飲業常見 55–70%', faq: '份量多大、會不會辣', search: '外送便當', ja: '份量與辣度標示' },
+  drink: { zh: '小批量製作，包裝標示製作日期，建議盡早享用風味最佳。', en: 'Made in small batches with the production date on every pack — best enjoyed fresh.',
+    ja: ['{n}――小ロットで丁寧に仕上げました。', '{n}は少量ずつ丁寧に仕上げ、製造日を明記してお届けします。香りが一番よいうちにお楽しみください。'],
+    vi: ['{n} – làm theo mẻ nhỏ, ghi rõ ngày sản xuất.', '{n} được làm theo từng mẻ nhỏ và ghi rõ ngày sản xuất trên bao bì. Dùng sớm để cảm nhận hương vị trọn vẹn nhất.'],
+    ms: ['{n} – dibuat dalam kelompok kecil.', '{n} dibuat dalam kelompok kecil dengan tarikh pengeluaran pada setiap pek. Paling sedap dinikmati segera.'],
+    kw: { zh: ['小批量', '送禮', '宅配'], en: ['small batch', 'gift', 'home delivery'], ja: ['小ロット', 'ギフト', 'お取り寄せ'], vi: ['mẻ nhỏ', 'quà tặng', 'giao tận nhà'], ms: ['kelompok kecil', 'hadiah', 'penghantaran'] },
+    tags: ['小批量', '標示製作日期', '送禮'], see: '包裝正面・標籤・產品主體', margin: '飲品業常見 55–70%', faq: '保存多久、怎麼沖泡', search: '送禮', ja: '保存期限與沖煮方式' },
+  dessert: { zh: '每天少量手作，低溫配送，送禮自用都合適。', en: 'Handmade in small batches every day — lovely as a gift.',
+    ja: ['{n}――毎日少しずつ手作りしています。', '{n}は毎日少量ずつ手作りしています。素材の味を活かしたやさしい味わいで、贈り物にもおすすめです。'],
+    vi: ['{n} – làm thủ công mỗi ngày.', '{n} được làm thủ công với số lượng nhỏ mỗi ngày, vị dịu nhẹ, rất hợp làm quà.'],
+    ms: ['{n} – buatan tangan setiap hari.', '{n} dibuat dengan tangan dalam kuantiti kecil setiap hari, rasa lembut dan sesuai sebagai hadiah.'],
+    kw: { zh: ['手作', '伴手禮', '宅配'], en: ['handmade', 'gift box', 'delivery'], ja: ['手作り', 'ギフト', 'お取り寄せ'], vi: ['thủ công', 'quà tặng', 'giao tận nhà'], ms: ['buatan tangan', 'hadiah', 'penghantaran'] },
+    tags: ['手作', '送禮', '低溫配送'], see: '成品外觀・切面・包裝盒', margin: '糕點業常見 55–65%', faq: '可以放幾天', search: '生日', ja: '保存天數' },
+  retail: { zh: '店主親自挑選、實品拍攝，享 7 天鑑賞期，可包裝送禮。', en: 'Hand-picked by the owner and photographed as-is, with a 7-day return window and gift wrapping.',
+    ja: ['{n}――店主がひとつずつ選びました。', '{n}は店主が実際に使って選んだアイテムです。実物を撮影しており、7日間の返品期間とギフト包装に対応しています。'],
+    vi: ['{n} – chủ tiệm tự tay tuyển chọn.', '{n} được chủ tiệm tự dùng thử và tuyển chọn. Ảnh chụp sản phẩm thật, đổi trả trong 7 ngày và có gói quà.'],
+    ms: ['{n} – dipilih sendiri oleh pemilik kedai.', '{n} dipilih dan dicuba sendiri oleh pemilik kedai. Gambar produk sebenar, tempoh pemulangan 7 hari dan bungkusan hadiah tersedia.'],
+    kw: { zh: ['選物', '交換禮物', '送禮'], en: ['curated', 'gift idea', 'lifestyle'], ja: ['セレクト', 'ギフト', '雑貨'], vi: ['tuyển chọn', 'quà tặng', 'phong cách sống'], ms: ['pilihan', 'idea hadiah', 'gaya hidup'] },
+    tags: ['店主選品', '7 天鑑賞期', '可包裝送禮'], see: '商品正面・材質細節・包裝', margin: '零售業常見 35–50%', faq: '尺寸與材質', search: '交換禮物', ja: '尺寸表' },
+  craft: { zh: '一人工作室全手工製作，可客製刻字，提供一年保固與保養服務。', en: 'Handmade by one maker — personalisation available, with a one-year warranty and care service.',
+    ja: ['{n}――ひとつひとつ手作業で仕上げています。', '{n}は工房でひとつずつ手作業で仕上げています。名入れ・刻印のご相談も承ります。1年保証とメンテナンス付きです。'],
+    vi: ['{n} – làm thủ công từng chiếc.', '{n} được làm thủ công từng chiếc tại xưởng, có thể khắc tên theo yêu cầu, bảo hành một năm.'],
+    ms: ['{n} – dibuat dengan tangan satu demi satu.', '{n} dibuat dengan tangan di studio kami, boleh diukir nama dan disertakan waranti setahun.'],
+    kw: { zh: ['手工', '客製刻字', '送禮'], en: ['handmade', 'personalised', 'gift'], ja: ['ハンドメイド', '名入れ', 'ギフト'], vi: ['thủ công', 'khắc tên', 'quà tặng'], ms: ['buatan tangan', 'ukiran nama', 'hadiah'] },
+    tags: ['可刻字', '一年保固', '手工製作'], see: '成品外觀・接合細節・配件', margin: '手作業常見 55–70%', faq: '多久可以出貨、能不能刻字', search: '客製刻字', ja: '保養方式與出貨天數' },
+  flower: { zh: '當天配花、當天出貨，附照顧小卡，可指定送達日期。', en: 'Arranged and sent the same day with a care card — choose your delivery date.',
+    ja: ['{n}――その日の花で、その日にお届け。', '{n}はその日に仕入れた花材でお作りし、当日発送します。お手入れカード付き、お届け日の指定もできます。'],
+    vi: ['{n} – hoa tươi cắm và giao trong ngày.', '{n} được cắm từ hoa nhập trong ngày và gửi đi ngay, kèm thẻ hướng dẫn chăm sóc, có thể chọn ngày giao.'],
+    ms: ['{n} – digubah dan dihantar pada hari yang sama.', '{n} digubah daripada bunga segar hari itu dan dihantar pada hari yang sama, berserta kad penjagaan. Tarikh penghantaran boleh dipilih.'],
+    kw: { zh: ['花束', '生日花禮', '指定日配送'], en: ['bouquet', 'birthday flowers', 'flower delivery'], ja: ['花束', '誕生日', 'フラワーギフト'], vi: ['bó hoa', 'hoa sinh nhật', 'giao hoa'], ms: ['jambangan', 'bunga hari jadi', 'penghantaran bunga'] },
+    tags: ['當日配送', '附照顧卡', '可指定日期'], see: '花材主體・配色・包裝', margin: '花藝業常見 50–65%', faq: '可以指定送達時間嗎', search: '生日花束', ja: '配送範圍' },
+  service: { zh: '一對一預約制，器具一客一消毒，線上預約可選時段，不用等。', en: 'One-to-one by appointment, tools sterilised for every guest — book a slot online, no waiting.',
+    ja: ['{n}――完全予約制・マンツーマン。', '{n}は完全予約制のマンツーマン施術です。器具はお客様ごとに消毒しています。オンラインでお好きな時間をご予約ください。'],
+    vi: ['{n} – phục vụ 1 kèm 1, đặt lịch trước.', '{n} phục vụ một kèm một theo lịch hẹn, dụng cụ được khử trùng cho từng khách. Đặt lịch trực tuyến, không phải chờ.'],
+    ms: ['{n} – perkhidmatan satu-ke-satu melalui temujanji.', '{n} ialah perkhidmatan satu-ke-satu melalui temujanji; peralatan disterilkan untuk setiap pelanggan. Tempah slot dalam talian tanpa menunggu.'],
+    kw: { zh: ['線上預約', '一對一', '禮券'], en: ['book online', 'one-to-one', 'gift voucher'], ja: ['オンライン予約', 'マンツーマン', 'ギフト券'], vi: ['đặt lịch online', 'một kèm một', 'phiếu quà tặng'], ms: ['tempahan dalam talian', 'satu-ke-satu', 'baucar hadiah'] },
+    tags: ['預約制', '一客一消毒', '可用禮券'], see: '作品展示・服務環境・工具', margin: '服務業常見 60–75%', faq: '需要多久、可以改期嗎', search: '預約', ja: '施作時間與預約方式' },
+  farm: { zh: '產地直送、採收後預冷出貨，標示產地與採收日期。', en: 'Shipped straight from the farm, pre-cooled after harvest and labelled with origin and harvest date.',
+    ja: ['{n}――産地直送、収穫後すぐにお届け。', '{n}は収穫後すぐに予冷して産地から直送します。産地と収穫日を表示しています。'],
+    vi: ['{n} – giao thẳng từ nông trại.', '{n} được làm lạnh ngay sau thu hoạch và gửi thẳng từ nông trại, ghi rõ nguồn gốc và ngày thu hoạch.'],
+    ms: ['{n} – terus dari ladang.', '{n} disejukkan selepas dituai dan dihantar terus dari ladang, dilabel dengan asal dan tarikh tuaian.'],
+    kw: { zh: ['產地直送', '當季', '宅配'], en: ['farm direct', 'seasonal', 'home delivery'], ja: ['産地直送', '旬', 'お取り寄せ'], vi: ['từ nông trại', 'theo mùa', 'giao tận nhà'], ms: ['terus dari ladang', 'bermusim', 'penghantaran'] },
+    tags: ['產地直送', '預冷出貨', '當季'], see: '產品外觀・產地標籤・包裝箱', margin: '農產業常見 35–55%', faq: '什麼時候採收、怎麼保存', search: '產地直送', ja: '保存方式' },
+}[CAT];
+export { CX as LISTING_CAT };
+const first = (t) => String(t || '').split(/[。！!.]\s*/)[0].trim();
+const enOf = (p) => p.en || p.name;
+const fillN = (tpl, n) => tpl.replace(/\{n\}/g, n);
+const BASE = IS_AMEI ? null : (KIT.byPop()[0] || PRODUCTS[0]);
+const G_NEW = IS_AMEI ? null : {
+  id: 'yuzu', name: `${KIT.short(BASE)}（秋冬限定）`, unit: BASE.unit, allergens: [...(BASE.allergens || [])], storage: BASE.storage || 'room', days: BASE.days,
+  color: BASE.color, accent: BASE.accent, isNew: true, baseId: BASE.id,
+};
+const SEASON_MAT = { food: '秋冬時令食材', drink: '季節限定原料', dessert: '季節水果醬', retail: '限定版包裝', craft: '限定色材料', flower: '秋冬花材（棉花・松果）', service: '秋冬新色耗材', farm: '秋冬採收批次' }[CAT];
+const G_NEW_BOM = IS_AMEI ? null : {
+  lines: [...(RECIPES[BASE.id]?.lines || []).map(([m, q]) => [m, typeof q === 'number' && q % 1 ? +(q * 1.05).toFixed(3) : q]), ['seasonal', 1]],
+  extra: { seasonal: { name: SEASON_MAT, unit: '份', cost: Math.max(5, Math.round((BASE.cost || 50) * 0.12)), cat: 'raw', note: '新原料・供應商報價' } },
+  labor: RECIPES[BASE.id]?.labor || 5, mfg: RECIPES[BASE.id]?.mfg || 5,
+};
+function genCopy() {
+  const out = {};
+  for (const p of PRODUCTS) {
+    const n = enOf(p);
+    out[p.id] = {
+      zh: [p.name, first(p.desc) || p.name, `${p.desc || ''}${CX.zh}`],
+      en: [n, first(p.descEn) || n, `${p.descEn || ''} ${CX.en}`.trim()],
+      ja: [n, fillN(CX.ja[0], n), fillN(CX.ja[1], n)],
+      vi: [n, fillN(CX.vi[0], n), fillN(CX.vi[1], n)],
+      ms: [n, fillN(CX.ms[0], n), fillN(CX.ms[1], n)],
+    };
+  }
+  const b = enOf(BASE);
+  out.yuzu = {
+    zh: [G_NEW.name, `人氣「${BASE.name}」推出秋冬限定版`, `以人氣商品「${BASE.name}」為基礎，加入${SEASON_MAT}推出秋冬限定版。${CX.zh}數量有限，售完為止。`],
+    en: [`${b} (Autumn–Winter Edition)`, `An autumn–winter edition of our popular ${b}.`, `A limited autumn–winter edition of our popular ${b}. ${CX.en} Limited quantities.`],
+    ja: [`${b}（秋冬限定）`, `人気の${b}に秋冬限定版が登場。`, `人気の${b}をベースにした秋冬限定版です。${fillN(CX.ja[1], b)}数量限定のため、なくなり次第終了します。`],
+    vi: [`${b} (bản thu đông)`, `Phiên bản thu đông của món ${b} được yêu thích.`, `Phiên bản giới hạn thu đông của ${b}. ${fillN(CX.vi[1], b)} Số lượng có hạn.`],
+    ms: [`${b} (Edisi Musim Sejuk)`, `Edisi musim sejuk ${b} kegemaran ramai.`, `Edisi terhad musim sejuk ${b}. ${fillN(CX.ms[1], b)} Kuantiti terhad.`],
+  };
+  return out;
+}
+const G_COPY = IS_AMEI ? null : genCopy();
+const G_KW = IS_AMEI ? null : Object.fromEntries(['yuzu', ...PRODUCTS.map(p => p.id)].map(id => [id, Object.fromEntries(['zh', 'en', 'ja', 'vi', 'ms'].map(l => [l, [id === 'yuzu' ? (l === 'zh' ? G_NEW.name : G_COPY.yuzu[l][0]) : (l === 'zh' ? KIT.short(PRODUCT_MAP[id]) : enOf(PRODUCT_MAP[id])), ...CX.kw[l]]]))]));
+const pascal = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^A-Za-z0-9]+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join('');
+const G_TAGS = IS_AMEI ? null : (() => {
+  const en = pascal(TENANT.en) || 'Shop';
+  const zh = `#${String(TENANT.name || '').replace(/\s/g, '')}`, tn = `#${String(KIT.typeName || CAT_LABEL[CAT]).replace(/\s/g, '')}`;
+  return { zh: [zh, tn, '#台灣好店'], en: [`#${en}`, '#MadeInTaiwan', '#Taiwan'], ja: [zh, '#台湾', '#台湾好き'], vi: [`#${en}`, '#DaiLoan', '#Taiwan'], ms: [`#${en}`, '#Taiwan', '#BuatanTaiwan'] };
+})();
+const SHIP = {
+  food: { zh: '外帶・外送・團體訂餐', en: 'Takeaway · Delivery · Group orders', ja: 'テイクアウト・デリバリー対応', vi: 'Mang đi · Giao hàng', ms: 'Bungkus · Penghantaran' },
+  flower: { zh: '當日配送・可指定日期', en: 'Same-day delivery · choose your date', ja: '当日配送・日付指定可', vi: 'Giao trong ngày · chọn ngày giao', ms: 'Hantar hari sama · pilih tarikh' },
+  service: { zh: '線上預約・現場服務', en: 'Book online · in-studio service', ja: 'オンライン予約・店舗にて', vi: 'Đặt lịch online · phục vụ tại tiệm', ms: 'Tempah dalam talian · di studio' },
+}[CAT] || { zh: '宅配・滿 NT$1,500 免運', en: 'Home delivery · free over NT$1,500', ja: '宅配・NT$1,500以上送料無料', vi: 'Giao tận nhà · miễn phí từ NT$1,500', ms: 'Penghantaran · percuma atas NT$1,500' };
+const G_UI = IS_AMEI ? null : Object.fromEntries(Object.entries(A_UI_I18N).map(([l, v]) => [l, { ...v, ship: SHIP[l], ...(CAT === 'service' ? { buy: { zh: '立即預約', en: 'Book now', ja: '予約する', vi: 'Đặt lịch', ms: 'Tempah' }[l], sold: { zh: '已預約', en: 'booked', ja: '予約済み', vi: 'đã đặt', ms: 'ditempah' }[l] } : {}), ...(FOODISH ? {} : { alg: { zh: '商品標示', en: 'Details', ja: '商品情報', vi: 'Thông tin', ms: 'Maklumat' }[l] }) }]));
+function subOf(p) {
+  const n = `${p.name}${p.unit || ''}`;
+  if (/禮券|券/.test(n)) return '禮券';
+  if (/咖啡|茶|飲|汁|奶|瓶/.test(n) && CAT !== 'flower') return '飲品';
+  if (/禮盒|組合|入門組|[^\d\s]組$|套組/.test(p.name)) return '禮盒・組合';
+  if (/湯|麵|飯|粉|便當/.test(n)) return '主食';
+  if (/冷凍|湯底|包$/.test(n)) return '冷凍調理';
+  if (/花束|花籃|花圈|花禮/.test(n)) return '花禮';
+  if (/盆|植|多肉/.test(n)) return '植栽';
+  if (/訂閱/.test(n)) return '定期訂閱';
+  return KIT.typeName || '精選商品';
+}
+const r10 = (n) => Math.max(10, Math.round(n / 10) * 10);
+const G_META = IS_AMEI ? null : Object.fromEntries(['yuzu', ...PRODUCTS.map(p => p.id)].map((id, k) => {
+  const p = id === 'yuzu' ? { ...BASE, name: G_NEW.name, price: r10(BASE.price * 1.12) } : PRODUCT_MAP[id];
+  const rank = id === 'yuzu' ? '秋冬限定' : k === 1 ? '人氣第一' : k === 2 ? '回購率高' : '新客推薦';
+  const slug = id === 'yuzu' ? `${String(enOf(BASE)).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-winter` : String(enOf(p)).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || id;
+  return [id, { see: `${KIT.short(id === 'yuzu' ? BASE : p)}・${CX.see}`, cat: `${CAT_LABEL[CAT]} › ${subOf(p)}`, tags: [rank, ...CX.tags], conf: 90 + ((k * 7) % 9), range: [r10(p.price * 0.8), r10(p.price * 1.02), r10(p.price * 1.35)], slug }];
+}));
+const G_LISTED = IS_AMEI ? null : (() => {
+  const T = [
+    { st: { web: 'on', line: 'on', ig: 'on', shopee: 'on', google: 'on' }, lang: 'zh', kind: 'up', tip: '官網加購率最高，建議 LINE 訊息卡加上「第二件 9 折」，預估客單提高 12%' },
+    { st: { web: 'on', line: 'on', ig: 'on', shopee: 'review', google: 'on' }, lang: 'zh', kind: 'warn', tip: `顧客常問「${CX.faq}」，建議在商品頁補上說明與實拍照` },
+    { st: { web: 'on', line: 'on', ig: 'on', shopee: 'on', google: 'off' }, lang: 'zh', kind: 'up', tip: `「${CX.search}」搜尋量上升 32%，建議新增加購選項，並上架 Google 商家` },
+    { st: { web: 'on', line: 'on', ig: 'on', shopee: 'off', google: 'on' }, lang: 'ja', kind: 'warn', tip: `日文頁點擊高但轉換低，建議補充${CX.ja}` },
+    { st: { web: 'on', line: 'on', ig: 'off', shopee: 'on', google: 'on' }, lang: 'en', kind: 'warn', tip: '英文頁跳出率 71% 偏高，建議把主要賣點放進標題並補上實拍照' },
+    { st: { web: 'on', line: 'on', ig: 'on', shopee: 'on', google: 'review' }, lang: 'ms', kind: 'up', tip: '馬來文頁瀏覽成長 2.1 倍，建議補上完整說明與寄送方式' },
+  ];
+  return Object.fromEntries(PRODUCTS.map((p, i) => [p.id, T[i % T.length]]));
+})();
+const G_FUNNEL = IS_AMEI || PRODUCTS.length < 4 ? {} : { [PRODUCTS[3].id]: { lang: 'ja', ctr: 8.6, avgCtr: 4.1, conv: 0.9, avgConv: 3.4 } };
+
+// 商品標示（非食品業：保固、鑑賞期、預約；食品業依保存天數）
+const SPEC = {
+  retail: { zh: '7 天鑑賞期・可包裝送禮', en: '7-day return window · gift wrap available', ja: '7日間返品可・ギフト包装対応', vi: 'Đổi trả trong 7 ngày · có gói quà', ms: 'Pemulangan 7 hari · bungkusan hadiah' },
+  craft: { zh: '手工製作・一年保固', en: 'Handmade · 1-year warranty', ja: 'ハンドメイド・1年保証', vi: 'Làm thủ công · bảo hành 1 năm', ms: 'Buatan tangan · waranti 1 tahun' },
+  service: { zh: '預約制・器具一客一消毒', en: 'By appointment · tools sterilised for every guest', ja: '予約制・お客様ごとに器具消毒', vi: 'Đặt lịch trước · khử trùng dụng cụ cho từng khách', ms: 'Melalui temujanji · peralatan disterilkan' },
+};
+export function specLine(p, L) {
+  const d = KIT.shelfOf(p);
+  if (SPEC[CAT]) return { cold: false, txt: SPEC[CAT][L] };
+  if (CAT === 'flower') {
+    if (!d || d >= 365) return { cold: false, txt: { zh: '乾燥花材・可保存一年以上', en: 'Dried flowers · lasts over a year', ja: 'ドライフラワー・1年以上', vi: 'Hoa khô · giữ được hơn 1 năm', ms: 'Bunga kering · tahan lebih setahun' }[L] };
+    return { cold: true, txt: { zh: `鮮花・約可欣賞 ${d} 天・每天換水`, en: `Fresh flowers · about ${d} days, change water daily`, ja: `生花・${d}日ほどお楽しみいただけます`, vi: `Hoa tươi · đẹp khoảng ${d} ngày, thay nước mỗi ngày`, ms: `Bunga segar · tahan ${d} hari, tukar air setiap hari` }[L] };
+  }
+  if (CAT === 'food' && (!d || d <= 2)) return { cold: false, txt: { zh: '當日現做・建議盡快食用', en: 'Made today · best eaten soon', ja: '本日調理・お早めにお召し上がりください', vi: 'Làm trong ngày · dùng ngay', ms: 'Dibuat hari ini · nikmati segera' }[L] };
+  const dd = d || 30, fridge = dd <= 7 || CAT === 'food';
+  return { cold: fridge, txt: STORE_I18N[fridge ? 'fridge' : 'room'][L](dd) };
+}
+
+export const NEW_PRODUCT = IS_AMEI ? A_NEW_PRODUCT : G_NEW;
+export const NEW_BOM = IS_AMEI ? A_NEW_BOM : G_NEW_BOM;
+export const COPY = IS_AMEI ? A_COPY : G_COPY;
+export const KW = IS_AMEI ? A_KW : G_KW;
+export const GEN_TAGS = IS_AMEI ? A_GEN_TAGS : G_TAGS;
+export const UI_I18N = IS_AMEI ? A_UI_I18N : G_UI;
+export const META = IS_AMEI ? A_META : G_META;
+const LISTED_DEF = IS_AMEI ? A_LISTED_DEF : G_LISTED;
+export const LANG_FUNNEL = IS_AMEI ? A_LANG_FUNNEL : G_FUNNEL;
+export function yuzuArt(size = 120) {
+  if (IS_AMEI) return A_yuzuArt(size);
+  return productArt(BASE.id, size).replace('<svg ', '<svg style="filter:hue-rotate(38deg) saturate(1.15)" ');
 }

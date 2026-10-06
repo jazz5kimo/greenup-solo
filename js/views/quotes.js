@@ -4,6 +4,13 @@ import { $, $$, el, gsap, esc, money, fmtDate, fmtTime, sleep, countUp, toast, g
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { startOfDay, addDays, mulberry32 } from '../data.js';
+import { IS_AMEI, KIT } from '../inventory-data.js';
+import { PROMPT_EX, QUOTE_CAT } from '../quotes-data.js';
+// 品牌字樣：阿美沿用原本示範；其他業主用目前業主名稱
+const AV = IS_AMEI ? '美' : KIT.avatar;
+const STAMP = IS_AMEI ? '阿美手作<br>甜點工作室<br>報價專用章' : (() => { const n = String(SELLER_NAME()); return `${n.slice(0, 4)}<br>${n.slice(4, 9) || '工作室'}<br>報價專用章`; })();
+function SELLER_NAME() { return IS_AMEI ? '阿美手作甜點' : KIT.shop; }
+const EX = IS_AMEI ? null : PROMPT_EX;
 import {
   SELLER, TERMS, CUST, CATALOG, STAGES, STAGE_IDX, CH_NAME, calc, lineName, seedDeals, historyDeals, monthlyRevenue, seedSubs,
   subShipDates, nextBillDate, statementRows, parsePrompt, buildQuote, quoteInsights, fmtDisc, dunningText, fakeQR, fakeBarcode,
@@ -249,7 +256,7 @@ function onAct(id) {
 function shipDeal(d) {
   d.shipped = Date.now();
   const sh = `SH-${String(new Date().getFullYear()).slice(2)}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${String(10 + S.deals.filter(x => x.shipped).length).padStart(2, '0')}`;
-  toast(`已建立出貨單｜${custOf(d).short}`, `${sh}・已通知小傑揀貨包裝，冷藏專車單號自動回填`, { icon: icon('truck', 18) });
+  toast(`已建立出貨單｜${custOf(d).short}`, IS_AMEI ? `${sh}・已通知小傑揀貨包裝，冷藏專車單號自動回填` : `${sh}・已通知${KIT.helper2 || KIT.owner}${QUOTE_CAT.focus === '服務' ? '準備' : '揀貨包裝'}，${QUOTE_CAT.ship}單號自動回填`, { icon: icon('truck', 18) });
   store.log('ship', `${custOf(d).short}「${d.title}」已出貨（${sh}），${custOf(d).terms === 'monthly' ? '併入本期月結對帳單' : 'AI 將於明早 09:00 自動請款'}`);
   bump(1, 10);
   moveDeal(d, 'shipped', { scroll: false });
@@ -258,11 +265,19 @@ function shipDeal(d) {
 // ================= AI 一句話報價 =================
 function defaultPrompt() {
   const d = addDays(new Date(), 21);
+  if (!IS_AMEI) return `晨光設計 週年慶${EX.gw} 120 ${EX.gu} ${d.getMonth() + 1}/${d.getDate()} 送到內湖，打 9 折`;
   return `晨光設計 週年慶禮盒 120 盒 ${d.getMonth() + 1}/${d.getDate()} 送到內湖，打 9 折`;
 }
 function exampleChips() {
   const T = new Date();
   const p = (n) => { const d = addDays(T, n); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  if (!IS_AMEI) return [
+    defaultPrompt(),
+    `晨光設計 中秋${EX.gw} 120 ${EX.gu} 10/1 送到內湖，打 9 折`,
+    `好日子選物 ${EX.aShort} 60 ${EX.aUnit} ${p(10)} 送到台中，打 88 折`,
+    `拾光旅宿 ${EX.bShort} 40 ${EX.bUnit} ${p(7)} 送到大同區`,
+    `白日夢婚禮 婚禮小物 ${KIT.cat === 'service' ? '8 位' : '200 份'} ${p(30)} 送到中山區，附感謝卡`,
+  ];
   return [
     defaultPrompt(),
     '晨光設計 中秋禮盒 120 盒 10/1 送到內湖，打 9 折',
@@ -276,7 +291,7 @@ async function generate(animate = true) {
   if (S.genBusy) return;
   const ta = $('#qtPrompt', root);
   const text = ta.value.trim();
-  if (!text) { toast('請先輸入一句話', '例如：晨光設計 中秋禮盒 120 盒 10/1 送到內湖，打 9 折', { kind: 'warn', icon: icon('alert', 18) }); return; }
+  if (!text) { toast('請先輸入一句話', `例如：${IS_AMEI ? '晨光設計 中秋禮盒 120 盒 10/1 送到內湖，打 9 折' : `晨光設計 中秋${EX.gw} 120 ${EX.gu} 10/1 送到內湖，打 9 折`}`, { kind: 'warn', icon: icon('alert', 18) }); return; }
   if (S.genFor) { const g = S.deals.find(x => x.id === S.genFor); if (!g || g.stage !== 'inquiry' || !text.includes(custOf(g).short.slice(0, 2))) S.genFor = null; }
   S.genBusy = true;
   const btn = $('#qtGen', root);
@@ -318,7 +333,7 @@ function renderPaper() {
   const host = $('#qtPaper', root);
   host.innerHTML = `
     <div class="qt-p-head qt-p-anim">
-      <div class="qt-p-brand"><span class="qt-p-logo">美</span><div><b>${SELLER.legal}</b><small>統一編號 ${SELLER.taxId}</small><small>${SELLER.addr}</small><small>${SELLER.phone}・${SELLER.email}</small></div></div>
+      <div class="qt-p-brand"><span class="qt-p-logo">${AV}</span><div><b>${SELLER.legal}</b><small>統一編號 ${SELLER.taxId}</small><small>${SELLER.addr}</small><small>${SELLER.phone}・${SELLER.email}</small></div></div>
       <div class="qt-p-title"><h4>報 價 單</h4><small>QUOTATION</small>
         <dl><dt>單號</dt><dd class="mono">${q.no}</dd><dt>報價日期</dt><dd>${fmtDate(q.date)}</dd><dt>有效期限</dt><dd>${fmtDate(q.valid)}</dd></dl></div>
     </div>
@@ -354,7 +369,7 @@ function renderPaper() {
       </dl>
     </div>
     <div class="qt-p-foot qt-p-anim">
-      <div class="qt-p-sig"><span>報價人</span><b>${SELLER.owner}</b><i class="qt-stamp">阿美手作<br>甜點工作室<br>報價專用章</i></div>
+      <div class="qt-p-sig"><span>報價人</span><b>${SELLER.owner}</b><i class="qt-stamp">${STAMP}</i></div>
       <div class="qt-p-sig client"><span>客戶簽回</span><b class="qt-p-line">線上簽署後自動帶入</b></div>
     </div>`;
   recalcPaper();
@@ -471,11 +486,11 @@ function openSign(d, ch = 'email') {
             <p>點下方按鈕即可線上確認並簽回，完成後系統會自動寄送確認信${c.terms === 'deposit' ? '與訂金付款連結' : ''}。</p>
             <div class="qt-attach">${icon('file', 18)}<div><b>報價單_${d.id}.pdf</b><small>186 KB</small></div></div>
             <span class="qt-mail-btn">${PEN_IC(14)} 線上確認並簽回</span>
-            <p class="qt-mail-sign">阿美手作甜點 阿美<br>${SELLER.phone}</p>
+            <p class="qt-mail-sign">${SELLER.name} ${SELLER.owner}<br>${SELLER.phone}</p>
           </div>
         </div>
         <div class="qt-line" ${ch === 'line' ? '' : 'hidden'}>
-          <div class="qt-line-top"><span class="qt-line-av">美</span><div><b>阿美手作甜點</b><small>LINE 官方帳號</small></div></div>
+          <div class="qt-line-top"><span class="qt-line-av">${AV}</span><div><b>${SELLER.name}</b><small>LINE 官方帳號</small></div></div>
           <div class="qt-line-body">
             <div class="qt-bub">${esc(c.contact ? c.contact.slice(0, 1) + (c.title.match(/經理|店長|主任|主委|總監/) || ['先生／小姐'])[0] : '您')}好～「${esc(d.title)}」的報價單準備好了，含稅 NT$ ${n0(a.total)}，點下方卡片就能線上簽回喔！</div>
             <div class="qt-flex">
@@ -495,7 +510,7 @@ function openSign(d, ch = 'email') {
       <div class="qt-browser">
         <div class="qt-br-bar"><i></i><i></i><i></i><span>${icon('lock', 12)} ${esc(link)}</span></div>
         <div class="qt-client" id="qtClient">
-          <div class="qt-cl-head"><span class="qt-p-logo sm">美</span><div><b>${SELLER.name}</b><small>報價單線上確認</small></div><span class="qt-cl-secure">${icon('shield', 13)} 加密連線</span></div>
+          <div class="qt-cl-head"><span class="qt-p-logo sm">${AV}</span><div><b>${SELLER.name}</b><small>報價單線上確認</small></div><span class="qt-cl-secure">${icon('shield', 13)} 加密連線</span></div>
           <div class="qt-cl-hi"><b>${esc(c.contact ? c.contact + ' 您好' : '您好')}</b>，以下是「${esc(d.title)}」報價內容，請確認後簽回。</div>
           <div class="qt-cl-box">
             <div class="qt-cl-row head"><span>報價單號 <b class="mono">${d.id}</b></span><span>有效至 ${fmtDate(d.valid)}</span></div>
@@ -951,7 +966,7 @@ export default {
         <div class="qt-hero-orb">${icon('file', 26)}</div>
         <div class="qt-hero-t">
           <h2>企業訂單，從報價到收款一條龍自動跑</h2>
-          <p>一句話產生報價單 → 客戶線上簽回 → 出貨後自動請款＋電子發票 → 逾期自動提醒 → 收款自動沖銷入帳。你只要做甜點。</p>
+          <p>一句話產生報價單 → 客戶線上簽回 → 出貨後自動請款＋電子發票 → 逾期自動提醒 → 收款自動沖銷入帳。${IS_AMEI ? '你只要做甜點。' : `你只要專心${QUOTE_CAT.focus === '服務' ? '提供服務' : '做' + QUOTE_CAT.focus}。`}</p>
           <div class="qt-flow">${['AI 一句話報價', '線上簽回', '出貨自動請款', '三聯式電子發票', '逾期自動提醒', '收款自動沖銷'].map((t, i) => `<span style="--i:${i}">${t}</span>`).join(`<i>${icon('arrow', 11)}</i>`)}</div>
         </div>
         <div class="qt-hero-s">
@@ -983,7 +998,7 @@ export default {
           <div class="card-h"><h3>${icon('wand', 18)} AI 一句話產生報價單</h3><span class="chip-sm">含 5% 營業稅外加</span></div>
           <div class="qt-ai-in">
             <div class="qt-ai-orb" id="qtAiOrb"><i></i><i></i>${icon('sparkle', 20)}</div>
-            <textarea id="qtPrompt" rows="2" placeholder="例如：晨光設計 中秋禮盒 120 盒 10/1 送到內湖，打 9 折"></textarea>
+            <textarea id="qtPrompt" rows="2" placeholder="例如：${IS_AMEI ? '晨光設計 中秋禮盒 120 盒 10/1 送到內湖，打 9 折' : `晨光設計 中秋${EX.gw} 120 ${EX.gu} 10/1 送到內湖，打 9 折`}"></textarea>
             <button class="icon-btn" id="qtMic" title="用說的" aria-label="語音輸入">${icon('mic', 18)}</button>
           </div>
           <div class="qt-ex">${exampleChips().map(t => `<button class="qt-ex-c" data-ex="${esc(t)}">${esc(t)}</button>`).join('')}</div>

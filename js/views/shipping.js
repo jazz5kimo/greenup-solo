@@ -6,6 +6,8 @@ import { icon, chIcon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { PRODUCT_MAP, startOfDay, addDays, mulberry32 } from '../data.js';
 import { productArt } from '../art.js';
+import { IS_AMEI } from '../inventory-data.js';
+import { SENDER } from '../shipping-data.js';
 import {
   STAGES, CARRIERS, CARRIER_ORDER, CITIES, ORIGIN, COASTS,
   buildShipment, setStage, maskName, maskPhone, destLabel, shipMessage, carrierStats, trackingNo,
@@ -104,7 +106,7 @@ export default {
         <div class="shp-head-txt">
           <span class="shp-kicker">${icon('bot', 14)} AI 物流代理 <span class="demo-badge">示範資料</span></span>
           <h2>今天有 <b class="grad-txt" id="shpTodo">0</b> 件待出貨，AI 已排好揀貨順序</h2>
-          <p>依溫層、目的地與物流截收時間自動分批：冷藏品優先交寄黑貓冷藏，常溫禮盒走超商取貨，日本與東南亞訂單自動走 EMS 並附上英文報關資料。出貨後 AI 會用客人的語言自動傳送追蹤通知。</p>
+          <p>依溫層、目的地與物流截收時間自動分批：冷藏品優先交寄黑貓冷藏，${IS_AMEI ? '常溫禮盒' : '常溫商品'}走超商取貨，日本與東南亞訂單自動走 EMS 並附上英文報關資料。出貨後 AI 會用客人的語言自動傳送追蹤通知。</p>
         </div>
         <div class="shp-cutoffs" id="shpCut"></div>
       </div>
@@ -409,7 +411,8 @@ function maskAddr(s) {
   return `${s.city.name}${s.district}＊＊路＊段＊＊號`;
 }
 const COUNTRY_EN = { JP: 'JAPAN', MY: 'MALAYSIA', SG: 'SINGAPORE', VN: 'VIET NAM', TW: 'TAIWAN' };
-const CONTENT_EN = { lemon: 'Lemon tart', roll: 'Cream roll cake', basque: 'Cheesecake', pound: 'Pound cake', cookie: 'Cookies', pineapple: 'Pineapple cake', canele: 'Canelé' };
+const CONTENT_EN = IS_AMEI ? { lemon: 'Lemon tart', roll: 'Cream roll cake', basque: 'Cheesecake', pound: 'Pound cake', cookie: 'Cookies', pineapple: 'Pineapple cake', canele: 'Canelé' }
+  : Object.fromEntries(Object.values(PRODUCT_MAP).map(p => [p.id, p.en || p.name]));
 
 function waybillHTML(s) {
   const c = CARRIERS[s.carrier];
@@ -422,10 +425,10 @@ function waybillHTML(s) {
     return `<div class="wb wb-tcat" data-id="${s.id}">${stamp}
       <div class="wb-h"><div class="wb-logo"><b>黑貓宅急便</b><small>TA-Q-BIN${s.fridge ? '・COOL' : ''}</small></div>${s.fridge ? '<span class="wb-cool">低溫 冷藏便</span>' : '<span class="wb-cool room">常溫便</span>'}</div>
       <div class="wb-row"><div class="wb-f wb-to"><label>收件人</label><b>${esc(maskName(s.customer))}</b><span>${maskPhone(s.phone)}</span><span>${esc(maskAddr(s))}</span></div>${temp}</div>
-      <div class="wb-grid"><div class="wb-f"><label>寄件人</label><span>阿美手作甜點</span><span>02-27＊＊-＊＊88</span></div>
+      <div class="wb-grid"><div class="wb-f"><label>寄件人</label><span>${esc(SENDER.name)}</span><span>${SENDER.phone}</span></div>
         <div class="wb-f"><label>指定配達</label><b>${md(s.times.done)}</b><span>${s.fridge ? '14–18 時' : '不指定'}</span></div>
         <div class="wb-f"><label>尺寸／重量</label><span>60 cm・${s.weight} kg</span></div>
-        <div class="wb-f"><label>品名</label><span>${s.fridge ? '甜點（易碎・冷藏）' : '甜點禮盒（易碎）'}</span></div></div>
+        <div class="wb-f"><label>品名</label><span>${s.fridge ? SENDER.item[0] : SENDER.item[1]}</span></div></div>
       <div class="wb-bcw">${barcode(trk)}<div class="wb-no"><label>貨號</label><b class="mono">${trk}</b></div></div>
       <div class="wb-foot"><span>訂單 ${s.id}</span><span>${esc(items)}</span></div></div>`;
   }
@@ -436,8 +439,8 @@ function waybillHTML(s) {
       <div class="wb-h"><div class="wb-logo"><b>${seven ? '7-ELEVEN' : '全家 FamilyMart'}</b><small>${seven ? '交貨便・取貨付款／純取貨' : '店到店・純取貨'}</small></div><div class="wb-stripes"><i></i><i></i><i></i></div></div>
       <div class="wb-row"><div class="wb-f wb-to"><label>取貨門市</label><b>${esc(s.store)}</b><span>店號 ${storeNo}</span><span>取貨期限：${md(s.times.done + 7 * 24 * H)} 前</span></div>${temp}</div>
       <div class="wb-grid"><div class="wb-f"><label>取件人</label><b>${esc(maskName(s.customer))}</b><span>手機末三碼 ${s.phone.slice(-3)}</span></div>
-        <div class="wb-f"><label>寄件人</label><span>阿美手作甜點</span><span>寄件門市：${seven ? '大安門市' : '大安和平店'}</span></div>
-        <div class="wb-f"><label>包裹內容</label><span>甜點禮盒（易碎）</span></div>
+        <div class="wb-f"><label>寄件人</label><span>${esc(SENDER.name)}</span><span>寄件門市：${seven ? SENDER.seven : SENDER.fami}</span></div>
+        <div class="wb-f"><label>包裹內容</label><span>${SENDER.item[1]}</span></div>
         <div class="wb-f"><label>重量</label><span>${s.weight} kg・S 尺寸</span></div></div>
       <div class="wb-bcw">${barcode(trk)}<div class="wb-no"><label>${seven ? '交貨便代碼' : '寄件編號'}</label><b class="mono">${trk}</b></div></div>
       <div class="wb-foot"><span>訂單 ${s.id}</span><span>${esc(items)}</span></div></div>`;
@@ -447,15 +450,15 @@ function waybillHTML(s) {
     return `<div class="wb wb-ems" data-id="${s.id}">${stamp}
       <div class="wb-h"><div class="wb-logo"><b>EMS</b><small>國際快捷 EXPRESS MAIL SERVICE</small></div><span class="wb-route">TW → ${s.city.country}</span></div>
       <div class="wb-row"><div class="wb-f wb-to"><label>To 收件人</label><b>${esc(maskName(s.customer))}</b><span>${esc(maskAddr(s))}</span><span>${COUNTRY_EN[s.city.country]}・Tel ＋＊＊ ＊＊＊＊ ${s.phone.slice(-3)}</span></div>${s.fridge ? `<div class="wb-temp cold">${icon('snow', 16)}<b>KEEP COOL</b><small>保冷包裝</small></div>` : temp}</div>
-      <div class="wb-grid"><div class="wb-f"><label>From 寄件人</label><span>A-Mei Handmade Desserts</span><span>Da'an Dist., Taipei, TAIWAN</span></div>
+      <div class="wb-grid"><div class="wb-f"><label>From 寄件人</label><span>${esc(SENDER.en)}</span><span>${esc(SENDER.from)}</span></div>
         <div class="wb-f"><label>CN23 報關</label><span>☑ Merchandise ☐ Gift</span><span>${esc(s.order.items.map(it => CONTENT_EN[it.pid]).join(', '))}</span></div>
         <div class="wb-f"><label>申報價值</label><b>NT$ ${val.toLocaleString()}</b><span>≈ US$ ${Math.round(val / 32)}</span></div>
         <div class="wb-f"><label>重量</label><span>${s.weight} kg</span></div></div>
       <div class="wb-bcw">${barcode(trk)}<div class="wb-no"><label>Tracking 貨號</label><b class="mono">${trk.replace(/^(EE)(\d{3})(\d{3})(\d{3})(TW)$/, '$1 $2 $3 $4 $5')}</b></div></div>
-      <div class="wb-foot"><span>訂單 ${s.id}</span><span>AI 已自動產生英文品名與 HS 編碼 1905.90</span></div></div>`;
+      <div class="wb-foot"><span>訂單 ${s.id}</span><span>AI 已自動產生英文品名與 HS 編碼 ${SENDER.hs}</span></div></div>`;
   }
   return `<div class="wb wb-pickup" data-id="${s.id}">${stamp}
-    <div class="wb-h"><div class="wb-logo"><b>門市取貨單</b><small>阿美手作甜點・大安店</small></div></div>
+    <div class="wb-h"><div class="wb-logo"><b>門市取貨單</b><small>${esc(SENDER.name)}・${esc(SENDER.store)}</small></div></div>
     <div class="wb-row"><div class="wb-f wb-to"><label>取貨人</label><b>${esc(maskName(s.customer))}</b><span>取貨碼 ${rid}</span></div>${temp}</div>
     <div class="wb-bcw">${barcode(trk)}<div class="wb-no"><label>取貨編號</label><b class="mono">${trk}</b></div></div>
     <div class="wb-foot"><span>訂單 ${s.id}</span><span>${esc(items)}</span></div></div>`;
@@ -609,7 +612,7 @@ function onExcClick(e) {
     setTimeout(() => { Object.assign(x, { status: 'done', statusText: '已改店', prog: 4, act: null, ai: `客人已選擇新門市，AI 已通知物流改寄並更新取貨資訊` }); renderExc(); renderBoard(); flashExc(x.id); }, 1800);
   } else if (a === 'resend' || a === 'refund') {
     Object.assign(x, { status: 'done', statusText: a === 'resend' ? '已安排補寄' : '已折讓', prog: 4, ai: a === 'resend' ? 'AI 已建立補寄訂單（免運），並用客人的語言致歉說明' : 'AI 已開立折讓單 NT$100、同步會計帳務，並傳送致歉訊息' });
-    toast(a === 'resend' ? '已安排補寄' : '已開立折讓 NT$100', a === 'resend' ? `${s.customer}・明天以黑貓冷藏補寄，AI 已通知客人` : `${s.customer}・銷貨折讓已自動入帳（含稅額調整）`, { icon: icon(a === 'resend' ? 'truck' : 'receipt', 18) });
+    toast(a === 'resend' ? '已安排補寄' : '已開立折讓 NT$100', a === 'resend' ? `${s.customer}・明天以黑貓${s.fridge ? '冷藏' : '宅急便'}補寄，AI 已通知客人` : `${s.customer}・銷貨折讓已自動入帳（含稅額調整）`, { icon: icon(a === 'resend' ? 'truck' : 'receipt', 18) });
     renderExc(); renderBoard(); flashExc(x.id);
   } else openDrawer(x.id);
 }

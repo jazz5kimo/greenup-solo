@@ -2,11 +2,14 @@
 import { store } from '../state.js';
 import { $, $$, el, gsap, esc, money, sleep, fmtTime } from '../util.js';
 import { icon, chIcon } from '../icons.js';
-import { PRODUCT_MAP, LANG_LABEL } from '../data.js';
+import { PRODUCT_MAP, PRODUCTS, LANG_LABEL, SHIPPING_FEE, FREE_SHIP } from '../data.js';
+import { pName, pDesc } from '../i18n.js';
+import { TENANT } from '../tenant.js';
+import { IS_AMEI, CAT, HAS_BEANS, TAKEOUT, DRINK_TAKEOUT, measure } from '../brief-data.js';
 
 const PIPE = ['偵測語言', '理解需求', '查詢庫存與價格', '確認品項／數量／寄送', '傳送付款連結', '建立訂單＋電子發票', '收款自動入帳'];
 
-const SCENARIOS = [
+const AMEI_SCENARIOS = [
   {
     id: 's-ja', channel: 'line', customer: '佐藤 ゆき', lang: 'ja', place: '日本・東京', color: '#2DB674',
     items: [{ pid: 'pineapple', qty: 3 }], region: '日本（國際寄送）', payment: '信用卡', ship: '國際寄送 NT$450',
@@ -69,6 +72,243 @@ const SCENARIOS = [
   },
 ];
 
+
+// ---------- 其他業主：依業態大類產生 3 段示範對話（商品名稱、價格取自目前業主） ----------
+// 宅配型（飲品、零售、手作、農產、點心）／花藝（配送時段＋卡片）／預約服務（改期＋衛生）／餐飲（外帶辣度＋取餐）
+const M = (v) => `NT$${Math.round(v).toLocaleString('en-US')}`;
+const qw = measure;
+const shipFee = (sub, pickup, abroad) => pickup ? 0 : abroad ? 450 : sub >= FREE_SHIP ? 0 : SHIPPING_FEE;
+const N = (p, l) => l === 'zh' ? p.name : pName(l, p.id);
+function genericScenarios() {
+  const ai = TENANT.aiName || 'AI';
+  const byPrice = [...PRODUCTS].sort((a, b) => a.price - b.price);
+  const P0 = PRODUCTS[0], P1 = PRODUCTS[1] || P0, P2 = PRODUCTS[2] || P0;
+  const cheap = byPrice.find(p => p.id !== P0.id) || P0;
+  const gift = [...PRODUCTS].sort((a, b) => b.price - a.price).find(p => p.price <= 1200) || byPrice[0];
+  const top = byPrice[byPrice.length - 1];
+  const other = (...ex) => PRODUCTS.find(p => !ex.includes(p.id)) || P0;
+  const cheap1 = cheap.id !== P1.id ? cheap : other(P0.id, P1.id); // 與 P1 不重複的加購品
+  const sum = (items) => items.reduce((s, it) => s + PRODUCT_MAP[it.pid].price * it.qty, 0);
+  const tot = (items, pickup, abroad) => { const sub = sum(items); return sub + shipFee(sub, pickup, abroad); };
+  const zhPay = (items, pickup, extra) => [
+    { pay: true, mark: [4] },
+    { create: true, pending: true, mark: [5] },
+    { c: '我等等用轉帳～' },
+    { ai: '沒問題！訂單 {id} 已建立，收到款項後系統會自動通知您。' },
+    { bank: true, paid: true, mark: [6] },
+    { ai: `已收到您的轉帳 ${M(tot(items, pickup))}，謝謝林小姐！${extra}` },
+  ];
+  const mode = CAT === 'flower' ? 'flower' : CAT === 'service' ? 'service' : TAKEOUT ? 'food' : 'ship';
+
+  if (mode === 'service') {
+    const a = [{ pid: P0.id, qty: 1 }];
+    const b = [{ pid: P1.id, qty: 1 }, { pid: cheap1.id, qty: 1 }];
+    const c = [{ pid: P0.id, qty: 1 }, { pid: cheap.id === P0.id ? P1.id : cheap.id, qty: 1 }];
+    const cq = PRODUCT_MAP[c[1].pid];
+    return [
+      { id: 's-ja', channel: 'line', customer: '佐藤 ゆき', lang: 'ja', place: '日本・旅行中', color: '#2DB674', items: a, region: '到店服務（週六 15:00）', pickup: true, payment: '信用卡', ship: '到店・不需運費',
+        script: [
+          { c: `こんにちは！旅行中なのですが、今週の土曜日15時に「${N(P0, 'ja')}」を予約できますか？`, zh: `你好！我正在旅行，可以預約這週六 15:00 的「${P0.name}」嗎？`, mark: [0, 1], fields: ['items', 'qty'] },
+          { ai: `佐藤様、こんにちは！${ai}です。土曜日15:00は空いています。「${N(P0, 'ja')}」は ${M(P0.price)} です。日本語のメニュー表もご用意しています。`, zh: `佐藤小姐您好！我是${ai}。週六 15:00 有空檔，「${P0.name}」${M(P0.price)}，也有日文價目表。`, mark: [2] },
+          { c: 'よかった！当日はどのくらい時間がかかりますか？', zh: '太好了！當天大概要多久？', fields: ['region'] },
+          { ai: `${pDesc('ja', P0.id) || 'メニューによって所要時間が異なります。'}（目安）。ご予約を確定するため、こちらのリンクから事前決済をお願いします。`, zh: `${P0.desc || '依項目而定'}（參考時間）。為了保留時段，請由此連結預付：`, mark: [3], fields: ['total'] },
+          { pay: true, mark: [4] },
+          { create: true, mark: [5] },
+          { c: '支払いました！土曜日に伺います。', zh: '付好了！週六見～', paid: true, mark: [6] },
+          { ai: 'お支払いを確認しました。ご予約番号は {id} です。前日にリマインドをお送りします。ありがとうございました！', zh: '已確認收到款項，預約編號 {id}，前一天會傳提醒給您，謝謝！' },
+        ] },
+      { id: 's-en', channel: 'whatsapp', customer: 'Hannah K.', lang: 'en', place: '新加坡・來台工作', color: '#2E97D4', items: b, region: '到店服務（週三 19:00）', pickup: true, payment: '信用卡', ship: '到店・不需運費',
+        script: [
+          { c: `Hi! Can I book ${N(P1, 'en')} plus ${N(cheap1, 'en')} next Wednesday at 7 pm?`, zh: `嗨！可以預約下週三晚上 7 點的${P1.name}加${cheap1.name}嗎？`, mark: [0, 1], fields: ['items', 'qty'] },
+          { ai: `Hi Hannah, this is ${ai}! Wednesday 7 pm is available. ${N(P1, 'en')} (${M(P1.price)}) + ${N(cheap1, 'en')} (${M(cheap1.price)}) = ${M(sum(b))}.`, zh: `Hannah 您好，我是${ai}！週三 19:00 有空檔。${P1.name}（${M(P1.price)}）＋${cheap1.name}（${M(cheap1.price)}）＝${M(sum(b))}。`, mark: [2], fields: ['total', 'region'] },
+          { c: 'Great. How do you keep your tools clean? My skin is a bit sensitive.', zh: '好的。請問工具怎麼消毒？我皮膚比較敏感。' },
+          { ai: 'Good question! All tools are cleaned and sterilised after every guest, and single-use items are never reused. Let us know about your sensitive skin and we\'ll do a patch test first. Shall I confirm the booking?', zh: '好問題！每位客人結束後工具都會清潔消毒，一次性耗材絕不重複使用。我們會先做局部測試，要幫您確認預約嗎？' },
+          { c: 'Yes please!', zh: '好的，麻煩了！', mark: [3] },
+          { ai: `Booking summary: ${N(P1, 'en')} + ${N(cheap1, 'en')}, next Wednesday 7 pm, total ${M(sum(b))}. Here is your payment link:`, zh: `預約摘要：${P1.name}＋${cheap1.name}，下週三 19:00，合計 ${M(sum(b))}。付款連結如下：` },
+          { pay: true, mark: [4] },
+          { create: true, mark: [5] },
+          { c: 'Paid, see you Wednesday!', zh: '付好了，週三見！', paid: true, mark: [6] },
+          { ai: 'Payment received! Booking {id} is confirmed. We\'ll send a reminder the day before.', zh: '已收到款項！預約 {id} 已確認，前一天會傳提醒給您。' },
+        ] },
+      { id: 's-zh', channel: 'messenger', customer: '林小姐', lang: 'zh', place: '台灣・老客人', color: '#DD5597', items: c, region: '到店服務（改約下週五 14:00）', pickup: true, payment: '銀行轉帳', ship: '到店・不需運費',
+        script: [
+          { c: `你好～我原本約這週六下午兩點的${P0.name}，臨時要加班，可以改期嗎？`, mark: [0, 1], fields: ['items', 'qty'] },
+          { ai: `林小姐您好！已查到您的預約。下週五 14:00、下週六 11:00 都還有空檔，請問哪個時段方便？原本的時段會在改約後釋出。`, mark: [2] },
+          { c: `下週五兩點好了，順便加一個${cq.name}。`, fields: ['region'] },
+          { ai: `好的，改約下週五 14:00，${P0.name}＋${cq.name}，合計 ${M(sum(c))}。改期不收手續費，預約前一天會再提醒您。付款連結如下：`, mark: [3], fields: ['total'] },
+          ...zhPay(c, true, '下週五見～'),
+        ] },
+    ];
+  }
+
+  if (mode === 'food') {
+    const qa = qw(P0);
+    // 外帶情境用語：餐飲＝辣度／湯汁分裝；手搖飲＝甜度冰塊／提袋
+    const X = DRINK_TAKEOUT ? {
+      viAsk: 'Chị muốn độ ngọt và đá thế nào ạ?', zhAsk: '請問甜度冰塊要怎麼調？',
+      viC: 'Một ly ít đường ít đá, một ly không đá. Cho mình túi xách nhé.', zhC: '一杯半糖少冰、一杯去冰，幫我裝提袋。',
+      viOk: 'một ly ít đường ít đá, một ly không đá, có túi xách', zhOk: '一杯半糖少冰、一杯去冰，附提袋',
+      enC: 'Great. Two colleagues want less sugar and one can\'t have dairy.', enZ: '好。有兩位同事要少糖，一位不能喝奶。',
+      enA: 'Noted! We\'ll make two at 30% sugar and switch one to a dairy-free option where possible, and label every cup. Our prep area also handles milk, so we can\'t guarantee zero cross-contact. Shall I confirm?',
+      enAz: '收到！兩杯做三分糖，一杯盡量改無奶選項，每杯都貼標籤。製作區有使用奶類，無法保證完全零接觸。要幫您確認嗎？',
+      zh3: '都要微糖少冰，可以分開裝嗎？', zh4: '沒問題，都微糖少冰、分開裝。', meal: 'drinks',
+    } : {
+      viAsk: 'Chị muốn cay thế nào ạ?', zhAsk: '請問辣度要怎麼調？',
+      viC: 'Một phần cay vừa, một phần không cay. Nước dùng để riêng giúp mình nhé.', zhC: '一份中辣、一份不辣，湯汁幫我分開裝。',
+      viOk: 'một cay vừa một không cay, nước để riêng', zhOk: '一份中辣一份不辣，湯汁分裝',
+      enC: 'Great. Two colleagues can\'t eat spicy food and one is allergic to peanuts.', enZ: '好。有兩位同事不能吃辣，一位對花生過敏。',
+      enA: 'Noted! We\'ll pack the two non-spicy meals separately and label every box with spice level and allergens. Our kitchen does use peanuts, so for the allergy we\'ll keep that meal sauce-free and sealed, but we can\'t guarantee zero cross-contact. Shall I confirm?',
+      enAz: '收到！兩份不辣會分開包裝，每盒都貼辣度與過敏原標籤。廚房有使用花生，過敏同事那份會不加醬料並單獨封裝，但無法保證完全零接觸。要幫您確認嗎？',
+      zh3: '都不要辣，可以多給一點醬料嗎？', zh4: '沒問題，都不辣、醬料另外多附一份。', meal: 'lunch',
+    };
+    const a = [{ pid: P0.id, qty: 2 }, { pid: cheap.id, qty: 1 }];
+    const b = [{ pid: P0.id, qty: 3 }, { pid: P1.id, qty: 3 }, { pid: P2.id, qty: 4 }];
+    const c = [{ pid: P1.id, qty: 2 }, { pid: cheap1.id, qty: 2 }];
+    const bt = tot(b, false);
+    return [
+      { id: 's-vi', channel: 'zalo', customer: 'Nguyễn Thị Lan', lang: 'vi', place: '越南・現居桃園', color: '#7C62E6', items: a, region: '到店自取（18:30）', pickup: true, payment: '銀行轉帳', ship: '到店自取・不需運費',
+        script: [
+          { c: `Chào quán! Mình muốn đặt mang về 2 phần ${N(P0, 'vi')} và 1 phần ${N(cheap, 'vi')}, 6 giờ rưỡi tối mình qua lấy nhé.`, zh: `哈囉！我想外帶 2 份${P0.name}和 1 份${cheap.name}，晚上六點半去拿。`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+          { ai: `Chào chị Lan, mình là ${ai}! ${N(P0, 'vi')} ${M(P0.price)}/phần, ${N(cheap, 'vi')} ${M(cheap.price)}, tổng ${M(sum(a))}. ${X.viAsk}`, zh: `Lan 姐您好，我是${ai}！${P0.name}每${qa} ${M(P0.price)}，${cheap.name} ${M(cheap.price)}，合計 ${M(sum(a))}。${X.zhAsk}`, mark: [2], fields: ['total'] },
+          { c: X.viC, zh: X.zhC },
+          { ai: `Dạ được ạ! Xác nhận: lấy lúc 18:30, ${X.viOk}. Chị thanh toán qua link này nhé:`, zh: `好的！確認：18:30 取餐，${X.zhOk}。請透過此連結付款：`, mark: [3] },
+          { pay: true, mark: [4] },
+          { create: true, mark: [5] },
+          { c: 'Mình chuyển khoản rồi nhé. Cảm ơn quán!', zh: '我已經轉帳了，謝謝！', paid: true, mark: [6] },
+          { ai: 'Cảm ơn chị! Đơn {id} đã xác nhận, 18:20 sẽ chuẩn bị xong ạ.', zh: '謝謝您！訂單 {id} 已確認，18:20 會備好。' },
+        ] },
+      { id: 's-en', channel: 'whatsapp', customer: 'Daniel Tan', lang: 'en', place: '馬來西亞・在台工作', color: '#2E97D4', items: b, region: '附近辦公室（外送）', payment: '信用卡', ship: bt - sum(b) ? `外送 ${M(bt - sum(b))}` : '外送・滿額免運',
+        script: [
+          { c: `Hi! Can you deliver ${X.meal} for our team at 12:00? 3 × ${N(P0, 'en')}, 3 × ${N(P1, 'en')} and 4 × ${N(P2, 'en')}.`, zh: `嗨！可以 12 點外送我們團隊的${DRINK_TAKEOUT ? '飲料' : '午餐'}嗎？${P0.name} ×3、${P1.name} ×3、${P2.name} ×4。`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+          { ai: `Hi Daniel, this is ${ai}! That comes to ${M(sum(b))}${bt - sum(b) ? ` plus ${M(bt - sum(b))} delivery` : ' with free delivery'}. We can arrive by 11:50.`, zh: `Daniel 您好，我是${ai}！合計 ${M(sum(b))}${bt - sum(b) ? `，外送費 ${M(bt - sum(b))}` : '，已達免運'}，可以 11:50 前送到。`, mark: [2], fields: ['total'] },
+          { c: X.enC, zh: X.enZ },
+          { ai: X.enA, zh: X.enAz },
+          { c: 'Yes please!', zh: '好的，麻煩了！', mark: [3] },
+          { pay: true, mark: [4] },
+          { create: true, mark: [5] },
+          { c: 'Paid by card, thanks!', zh: '已用信用卡付款，謝謝！', paid: true, mark: [6] },
+          { ai: 'Payment received! Order {id} is confirmed, see you at 11:50.', zh: '已收到款項！訂單 {id} 已確認，11:50 見。' },
+        ] },
+      { id: 's-zh', channel: 'messenger', customer: '林小姐', lang: 'zh', place: '台灣・附近上班族', color: '#DD5597', items: c, region: '到店自取（12:15）', pickup: true, payment: '銀行轉帳', ship: '到店自取・不需運費',
+        script: [
+          { c: `老闆～中午想外帶 2 ${qw(P1)}${P1.name}、2 份${cheap1.name}，12 點 15 分去拿可以嗎？`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+          { ai: `林小姐您好！可以的，${P1.name} ×2（${M(P1.price * 2)}）＋${cheap1.name} ×2（${M(cheap1.price * 2)}），合計 ${M(sum(c))}，12:15 到店自取。${X.zhAsk}`, mark: [2], fields: ['total'] },
+          { c: X.zh3 },
+          { ai: `${X.zh4}確認訂單：${P1.name} ×2、${cheap1.name} ×2，12:15 自取，合計 ${M(sum(c))}。付款連結如下：`, mark: [3] },
+          ...zhPay(c, true, '12:15 見～'),
+        ] },
+    ];
+  }
+
+  if (mode === 'flower') {
+    const a = [{ pid: P0.id, qty: 1 }];
+    const b = [{ pid: P1.id, qty: 1 }];
+    const c = [{ pid: top.id, qty: 1 }];
+    const at = tot(a, false), bt2 = tot(b, false);
+    return [
+      { id: 's-ja', channel: 'line', customer: '田中 さくら', lang: 'ja', place: '日本・現居台北', color: '#2DB674', items: a, region: '台北市大安區（明天 14:00–17:00）', payment: '信用卡', ship: at - sum(a) ? `配送 ${M(at - sum(a))}` : '配送・滿額免運',
+        script: [
+          { c: `こんにちは。明日、同僚の誕生日に「${N(P0, 'ja')}」を大安区の会社まで届けてもらえますか？`, zh: `你好。明天同事生日，可以把「${P0.name}」送到大安區的公司嗎？`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+          { ai: `田中様、こんにちは！${ai}です。「${N(P0, 'ja')}」は ${M(P0.price)}、明日の配達が可能です。時間帯は午前（10–12時）か午後（14–17時）からお選びください。メッセージカードは無料です。`, zh: `田中小姐您好，我是${ai}！「${P0.name}」${M(P0.price)}，明天可以送。時段可選上午（10–12 點）或下午（14–17 點），卡片免費。`, mark: [2] },
+          { c: '午後でお願いします。カードは日本語で「お誕生日おめでとう！」と書いてください。', zh: '麻煩下午送。卡片請用日文寫「生日快樂！」。' },
+          { ai: `承知しました。確認します：${N(P0, 'ja')}、明日14–17時に大安区へお届け、日本語カード付き、合計 ${M(at)} です。こちらのリンクからお支払いください。`, zh: `了解。跟您確認：${P0.name}，明天 14–17 點送到大安區，附日文卡片，合計 ${M(at)}。請由此連結付款。`, mark: [3], fields: ['total'] },
+          { pay: true, mark: [4] },
+          { create: true, mark: [5] },
+          { c: '支払いました！よろしくお願いします。', zh: '付好了！麻煩了～', paid: true, mark: [6] },
+          { ai: 'お支払いを確認しました。ご注文番号は {id} です。お届け後に写真でご報告します！', zh: '已確認收到款項，訂單 {id}。送達後會拍照回報給您！' },
+        ] },
+      { id: 's-en', channel: 'whatsapp', customer: 'Daniel Tan', lang: 'en', place: '新加坡・出差中', color: '#2E97D4', items: b, region: '台北市中山區（週五 18:00 前）', payment: '信用卡', ship: bt2 - sum(b) ? `配送 ${M(bt2 - sum(b))}` : '配送・滿額免運',
+        script: [
+          { c: `Hi! It's our anniversary on Friday. Can you deliver ${N(P1, 'en')} to my wife's office in Zhongshan before 6 pm?`, zh: `嗨！週五是我們的週年紀念日，可以在下午 6 點前把${P1.name}送到我太太在中山區的公司嗎？`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+          { ai: `Hi Daniel, this is ${ai}! Yes, ${N(P1, 'en')} is ${M(P1.price)}${bt2 - sum(b) ? ` plus ${M(bt2 - sum(b))} delivery` : ''}, total ${M(bt2)}. We'll deliver on Friday afternoon with a free card.`, zh: `Daniel 您好，我是${ai}！${P1.name} ${M(P1.price)}${bt2 - sum(b) ? `，配送費 ${M(bt2 - sum(b))}` : ''}，合計 ${M(bt2)}。週五下午送達，附免費卡片。`, mark: [2], fields: ['total'] },
+          { c: 'Lovely. How long will the flowers last? Any care tips?', zh: '太好了。花可以放多久？有照顧小技巧嗎？' },
+          { ai: 'Trim the stems at an angle and change the water every 2 days; keep them away from direct sun and air-con vents. Most stems last about 5–7 days. Shall I confirm the order?', zh: '斜剪花莖、每兩天換水，避開陽光直射與冷氣出風口，大多能維持 5–7 天。要幫您確認訂單嗎？' },
+          { c: 'Yes please! Card: "Happy anniversary, love you."', zh: '好的！卡片寫：「週年快樂，愛妳。」', mark: [3] },
+          { pay: true, mark: [4] },
+          { create: true, mark: [5] },
+          { c: 'Paid, thanks!', zh: '付好了，謝謝！', paid: true, mark: [6] },
+          { ai: 'Payment received! Order {id} is confirmed. We\'ll send you a photo once it\'s delivered.', zh: '已收到款項！訂單 {id} 已確認，送達後會拍照給您。' },
+        ] },
+      { id: 's-zh', channel: 'messenger', customer: '林小姐', lang: 'zh', place: '台灣・新北', color: '#DD5597', items: c, region: '新北市板橋區（週六 10:00 前）', payment: '銀行轉帳', ship: tot(c, false) - sum(c) ? `配送 ${M(tot(c, false) - sum(c))}` : '配送・滿額免運',
+        script: [
+          { c: `你好～朋友週六開店，想訂${top.name}，早上 10 點前送到板橋可以嗎？`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+          { ai: `林小姐您好！可以的，${top.name} ${M(top.price)}，週六 08:00–10:00 送達板橋，合計 ${M(tot(c, false))}。卡片或緞帶要寫什麼字呢？`, mark: [2], fields: ['total'] },
+          { c: '寫「開幕誌慶　生意興隆」，署名「林小姐敬賀」。' },
+          { ai: `收到！確認訂單：${top.name}，週六 10:00 前送達板橋，緞帶「開幕誌慶　生意興隆」，合計 ${M(tot(c, false))}。付款連結如下：`, mark: [3] },
+          ...zhPay(c, false, '祝朋友開幕大吉！'),
+        ] },
+    ];
+  }
+
+  // 宅配型
+  const beans = CAT === 'drink' && HAS_BEANS, craft = CAT === 'craft';
+  const ja = [{ pid: gift.id, qty: 2 }];
+  const en = [{ pid: P0.id, qty: 1 }, { pid: P1.id, qty: 1 }];
+  const zh = [{ pid: P0.id, qty: 2 }, { pid: cheap.id === P0.id ? P1.id : cheap.id, qty: 1 }];
+  const zq = PRODUCT_MAP[zh[1].pid];
+  const jt = tot(ja, false, true), et = tot(en, false), zt = tot(zh, false);
+  const tw = beans
+    ? { ja1: 'ご注文後に焙煎し、焙煎日を袋に記載します。豆のままと挽いたもの、どちらがよろしいですか？', jz1: '下單後才烘豆，烘焙日期會標在袋上。請問要原豆還是磨好的粉？', ja2: '豆のままでお願いします。送り先は東京都です。', jz2: '原豆就好，寄到東京都。',
+      en1: 'Great. Is it freshly roasted? I only have a hand grinder at the hotel.', ez1: '太好了。是新鮮烘的嗎？我飯店只有手搖磨豆機。', en2: 'Yes! We roast twice a week and print the roast date on every bag. We can also grind it for you; medium-fine works well for pour-over. Shall I confirm the order?', ez2: '是的！每週烘兩次，袋上都有烘焙日期。也可以幫您磨好，手沖建議中細研磨。要幫您確認訂單嗎？',
+      zh1: '豆子是哪天烘的？我用摩卡壺，可以幫我磨嗎？', zh2: `這批是本週二烘的，養豆 3–5 天風味最好；摩卡壺建議細研磨，會幫您磨好再寄出。`, zhEnd: '烘焙日期會標在袋上，祝您喝得開心！' }
+    : craft
+      ? { ja1: '無料で名入れ（刻印）もできますが、いかがですか？', jz1: '可以免費刻字，需要嗎？', ja2: 'イニシャル「Y.S.」を入れてください。送り先は東京都です。', jz2: '請刻縮寫「Y.S.」，寄到東京都。',
+        en1: 'Great. Is it handmade? Is there a warranty?', ez1: '太好了。是手工做的嗎？有保固嗎？', en2: 'Yes, every piece is handmade in our studio, with a 1-year warranty on stitching and hardware. Shall I confirm the order?', ez2: '是的，每件都在工作室手工製作，車線與五金保固一年。要幫您確認訂單嗎？',
+        zh1: '可以刻字嗎？要送男友當生日禮物。', zh2: '可以喔，刻字免費，製作會多 2 個工作天，週六前還來得及；也會附禮盒包裝。', zhEnd: '刻字完成會先拍照給您確認！' }
+      : { ja1: 'ギフト包装も無料で承ります。', jz1: '可以免費禮物包裝。', ja2: 'ギフト包装でお願いします！送り先は東京都です。', jz2: '麻煩禮物包裝！寄送地址是東京都。',
+        en1: 'Perfect. Can you add a gift note?', ez1: '太好了。可以附一張禮物卡片嗎？', en2: 'Of course, a handwritten note is free. Shall I confirm the order?', ez2: '當然可以，手寫卡片免費。要幫您確認訂單嗎？',
+        zh1: '要送長輩，可以幫忙包裝嗎？', zh2: '可以的，免費禮物包裝並附手寫卡片，長輩收到一定很開心！', zhEnd: '祝長輩收到開心！' };
+  return [
+    { id: 's-ja', channel: 'line', customer: '佐藤 ゆき', lang: 'ja', place: '日本・東京', color: '#2DB674', items: ja, region: '日本（國際寄送）', payment: '信用卡', ship: '國際寄送 NT$450',
+      script: [
+        { c: `こんにちは！台湾旅行で見つけた「${N(gift, 'ja')}」がとても気に入りました。2つ日本に送ってもらえますか？`, zh: `你好！台灣旅行時發現的「${gift.name}」很喜歡，可以寄 2 個到日本嗎？`, mark: [0, 1] },
+        { ai: `佐藤様、こんにちは！${ai}です。「${N(gift, 'ja')}」は2つで ${M(gift.price * 2)}、日本への国際送料は NT$450 です。${tw.ja1}`, zh: `佐藤小姐您好，我是${ai}！「${gift.name}」2 個 ${M(gift.price * 2)}，國際運費 NT$450。${tw.jz1}`, mark: [2], fields: ['items', 'qty'] },
+        { c: tw.ja2, zh: tw.jz2, fields: ['region'] },
+        { ai: `ご注文内容を確認します：${N(gift, 'ja')} ×2、東京都へ発送、合計 ${M(jt)} です。こちらのリンクからお支払いください。`, zh: `跟您確認訂單：${gift.name} ×2，寄送東京都，合計 ${M(jt)}。請由此連結付款。`, mark: [3], fields: ['total'] },
+        { pay: true, mark: [4] },
+        { create: true, mark: [5] },
+        { c: '支払いました！届くのを楽しみにしています。', zh: '付好了！很期待收到～', paid: true, mark: [6] },
+        { ai: 'お支払いを確認しました。ご注文番号は {id} です。発送後に追跡番号をお送りします。ありがとうございました！', zh: '已確認收到款項，訂單編號 {id}。出貨後會傳送追蹤號碼給您，謝謝！' },
+      ] },
+    { id: 's-en', channel: 'whatsapp', customer: 'Aisyah R.', lang: 'en', place: '馬來西亞・吉隆坡', color: '#2E97D4', items: en, region: '台北市信義區（飯店）', payment: '信用卡', ship: et - sum(en) ? `宅配 ${M(et - sum(en))}` : '宅配・滿額免運',
+      script: [
+        { c: `Hi! I'm from KL and visiting Taipei this weekend. Can I order 1 ${N(P0, 'en')} and 1 ${N(P1, 'en')}, delivered to my hotel in Xinyi on Saturday?`, zh: `嗨！我從吉隆坡來，這週末到台北玩。可以訂 1 個${P0.name}和 1 個${P1.name}，週六送到我在信義區的飯店嗎？`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+        { ai: `Hi Aisyah, this is ${ai}, welcome to Taipei! ${N(P0, 'en')} (${M(P0.price)}) + ${N(P1, 'en')} (${M(P1.price)}) = ${M(sum(en))}${et - sum(en) ? `, plus ${M(et - sum(en))} delivery` : ', and shipping is free over NT$1,500'}.`, zh: `Aisyah 您好，我是${ai}，歡迎來台北！${P0.name}（${M(P0.price)}）＋${P1.name}（${M(P1.price)}）＝${M(sum(en))}${et - sum(en) ? `，運費 ${M(et - sum(en))}` : '，滿 NT$1,500 免運'}。`, mark: [2], fields: ['total'] },
+        { c: tw.en1, zh: tw.ez1 },
+        { ai: tw.en2, zh: tw.ez2 },
+        { c: 'Yes please!', zh: '好的，麻煩了！', mark: [3] },
+        { ai: `Order summary: ${N(P0, 'en')} ×1, ${N(P1, 'en')} ×1, delivery to Xinyi District on Saturday, total ${M(et)}. Here is your payment link:`, zh: `訂單摘要：${P0.name} ×1、${P1.name} ×1，週六送達信義區，合計 ${M(et)}。付款連結如下：` },
+        { pay: true, mark: [4] },
+        { create: true, mark: [5] },
+        { c: 'Paid by card, thanks!', zh: '已用信用卡付款，謝謝！', paid: true, mark: [6] },
+        { ai: 'Payment received! Order {id} is confirmed. Enjoy your trip in Taipei!', zh: '已收到款項！訂單 {id} 已確認，祝您台北玩得愉快！' },
+      ] },
+    { id: 's-zh', channel: 'messenger', customer: '林小姐', lang: 'zh', place: '台灣・台中', color: '#DD5597', items: zh, region: '台中市', payment: '銀行轉帳', ship: zt - sum(zh) ? `宅配 ${M(zt - sum(zh))}` : '宅配・滿額免運',
+      script: [
+        { c: `老闆～我想訂${P0.name} 2 ${qw(P0)}、${zq.name} 1 ${qw(zq)}，寄到台中，週六前會到嗎？`, mark: [0, 1], fields: ['items', 'qty', 'region'] },
+        { ai: `林小姐您好！可以的，今天下單明天出貨，週五就會到台中。${P0.name} ×2（${M(P0.price * 2)}）＋${zq.name} ×1（${M(zq.price)}），${zt - sum(zh) ? `小計 ${M(sum(zh))}，運費 ${M(zt - sum(zh))}，` : '已達免運，'}合計 ${M(zt)}。`, mark: [2], fields: ['total'] },
+        { c: tw.zh1 },
+        { ai: `${tw.zh2}確認訂單：${P0.name} ×2、${zq.name} ×1，寄台中，合計 ${M(zt)}。付款連結如下：`, mark: [3] },
+        ...zhPay(zh, false, tw.zhEnd),
+      ] },
+  ];
+}
+// 阿美示範劇本的金額依目前售價（含節日特價）即時換算，和付款卡一致
+if (IS_AMEI) {
+  const P = (id) => PRODUCT_MAP[id].price, F = (v) => `NT$${Math.round(v).toLocaleString('en-US')}`;
+  const AMT = {
+    '1,440': P('pineapple') * 3, '1,890': P('pineapple') * 3 + 450,
+    '1,160': P('roll') * 2, '680': P('basque'), '1,840': P('roll') * 2 + P('basque'),
+    '520': P('cookie'), '1,040': P('cookie') * 2, '1,190': P('cookie') * 2 + 150,
+    '840': P('lemon') * 2, '360': P('pound'), '1,200': P('lemon') * 2 + P('pound'), '1,350': P('lemon') * 2 + P('pound') + 150,
+  };
+  const re = new RegExp('NT\\$(' + Object.keys(AMT).join('|') + ')(?!\\d|,\\d)', 'g');
+  const fix = (t) => typeof t === 'string' ? t.replace(re, (_, k) => F(AMT[k])) : t;
+  for (const sc of AMEI_SCENARIOS) for (const m of sc.script || []) { for (const k of ['ai', 'zh', 'c', 'text']) if (m[k]) m[k] = fix(m[k]); }
+}
+const SCENARIOS = IS_AMEI ? AMEI_SCENARIOS : genericScenarios();
+const SIM_HINT = '依序播放：' + SCENARIOS.map(s => s.place.split('・')[0] === '台灣' ? '台灣客人' : (s.place.split('・')[0] + '客人')).join(' → ');
+
 let root, threads = [], active = null, playing = false;
 
 export default {
@@ -82,7 +322,7 @@ export default {
         <div class="inbox-tabs"><span class="on">全部</span><span>${chIcon('line', 16)}</span><span>${chIcon('whatsapp', 16)}</span><span>${chIcon('zalo', 16)}</span><span>${chIcon('messenger', 16)}</span><span>${chIcon('web', 16)}</span></div>
         <ul class="threads" id="threads"></ul>
         <button class="btn btn-primary sim-btn" id="simBtn">${icon('play', 16)} 模擬客人訊息</button>
-        <small class="sim-hint" id="simHint">依序播放：日本 → 馬來西亞 → 越南 → 台灣客人</small>
+        <small class="sim-hint" id="simHint">${IS_AMEI ? '依序播放：日本 → 馬來西亞 → 越南 → 台灣客人' : SIM_HINT}</small>
       </div>
       <div class="glass convo anim-in">
         <div class="convo-h" id="convoH"></div>
@@ -163,7 +403,7 @@ function bubble(m, t) {
 }
 
 function renderExtract(t) {
-  const items = t.items.map(it => `${PRODUCT_MAP[it.pid].name} × ${it.qty}`).join('<br>');
+  const items = t.items.map(it => `${esc(PRODUCT_MAP[it.pid]?.name || it.pid)} × ${it.qty}`).join('<br>');
   const total = t.order ? t.order.total : null;
   const rows = [
     ['customer', '客人', `${esc(t.customer)}（${LANG_LABEL[t.lang]}）`, true],
@@ -177,11 +417,7 @@ function renderExtract(t) {
   $('#exFields', root).innerHTML = rows.map(([k, l, v, always]) => `<div class="exf ${always || t.fieldsShown.has(k) || (t.order && ['status', 'invoice'].includes(k)) ? 'on' : ''}" data-k="${k}"><span>${l}</span><div>${v}</div></div>`).join('');
   $$('#pipe li', root).forEach(li => li.classList.toggle('done', t.steps.has(+li.dataset.i)));
 }
-function estTotal(t) {
-  const sub = t.items.reduce((s, it) => s + PRODUCT_MAP[it.pid].price * it.qty, 0);
-  const ship = t.region.includes('日本') ? 450 : sub >= 1500 ? 0 : 150;
-  return money(sub + ship);
-}
+function estTotal(t) { return money(estTotalNum(t)); }
 
 function updateSimBtn() {
   const next = threads.find(t => !t.played && t.script.length);
@@ -215,7 +451,7 @@ async function playNext() {
     if (step.pay) { const m = { pay: true, total: estTotalNum(t) }; t.msgs.push(m); appendMsg(bubble(m, t), 'ai'); }
     if (step.create) {
       await sleep(500);
-      t.order = store.createOrder({ channel: t.channel, customer: t.customer, lang: t.lang, items: t.items, payment: t.payment, status: 'pending', region: t.region,
+      t.order = store.createOrder({ channel: t.channel, customer: t.customer, lang: t.lang, items: t.items, payment: t.payment, status: 'pending', region: t.region, pickup: !!t.pickup,
         conv: t.msgs.filter(m => m.c || m.ai).map(m => ({ from: m.c ? 'c' : 'ai', text: m.c || m.ai, zh: m.zh })) });
       const m = { sys: `訂單 ${t.order.id} 已建立・電子發票 ${t.order.invoice}・同步至 POS／會計／庫存` }; t.msgs.push(m); appendMsg(bubble(m, t), 'sys');
     }
@@ -234,7 +470,7 @@ async function playNext() {
   }
   playing = false; updateSimBtn(); renderThreads();
 }
-function estTotalNum(t) { const sub = t.items.reduce((s, it) => s + PRODUCT_MAP[it.pid].price * it.qty, 0); return sub + (t.region.includes('日本') ? 450 : sub >= 1500 ? 0 : 150); }
+function estTotalNum(t) { const sub = t.items.reduce((s, it) => s + (PRODUCT_MAP[it.pid]?.price || it.price || 0) * it.qty, 0); return sub + (t.pickup ? 0 : t.region.includes('日本') ? 450 : sub >= FREE_SHIP ? 0 : SHIPPING_FEE); }
 
 function appendMsg(node, who) {
   const box = $('#msgs', root);

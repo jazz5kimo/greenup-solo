@@ -2,6 +2,7 @@
 // 所有金額皆為模擬資料，費率依 115 年（2026）公告值簡化，僅供示範。
 import { store } from './state.js';
 import { PRODUCT_MAP, CHANNELS, PRODUCTS } from './data.js';
+import { TENANT } from './tenant.js';
 
 export const FIVE = [
   { id: 'prod', k: '產', name: '生產管理', desc: '原料進貨、包材、製造費用、存貨', color: '#2DB674', icon: 'factory' },
@@ -19,12 +20,8 @@ export const RATES = {
   pension: 0.06, nhiSupp: 0.0211, rentWithhold: 0.10, minWage: 29500, minHourly: 196,
 };
 
-// 人員（阿美手作甜點：負責人＋1 名全職＋1 名兼職）
-export const STAFF = [
-  { name: '阿美', title: '負責人（董事酬勞）', kind: 'owner', pay: 60000 },
-  { name: '小芸', title: '烘焙助理・全職', kind: 'full', pay: 33000, level: 33300 },
-  { name: '小傑', title: '包裝出貨・兼職', kind: 'part', pay: 17600, level: 17880, hours: 88, hourly: 200 },
-];
+// 人員：依目前業主（tenant.js PROFILES）
+export const STAFF = TENANT.staff;
 export function payrollRow(s) {
   if (s.kind === 'owner') return { ...s, labor: 0, health: 0, pension: 0, employer: 0, withhold: 0, cost: s.pay, emp: { labor: 0, health: 0 }, note: '負責人以雇主身分自行投保；未達起扣標準免扣繳' };
   const labor = Math.round(s.level * RATES.laborIns * RATES.laborEmployer + s.level * RATES.occ);
@@ -37,7 +34,7 @@ export const PAYROLL = () => STAFF.map(payrollRow);
 
 // 每月固定費用範本：[五管, 會計科目, 摘要, 對象, 未稅金額, 憑證, 日, 損益分類]
 // 損益分類：mfg 製造費用（併入營業成本）、sell 推銷費用、admin 管理費用、rd 研究發展費用
-const FIXED = [
+const AMEI_FIXED = [
   ['prod', '水電瓦斯費', '烤箱、冷藏設備水電瓦斯', '台電／自來水／欣欣瓦斯', 7430, '電子發票', 6, 'mfg'],
   ['prod', '折舊', '烘焙設備折舊（成本 18 萬，耐用 5 年）', '系統自動提列', 3000, '內部憑證', 28, 'mfg'],
   ['prod', '清潔消毒費', '廚房清潔與病媒防治', '淨美環境衛生', 1140, '電子發票', 12, 'mfg'],
@@ -52,19 +49,71 @@ const FIXED = [
   ['fin', '交際費', '客戶伴手禮', '自家商品領用', 1800, '內部憑證', 18, 'admin'],
   ['fin', '雜項費用', '文具與辦公耗材', '誠品文具', 648, '電子發票', 21, 'admin'],
   ['fin', '手續費', '跨行匯款手續費', '玉山銀行', 210, '銀行單據', 25, 'admin'],
+  // 以下為一人公司常見的其他固定費用
+  ['prod', '清潔費', '商業垃圾清運', '清運公司（示範）', 800, '電子發票', 10, 'mfg'],
+  ['prod', '修繕費', '烤箱、冷藏設備保養維修', '設備維修行（示範）', 1500, '電子發票', 15, 'mfg'],
+  ['sales', '佣金支出', '線上賣場成交手續費（示範）', '電商平台', 2600, '電子發票', 27, 'sell'],
+  ['sales', '交通費', '送貨油資（機車、小貨車）', '加油站', 2400, '電子發票', 20, 'sell'],
+  ['sales', '交通費', '送貨停車費', '停車場', 600, '收據', 20, 'sell'],
+  ['sales', '郵電費', '郵資與包裹寄件', '中華郵政', 480, '收據', 8, 'sell'],
+  ['fin', '租金支出', 'POS 刷卡機月租', '綠界科技（示範）', 500, '電子發票', 1, 'admin'],
+  ['fin', '租金支出', '倉儲租金（迷你倉）', '迷你倉（示範）', 3500, '電子發票', 1, 'admin'],
+  ['fin', '管理費', '大樓管理費', '管理委員會', 1800, '收據', 5, 'admin'],
+  ['fin', '記帳及申報費', '記帳士月費（記帳、營業稅申報）', '林雅婷記帳士事務所（示範）', 2500, '電子發票', 10, 'admin'],
+  ['fin', '軟體訂閱費', '網域與雲端主機', '網域主機商（示範）', 400, '電子發票', 1, 'admin'],
+  ['fin', '稅捐', '小貨車牌照稅與燃料費（月攤）', '監理所', 1100, '繳款單', 28, 'admin'],
+  ['hr', '伙食費', '員工伙食費（小芸、小傑；免稅額度內，以主管機關公告為準）', '自家供餐', 4500, '內部憑證', 28, 'admin'],
+  ['hr', '保險費－勞健保', '負責人勞健保（雇主身分投保；示範，以勞保局、健保署公告為準）', '勞保局／健保署', 6090, '繳款單', 28, 'admin'],
 ];
+// 其他業主：依業主設定產生同一套固定費用科目（金額與對象不同）
+function tenantFixed(f) {
+  const emps = STAFF.filter(x => x.kind !== 'owner'), owner = STAFF.find(x => x.kind === 'owner');
+  const isFood = ['food', 'drink', 'dessert'].includes(TENANT.cat), isService = TENANT.cat === 'service';
+  return [
+    ['prod', '水電瓦斯費', '營業場所水電瓦斯', '台電／自來水公司', f.utility, '電子發票', 6, 'mfg'],
+    ['prod', '折舊', `${f.equip}折舊`, '系統自動提列', f.depreciation, '內部憑證', 28, 'mfg'],
+    ['sales', '廣告費', 'Instagram／Facebook 廣告', 'Meta Platforms', Math.round(f.ads * 0.65), '電子發票', 3, 'sell'],
+    ['sales', '廣告費', '關鍵字廣告', 'Google Asia Pacific', Math.round(f.ads * 0.35), '電子發票', 3, 'sell'],
+    ['sales', '通訊費', 'LINE 官方帳號訊息方案', 'LINE 台灣', 1140, '電子發票', 1, 'sell'],
+    ['fin', '租金支出', '營業場所租金（個人房東，扣繳 10%）', '房東（示範）', f.rent, '租賃契約＋扣繳', 1, 'admin'],
+    ['fin', '通訊費', '光纖網路與門號', '電信公司（示範）', 1332, '電子發票', 5, 'admin'],
+    ['fin', '軟體訂閱費', 'GreenUP 一人公司版月費', '綠奧智慧有限公司', 1038, '電子發票', 1, 'admin'],
+    ['fin', '保險費', '公共意外責任險與火險（月攤）', '產險公司（示範）', 1100, '電子發票', 1, 'admin'],
+    ['fin', '雜項費用', '文具與辦公耗材', '文具店（示範）', 560, '電子發票', 21, 'admin'],
+    ['fin', '手續費', '跨行匯款手續費', '往來銀行', 180, '銀行單據', 25, 'admin'],
+    // 以下為一人公司常見的其他固定費用（金額依業主規模推估，示範）
+    ['prod', '修繕費', `${f.equip}保養維修`, '設備維修行（示範）', Math.max(400, Math.round(f.depreciation * 0.4 / 100) * 100), '電子發票', 15, 'mfg'],
+    ...(isFood ? [['prod', '清潔費', '商業垃圾清運', '清運公司（示範）', 800, '電子發票', 10, 'mfg']] : []),
+    ...(isService
+      ? [['sales', '佣金支出', '預約平台手續費（示範）', '預約平台', Math.max(600, Math.round(f.ads * 0.2 / 100) * 100), '電子發票', 27, 'sell']]
+      : [['sales', '佣金支出', '線上賣場成交手續費（示範）', '電商平台', Math.max(600, Math.round(f.ads * 0.25 / 100) * 100), '電子發票', 27, 'sell'],
+        ['sales', '交通費', '送貨油資', '加油站', Math.max(800, Math.round(f.ads * 0.2 / 100) * 100), '電子發票', 20, 'sell'],
+        ['sales', '郵電費', '郵資與包裹寄件', '中華郵政', 400, '收據', 8, 'sell']]),
+    ['fin', '租金支出', 'POS 刷卡機月租', '金流公司（示範）', 500, '電子發票', 1, 'admin'],
+    ['fin', '管理費', '大樓管理費', '管理委員會', Math.max(500, Math.round(f.rent * 0.07 / 100) * 100), '收據', 5, 'admin'],
+    ['fin', '記帳及申報費', '記帳士月費（記帳、營業稅申報）', '記帳士事務所（示範）', 2000, '電子發票', 10, 'admin'],
+    ['fin', '軟體訂閱費', '網域與雲端主機', '網域主機商（示範）', 400, '電子發票', 1, 'admin'],
+    ['fin', '稅捐', '營業用車牌照稅與燃料費（月攤）', '監理所', 900, '繳款單', 28, 'admin'],
+    ...(emps.length ? [['hr', '伙食費', `員工伙食費（${emps.map(e => e.name).join('、')}；免稅額度內，以主管機關公告為準）`, '自家供餐', emps.reduce((a, e) => a + (e.kind === 'full' ? 3000 : 1500), 0), '內部憑證', 28, 'admin']] : []),
+    ...(owner ? [['hr', '保險費－勞健保', `負責人勞健保（雇主身分投保；示範，以勞保局、健保署公告為準）`, '勞保局／健保署', Math.round(owner.pay * 0.1 / 10) * 10, '繳款單', 28, 'admin']] : []),
+  ];
+}
+const FIXED = TENANT.fixed ? tenantFixed(TENANT.fixed) : AMEI_FIXED;
 // 研發費用（依月份不同）
-const RD = {
+const AMEI_RD = {
   7: [['新品試作材料', '柚子乳酪塔配方試作 2 回', '自家採購', 2860, '電子發票', 16], ['訓練費', '法式甜點進修課程', '好食烘焙教室', 4570, '電子發票', 22]],
   8: [['新品試作材料', '減糖烏龍磅蛋糕配方 3 回', '自家採購', 3620, '電子發票', 9], ['訓練費', '食品標示法規線上課', '食品工業發展研究所', 2400, '收據', 19], ['設計費', '中秋禮盒包裝打樣', '綠紙包裝設計', 6190, '電子發票', 26]],
   9: [['新品試作材料', '柚子乳酪塔量產前試作', '自家採購', 5240, '電子發票', 4], ['檢驗費', '營養標示與保存期限檢驗', 'SGS 台灣檢驗科技', 6500, '電子發票', 11], ['設計費', '新品包裝與品牌插畫', '自由接案設計師（扣繳 10%）', 12000, '勞務報酬單', 23]],
   10: [['新品試作材料', '聖誕限定口味試作', '自家採購', 1860, '電子發票', 3]],
 };
-export const RD_PROJECTS = [
+const RD = TENANT.rd ? new Proxy({}, { get: () => TENANT.rd }) : AMEI_RD;
+const AMEI_RD_PROJECTS = [
   { name: '柚子乳酪塔', stage: '量產前試作', pct: 82, color: '#F4D35E', note: '已完成營養標示檢驗，預計 11 月上架' },
   { name: '減糖烏龍磅蛋糕', stage: '口味測試', pct: 55, color: '#C9935A', note: '糖量降 30%，AI 彙整 42 則顧客回饋' },
   { name: '聖誕限定禮盒', stage: '配方開發', pct: 24, color: '#EC6A55', note: '包裝設計已委外，預計 12 月預購' },
 ];
+
+export const RD_PROJECTS = TENANT.rd ? TENANT.rd.map(([, item], k) => ({ name: item, stage: ['進行中', '測試中', '規劃中'][k % 3], pct: [68, 40, 20][k % 3], color: ['#2DB674', '#F0A531', '#7C62E6'][k % 3], note: '示範研發專案' })) : AMEI_RD_PROJECTS;
 
 const MATERIAL_ACCT = { '日本麵粉、砂糖': '原料', '發酵奶油、鮮奶油': '原料', '當季水果（草莓、檸檬）': '原料', '芋頭、茶葉、堅果': '原料', '禮盒包材、提袋': '包裝材料', '冷藏宅配運費': '運費' };
 
@@ -113,7 +162,7 @@ export function month(y, m) {
   for (const [d, v] of Object.entries(days)) entries.push({ ts: v.ts, type: 'in', five: 'sales', acct: '銷貨收入', item: `全通路銷貨（電子發票 ${v.n} 張）`, vendor: '門市＋LINE＋官網＋電話等', net: v.net, tax: v.tax, doc: '電子發票', pl: 'rev', conf: 100 });
   // 產：進貨
   for (const p of store.purchases.filter(x => x.ts >= +start && x.ts < +end)) {
-    const acct = MATERIAL_ACCT[p.item] || '進貨';
+    const acct = MATERIAL_ACCT[p.item] || (/運費|物流|配送/.test(p.item) ? '運費' : /包|袋|盒|瓶|標籤|材料行/.test(p.item + p.vendor) ? '包裝材料' : '原料');
     const five = acct === '運費' ? 'sales' : 'prod';
     entries.push({ ts: p.ts, type: 'out', five, acct: acct === '運費' ? '運費' : `進貨－${acct}`, item: p.item, vendor: p.vendor, net: p.net, tax: p.tax, doc: `電子發票 ${p.invoice}`, pl: acct === '運費' ? 'sell' : 'inv', conf: 97 + (p.net % 3) });
   }
@@ -217,11 +266,14 @@ export function annualEstimate() {
 
 // 扣繳與二代健保（月）
 export function withholdings(d) {
+  const rent = TENANT.fixed?.rent || 25000;
+  const owner = STAFF.find(x => x.kind === 'owner');
+  const emps = STAFF.filter(x => x.kind !== 'owner');
   const rows = [
-    { item: '店面租金', who: '房東 王＊＊（個人）', base: 25000, rate: '扣繳 10%', tax: 2500, nhi: r0(25000 * RATES.nhiSupp), due: '次月 10 日前', form: '租賃所得扣繳憑單（51）' },
-    { item: '董事酬勞', who: '阿美（負責人）', base: 60000, rate: '未達起扣標準', tax: 0, nhi: 0, due: '—', form: '薪資扣繳憑單（50）免扣繳' },
-    { item: '員工薪資', who: '小芸、小傑', base: 33000 + 17600, rate: '未達起扣標準', tax: 0, nhi: 0, due: '—', form: '薪資扣繳憑單（50）免扣繳' },
+    { item: '店面租金', who: TENANT.fixed ? '房東（個人・示範）' : '房東 王＊＊（個人）', base: rent, rate: '扣繳 10%', tax: r0(rent * RATES.rentWithhold), nhi: r0(rent * RATES.nhiSupp), due: '次月 10 日前', form: '租賃所得扣繳憑單（51）' },
   ];
+  if (owner) rows.push({ item: '董事酬勞', who: `${owner.name}（負責人）`, base: owner.pay, rate: '未達起扣標準', tax: 0, nhi: 0, due: '—', form: '薪資扣繳憑單（50）免扣繳' });
+  if (emps.length) rows.push({ item: '員工薪資', who: emps.map(x => x.name).join('、'), base: emps.reduce((a, x) => a + x.pay, 0), rate: '未達起扣標準', tax: 0, nhi: 0, due: '—', form: '薪資扣繳憑單（50）免扣繳' });
   if (d.m === 9) rows.push({ item: '設計勞務報酬', who: '自由接案設計師（個人）', base: 12000, rate: '扣繳 10%', tax: 1200, nhi: r0(12000 * RATES.nhiSupp), due: '10/10 前', form: '執行業務所得扣繳憑單（9A）' });
   if (d.m === 9) rows[rows.length - 1].nhi = 0; // 單次未達 2 萬免扣補充保費
   return rows;
@@ -244,4 +296,19 @@ export function taxCalendar(year = new Date().getFullYear()) {
     { d: D(11, 15), t: '營業稅 9–10 月申報', k: 'vat' },
     { d: D(12, 10), t: '11 月扣繳稅款與補充保費繳納', k: 'wh' },
   ];
+}
+
+// 本期營業稅（雙月）：401、總覽、老闆的錢共用同一套計算
+// 銷項＝本期訂單稅額；進項＝本期所有附發票的進貨與費用（可扣抵）
+export function vatPeriod(now = new Date()) {
+  const y = now.getFullYear(), m = now.getMonth() + 1;
+  const sm = m % 2 === 1 ? m : m - 1;
+  const start = new Date(y, sm - 1, 1), end = new Date(y, sm + 1, 1);
+  const deadline = new Date(y, sm + 1, 15, 23, 59, 59);
+  const months = [month(y, sm)].concat(m > sm ? [month(y, sm + 1)] : []);
+  const sales = store.ordersBetween(start, end);
+  const ins = months.flatMap(d => d.entries.filter(e => e.type === 'out' && e.tax > 0)).sort((a, b) => a.ts - b.ts);
+  const outTax = store.sum(sales, 'tax'), salesNet = store.sum(sales, 'net');
+  const inTax = ins.reduce((s, e) => s + e.tax, 0), buyNet = ins.reduce((s, e) => s + e.net, 0);
+  return { start, end, deadline, idx: (sm + 1) / 2, label: `${sm}–${sm + 1} 月`, roc: y - 1911, sales, ins, outTax, salesNet, inTax, buyNet, payable: Math.max(0, outTax - inTax) };
 }

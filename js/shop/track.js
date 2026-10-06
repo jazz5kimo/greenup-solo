@@ -1,5 +1,8 @@
 // 銷售網頁：訂單查詢（物流追蹤）與 LINE 會員加入（示範）
 import { store } from '../state.js';
+import { TENANT_ID } from '../tenant.js';
+// 非甜點業主：第二步改用通用說法
+const PREP = { zh: '備貨製作中', en: 'Preparing', ja: '準備中', vi: 'Đang chuẩn bị', ms: 'Sedang disediakan' };
 import { $, $$, el, gsap, esc, money, fmtDT, toast } from '../util.js';
 
 const T = {
@@ -21,7 +24,8 @@ function stage(o) {
 }
 
 function timeline(o) {
-  const st = stage(o), steps = o.pickup ? tt('pickSteps') : tt('steps');
+  const st = stage(o), steps = (o.pickup ? tt('pickSteps') : tt('steps')).slice();
+  if (TENANT_ID !== 'amei') steps[1] = PREP[shopRef.lang] || PREP.en;
   const eta = new Date(o.ts + (o.pickup ? 1 : 2) * 864e5);
   return `<div class="tr-card">
     <div class="tr-h"><b class="mono">${esc(o.id)}</b><span>${fmtDT(o.ts)}</span><b>${money(o.total)}</b></div>

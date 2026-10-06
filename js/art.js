@@ -1,7 +1,10 @@
 // 商品插畫（純 SVG，離線可用；無任何外部圖片）
+import { TENANT } from './tenant.js';
+import { merchantArt } from './merchant-art.js';
 let uid = 0;
 
 export function productArt(id, size = 120, { bg = true } = {}) {
+  if (!ART[id]) { const tp = (TENANT.products || []).find(x => x.id === id); if (tp) return merchantArt(tp, size, { bg }); }
   const u = 'a' + (++uid);
   const body = ART[id] ? ART[id](u) : '';
   return `<svg class="art" width="${size}" height="${size}" viewBox="0 0 120 120" aria-hidden="true">${body.replace(/BG/, bg ? '' : 'display:none')}</svg>`;

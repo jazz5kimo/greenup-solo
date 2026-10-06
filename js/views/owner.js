@@ -4,8 +4,10 @@ import { $, $$, el, gsap, esc, money, countUp, typeText, toast, fmtMD, fmtTime, 
 import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { CHANNEL_MAP } from '../data.js';
+import { TENANT_ID } from '../tenant.js';
+const TENANT_IS_AMEI = TENANT_ID === 'amei';
 import {
-  snapshot, reserveAccount, profitPool, payScenario, runwayProject, ADVANCES, FLAGS, GOALS,
+  snapshot, reserveAccount, profitPool, payScenario, runwayProject, ADVANCES, FLAGS, GOALS, OWNER_NAME, EQUIP_NAME, COMMITMENTS,
 } from '../owner-data.js';
 
 let root, snap, res, payChart, runChart, typed = false, shown = false;
@@ -405,13 +407,13 @@ function renderRun() {
   const low = rw.minV;
   let cls = 'ok', msg;
   if (rw.negAt) { cls = 'bad'; msg = `此情境下現金約在 <b>${rw.negAt.label}</b> 見底（第 ${rw.negAt.k} 個月），需要先準備週轉或調整支出。`; }
-  else if (low < safeLine) { cls = 'warn'; msg = `12 個月內不會見底，但最低點 <b>${wan(low)}</b>（${rw.minAt}）會跌破 3 個月安全水位 ${wan(safeLine)}，主因是禮盒預購與 5 月營所稅。`; }
+  else if (low < safeLine) { cls = 'warn'; msg = `12 個月內不會見底，但最低點 <b>${wan(low)}</b>（${rw.minAt}）會跌破 3 個月安全水位 ${wan(safeLine)}，主因是${TENANT_IS_AMEI ? '禮盒預購' : COMMITMENTS[0].name.replace(/預購|預付|備貨/g, '') + '預購'}與 5 月營所稅。`; }
   else if (rw.minAt === '今天') msg = `12 個月內現金都在安全水位以上，且一路往上；最低就是今天的 <b>${wan(low)}</b>。`;
   else msg = `12 個月內現金都在安全水位以上，最低點 <b>${wan(low)}</b> 出現在 ${rw.minAt}。`;
   $('#owVerdict', root).className = `ow-run-verdict ${cls}`;
   $('#owVerdict', root).innerHTML = `${icon(cls === 'ok' ? 'check' : 'alert', 16)}<span>${msg}</span>`;
   const col = cls === 'bad' ? '#EC6A55' : cls === 'warn' ? '#F0A531' : '#2DB674';
-  const evPts = rw.pts.map((p, i) => p.ev.filter(e => e[1] >= 100000).length ? { coord: [i, p.v], value: p.ev.filter(e => e[1] >= 100000).map(e => e[0].replace(/（.*/, '').replace('年節禮盒原料＋包材預購', '禮盒預購')).join('、') } : null).filter(Boolean);
+  const evPts = rw.pts.map((p, i) => p.ev.filter(e => e[1] >= 100000).length ? { coord: [i, p.v], value: p.ev.filter(e => e[1] >= 100000).map(e => e[0].replace(/（.*/, '').replace('年節禮盒原料＋包材預購', '禮盒預購').replace(COMMITMENTS[0].name, '年節預購')).join('、') } : null).filter(Boolean);
   runChart && runChart.setOption({
     animationDuration: 700,
     grid: { left: 8, right: 16, top: 40, bottom: 4, containLabel: true },
@@ -471,7 +473,7 @@ function onFlag(e) {
   const f = FLAGS.find(x => x.id === id);
   if (b.dataset.act === 'priv') {
     S.privateIds.add(id); S.cleared.delete(id);
-    toast(`已轉列老闆預支｜${f.vendor}`, `傳票：借 業主往來－阿美 ${n0(f.amt)}／貸 ${f.acct} ${n0(f.amt)}；本月可安心領減少 ${money(f.amt)}`, { kind: 'warn', icon: icon('user', 18) });
+    toast(`已轉列老闆預支｜${f.vendor}`, `傳票：借 業主往來－${OWNER_NAME} ${n0(f.amt)}／貸 ${f.acct} ${n0(f.amt)}；本月可安心領減少 ${money(f.amt)}`, { kind: 'warn', icon: icon('user', 18) });
     store.log('bank', `公私分明：${f.vendor} ${money(f.amt)} 轉列業主往來（老闆預支）`);
   } else if (b.dataset.act === 'biz') {
     S.cleared.add(id); S.privateIds.delete(id);
@@ -492,8 +494,8 @@ async function onRepay() {
   const jv = $('#owJv', root);
   jv.hidden = false;
   jv.innerHTML = `<div class="ow-jv-h"><b>${icon('file', 15)} 傳票 ${no}</b><span class="st paid">已建立・待你確認轉帳</span></div>
-    <table class="ow-jv-t"><tr><td>借</td><td>應付股東－阿美（業主往來）</td><td class="r">${n0(amt)}</td></tr><tr><td>貸</td><td>銀行存款－玉山營運帳戶</td><td class="r">${n0(amt)}</td></tr></table>
-    <small>摘要：償還老闆代墊 ${sel.length} 筆（${sel.map(a => `${a.date[0]}/${a.date[1]} ${a.item}`).join('、')}）。轉帳草稿：今日 15:30 轉入阿美個人帳戶（示範，不會真的轉帳）。</small>`;
+    <table class="ow-jv-t"><tr><td>借</td><td>應付股東－${esc(OWNER_NAME)}（業主往來）</td><td class="r">${n0(amt)}</td></tr><tr><td>貸</td><td>銀行存款－玉山營運帳戶</td><td class="r">${n0(amt)}</td></tr></table>
+    <small>摘要：償還老闆代墊 ${sel.length} 筆（${sel.map(a => `${a.date[0]}/${a.date[1]} ${a.item}`).join('、')}）。轉帳草稿：今日 15:30 轉入${esc(OWNER_NAME)}個人帳戶（示範，不會真的轉帳）。</small>`;
   gsap.fromTo(jv, { opacity: 0, y: 12, scale: 0.98 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'back.out(1.6)' });
   toast('老闆代墊還款已建立', `${sel.length} 筆共 ${money(amt)}，傳票 ${no}；帳上現金與應付股東同步減少，可安心領金額不變`, { icon: icon('check', 18) });
   store.log('pay', `建立老闆代墊還款 ${money(amt)}（傳票 ${no}）`);
@@ -518,7 +520,7 @@ function renderGoals(anim) {
       note: `目前以「${S.safetyMonths} 個月安全金」圈存在營運帳戶${emSaved >= emTarget ? '，已達標' : `；還差 ${wan(emTarget - emSaved)}，可把上方安全金改成 6 個月`}`,
       act: emSaved >= emTarget ? '' : `<button class="btn btn-sm btn-ghost" data-act="em6">${icon('shield', 14)} 安全金改為 6 個月</button>` },
     { id: 'ov', name: ov.name, ic: 'factory', c: '#F0A531', target: ov.target, saved: ovSaved,
-      sub: `${ov.due[0]}/${ov.due[1]} 汰換旋風烤箱・還有 ${left} 個月`,
+      sub: `${ov.due[0]}/${ov.due[1]} 汰換${EQUIP_NAME}・還有 ${left} 個月`,
       note: `${ov.note}。每月自動提撥 ${money(ov.monthly)}，${eta <= left ? `預計 ${etaD.getFullYear()}/${etaD.getMonth() + 1} 存滿，來得及` : `照目前速度要到 ${etaD.getFullYear()}/${etaD.getMonth() + 1}，需每月 ${money(need)} 才來得及`}`,
       act: `<button class="btn btn-sm btn-primary" data-act="ov5k">${icon('plus', 14)} 本月加碼 NT$ 5,000</button>` },
     { id: 'bn', name: GOALS.bonus.name, ic: 'users', c: '#DD5597', target: GOALS.bonus.target, saved: S.bonusNow ? GOALS.bonus.monthly : 0,
@@ -542,13 +544,13 @@ function onGoal(e) {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   if (b.dataset.act === 'ov5k') {
     S.extraGoal += 5000;
-    toast('已加碼烤箱汰換基金 NT$ 5,000', `基金累積 ${money(GOALS.oven.saved + S.extraGoal)}；本月可安心領同步減少 5,000`, { icon: icon('leaf', 18) });
+    toast(`已加碼${GOALS.oven.name} NT$ 5,000`, `基金累積 ${money(GOALS.oven.saved + S.extraGoal)}；本月可安心領同步減少 5,000`, { icon: icon('leaf', 18) });
     refresh(false, true);
     const bar = $('.ow-g[style*="F0A531"] .ow-g-bar i', root);
     bar && gsap.fromTo(bar, { filter: 'brightness(1.8)' }, { filter: 'brightness(1)', duration: 1 });
   } else if (b.dataset.act === 'bonus') {
     S.bonusNow = true;
-    toast('員工年終獎金開始提撥', `本月先存 ${money(GOALS.bonus.monthly)}，可安心領同步減少`, { icon: icon('users', 18) });
+    toast(`${GOALS.bonus.name}開始提撥`, `本月先存 ${money(GOALS.bonus.monthly)}，可安心領同步減少`, { icon: icon('users', 18) });
     refresh(false, true);
   } else if (b.dataset.act === 'em6') {
     $$('#owSafeSeg .seg', root).find(x => x.dataset.n === '6')?.click();

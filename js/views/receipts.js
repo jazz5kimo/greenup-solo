@@ -4,6 +4,10 @@ import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { mulberry32 } from '../data.js';
 import { FIVE } from '../ledger.js';
+import { RC } from '../receipts-data.js';
+import { IS_AMEI } from '../inventory-data.js';
+const SHOP = IS_AMEI ? '阿美手作甜點' : RC.shop;
+const MAILBOX = IS_AMEI ? 'bills@阿美手作甜點.greenup.ai' : `bills@${RC.slug}.greenup.ai`;
 import {
   BUYER_ID, MIN_PER_DOC, USD_RATE, ACCOUNTS, ACC, fiveOf, PAY, PAY_MAP, DOC, SRC, TODAY,
   SAMPLES, uploadResult, seedList, carrierList, MISSING, deduct, personalCheck, bookAmt, isWeekend, roc,
@@ -82,11 +86,11 @@ function paperHTML(s) {
     return `<div class="rc-paper rc-ph">
       <div class="rc-ph-title">收　據</div>
       <div class="rc-ph-no">No. 0027<em>16</em></div>
-      <div class="rc-ph-l">茲收到<i>阿美手作甜點</i></div>
-      <div class="rc-ph-l" data-f="items">購　買<i>草莓 6 盒、檸檬 3 斤</i></div>
+      <div class="rc-ph-l">茲收到<i>${esc(SHOP)}</i></div>
+      <div class="rc-ph-l" data-f="items">購　買<i>${esc(IS_AMEI ? '草莓 6 盒、檸檬 3 斤' : RC.handItems)}</i></div>
       <div class="rc-ph-l" data-f="total net">新台幣<i>壹仟捌佰元整</i><i class="n">$1,800—</i></div>
       <div class="rc-ph-l rc-ph-d" data-f="date">中華民國<i>${roc(s.date)}</i>年<i>${d.getMonth() + 1}</i>月<i>${d.getDate()}</i>日</div>
-      <div class="rc-ph-sign" data-f="seller">收款人<i>陳記水果行</i><span class="rc-seal">陳記<br>水果</span></div>
+      <div class="rc-ph-sign" data-f="seller">收款人<i>${esc(IS_AMEI ? '陳記水果行' : s.seller)}</i><span class="rc-seal">${IS_AMEI ? '陳記<br>水果' : `${esc(String(s.seller).replace('（虛構）', '').slice(0, 2))}<br>${esc(RC.hand[1].slice(0, 2))}`}</span></div>
       <div class="rc-ph-foot">本收據未載統一編號</div>
     </div>`;
   }
@@ -118,11 +122,11 @@ function paperHTML(s) {
     const py = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
     const last = new Date(py, pm, 0).getDate();
     return `<div class="rc-paper rc-pu">
-      <div class="rc-pu-h"><b data-f="seller">Uber <i>Eats</i></b><span>商家月結對帳單</span></div>
-      <div class="rc-pu-meta"><div>商家　阿美手作甜點（${BUYER_ID}）</div><div data-f="date">對帳期間 ${py}/${pad(pm)}/01 – ${pad(pm)}/${last}・開立 ${ymd(s.date)}</div></div>
+      <div class="rc-pu-h"><b data-f="seller">${IS_AMEI || !RC.plat ? 'Uber <i>Eats</i>' : esc(RC.plat.seller.replace('（虛構）', ''))}</b><span>商家月結對帳單</span></div>
+      <div class="rc-pu-meta"><div>商家　${esc(SHOP)}（${BUYER_ID}）</div><div data-f="date">對帳期間 ${py}/${pad(pm)}/01 – ${pad(pm)}/${last}・開立 ${ymd(s.date)}</div></div>
       <table class="rc-pu-t">
         <tr><td>完成訂單</td><td>${s.orders} 筆</td></tr>
-        <tr><td>餐點銷售總額</td><td>${n0(s.gross)}</td></tr>
+        <tr><td>${IS_AMEI || !RC.plat ? '餐點銷售總額' : RC.plat.gross}</td><td>${n0(s.gross)}</td></tr>
         <tr data-f="items"><td>平台服務費（30%）</td><td>−${n0(s.net)}</td></tr>
         <tr><td>服務費營業稅 5%</td><td>−${n0(s.tax)}</td></tr>
         <tr class="tot"><td>本期撥款金額</td><td>${n0(s.gross - s.total)}</td></tr>
@@ -240,7 +244,7 @@ export default {
       <div class="rc-chs">
         <div class="glass card rc-ch anim-in" style="--cc:var(--sky)">
           <div class="rc-ch-h"><span class="rc-ch-ic">${I.mail(22)}</span><div><b>轉寄電子發票 Email</b><small>Google、Meta 廣告收據、平台月結單直接轉寄</small></div><span class="demo-badge sm">示範</span></div>
-          <div class="rc-mailbox"><span class="mono" id="rcMail">bills@阿美手作甜點.greenup.ai</span><button class="icon-btn" id="rcCopy" title="複製地址">${I.copy(16)}</button></div>
+          <div class="rc-mailbox"><span class="mono" id="rcMail">${esc(MAILBOX)}</span><button class="icon-btn" id="rcCopy" title="複製地址">${I.copy(16)}</button></div>
           <ul class="rc-ch-ul"><li>在 Gmail 設定「自動轉寄」一次就好</li><li>AI 自動拆 PDF 附件、辨識、入帳</li><li>本月已收 <b>4</b> 封・全部自動入帳</li></ul>
         </div>
         <div class="glass card rc-ch anim-in" style="--cc:#06C755">
@@ -784,8 +788,10 @@ function renderMissing() {
   const now = new Date();
   const left = MISSING.filter(m => !S.sent.has(m.id)).length;
   const msg = (m) => m.id === 'rent'
-    ? `王先生您好，我是阿美手作甜點的阿美，${now.getMonth() + 1} 月店面租金 NT$25,000 已匯款，麻煩您方便時拍一張簽名收據給我，記帳要用，謝謝！`
-    : `北海乳品您好，這裡是阿美手作甜點。${MISSING[1].what.replace('統一', '')}（統編 ${BUYER_ID}）還沒收到，麻煩寄到 bills@阿美手作甜點.greenup.ai，感謝！`;
+    ? (IS_AMEI ? `王先生您好，我是阿美手作甜點的阿美，${now.getMonth() + 1} 月店面租金 NT$25,000 已匯款，麻煩您方便時拍一張簽名收據給我，記帳要用，謝謝！`
+      : `林先生您好，我是${SHOP}的${RC.owner}，${now.getMonth() + 1} 月店面租金 NT$${RC.rent.toLocaleString()} 已匯款，麻煩您方便時拍一張簽名收據給我，記帳要用，謝謝！`)
+    : (IS_AMEI ? `北海乳品您好，這裡是阿美手作甜點。${MISSING[1].what.replace('統一', '')}（統編 ${BUYER_ID}）還沒收到，麻煩寄到 bills@阿美手作甜點.greenup.ai，感謝！`
+      : `${String(MISSING[1].who).replace('（虛構）', '')}您好，這裡是${SHOP}。${MISSING[1].what.replace('統一', '')}（統編 ${BUYER_ID}）還沒收到，麻煩寄到 ${MAILBOX}，感謝！`);
   const focus = MISSING.find(m => !S.sent.has(m.id)) || MISSING[0];
   box.innerHTML = `
     <div class="card-h"><h3>${icon('bell', 18)} 月底結帳提醒</h3><span class="demo-badge">${icon('alert', 13)} 示範資料</span></div>

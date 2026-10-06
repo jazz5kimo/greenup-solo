@@ -6,7 +6,10 @@ import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { mulberry32, startOfDay, addDays } from '../data.js';
 import { STAFF } from '../ledger.js';
-import { CATS, CAT_MAP, SERVICES, EVENT_TPL, REVIEW_QUEUE, CLIENTS, PLAN_PRICE, REFERRAL_RATE, COUNTRIES, PERMS, fxSeries, ANCHOR_NOTE } from '../hub-data.js';
+import { CATS, CAT_MAP, SERVICES, EVENT_TPL, REVIEW_QUEUE, CLIENTS, PLAN_PRICE, REFERRAL_RATE, COUNTRIES, PERMS, fxSeries, ANCHOR_NOTE, DEMO_ITEM } from '../hub-data.js';
+import { TENANT } from '../tenant.js';
+const OWN = STAFF[0].name; // 負責人
+const EMPS = STAFF.filter(x => x.kind !== 'owner');
 
 // 模組內自用的 inline SVG 圖示
 const SV = (d, s = 16) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -231,7 +234,7 @@ function onCardClick(e) {
     s.on = false; s.paused = false; s.count = 0;
     renderCard(s.id, false);
     toast(`已中斷｜${s.name}`, '示範：已撤銷存取權杖，歷史資料保留於 GreenUP', { kind: 'info', icon: icon('link', 18) });
-    addAudit('阿美', `中斷串接「${s.name}」`, 'warn');
+    addAudit(OWN, `中斷串接「${s.name}」`, 'warn');
     pushEvent(s.id, true, Date.now(), ['DELETE', 'integration.revoked', `· ${s.name}`]);
   }
 }
@@ -242,7 +245,7 @@ function onCardToggle(e) {
   s.paused = !sw.checked;
   renderCard(s.id, false);
   toast(s.paused ? `已暫停同步｜${s.name}` : `已恢復同步｜${s.name}`, s.paused ? '暫停期間的事件會排入佇列，恢復後自動補送（示範）' : '佇列中的事件已補送完成（示範）', { kind: s.paused ? 'warn' : 'ok', icon: icon('refresh', 18) });
-  addAudit('阿美', `${s.paused ? '暫停' : '恢復'}「${s.name}」自動同步`);
+  addAudit(OWN, `${s.paused ? '暫停' : '恢復'}「${s.name}」自動同步`);
 }
 
 // ---------- 模擬 OAuth 授權 ----------
@@ -257,7 +260,7 @@ async function openOAuth(s) {
     <div class="hub-oa-body">
       <b>GreenUP 將取得以下權限</b>
       <ul class="hub-oa-scopes">${s.scopes.map(x => `<li><label><input type="checkbox" checked> ${esc(x)}</label></li>`).join('')}</ul>
-      <small>帳號：阿美手作甜點（示範）・可隨時於此頁中斷連線</small>
+      <small>帳號：${esc(TENANT.name)}（示範）・可隨時於此頁中斷連線</small>
     </div>
     <div class="hub-oa-prog" hidden>
       <div class="hub-oa-bar"><i></i></div>
@@ -288,7 +291,7 @@ async function openOAuth(s) {
     renderCard(s.id, true);
     net && net.pulse(s.id);
     toast(`已連線｜${s.name}`, `示範授權完成，首次同步 ${s.count} 筆資料`, { icon: icon('link', 18) });
-    addAudit('阿美', `授權串接「${s.name}」（${s.scopes.length} 項權限）`, 'ok');
+    addAudit(OWN, `授權串接「${s.name}」（${s.scopes.length} 項權限）`, 'ok');
     pushEvent(s.id, true, Date.now(), ['POST', 'integration.connected', `· ${s.name}`]);
   });
 }
@@ -705,7 +708,7 @@ function bindAcct() {
     renderCollab();
     btn.disabled = false; btn.innerHTML = `${icon('send', 15)} 寄送邀請`; inp.value = '';
     toast('邀請已寄出（示範）', `${v}・${role === 'review' ? '可審核' : '唯讀'}・${perms.length} 項權限`, { icon: I.mail(18) });
-    addAudit('阿美', `邀請 ${v} 為${role === 'review' ? '可審核' : '唯讀'}協作者`, 'ok');
+    addAudit(OWN, `邀請 ${v} 為${role === 'review' ? '可審核' : '唯讀'}協作者`, 'ok');
   });
   $('#hubQ', root).addEventListener('click', (e) => {
     const b = e.target.closest('[data-q]'); if (!b) return;
@@ -752,7 +755,7 @@ function renderQueue() {
       <div class="hub-q-meta"><span class="mono">${r.id}</span><span>${r.date}</span><span>${esc(r.acct)}</span><span>${esc(r.vendor)}</span></div>
       <p class="hub-q-why">${esc(r.why)}</p>
       <p class="hub-q-ai">${icon('sparkle', 13)} ${esc(r.ai)}</p>
-      <div class="hub-q-note" hidden><textarea rows="2" placeholder="留言給阿美（例如：請補上與會客戶名稱）"></textarea></div>
+      <div class="hub-q-note" hidden><textarea rows="2" placeholder="留言給${esc(OWN)}（例如：請補上與會客戶名稱）"></textarea></div>
       <div class="hub-q-act">
         <button class="btn btn-ghost btn-sm" data-q="note">${icon('chat', 14)} 留言</button>
         <button class="btn btn-ghost btn-sm hub-back" data-q="back">${I.undo(14)} 退回</button>
@@ -771,7 +774,7 @@ function decide(r, act, note, silent = false) {
     node.classList.add(act === 'ok' ? 'ok' : 'back');
     gsap.to(node, { x: act === 'ok' ? 60 : -60, opacity: 0, duration: 0.35, ease: 'power2.in', onComplete: () => gsap.to(node, { height: 0, paddingTop: 0, paddingBottom: 0, marginBottom: 0, borderWidth: 0, duration: 0.25, onComplete: done }) });
   } else done();
-  if (!silent) toast(act === 'ok' ? `已核准｜${r.id}` : `已退回｜${r.id}`, act === 'ok' ? `${r.acct} ${money(r.amt)}${note ? `・留言：${note}` : ''}` : `已通知阿美：${r.note}`, { kind: act === 'ok' ? 'ok' : 'warn', icon: act === 'ok' ? icon('check', 18) : I.undo(18) });
+  if (!silent) toast(act === 'ok' ? `已核准｜${r.id}` : `已退回｜${r.id}`, act === 'ok' ? `${r.acct} ${money(r.amt)}${note ? `・留言：${note}` : ''}` : `已通知${OWN}：${r.note}`, { kind: act === 'ok' ? 'ok' : 'warn', icon: act === 'ok' ? icon('check', 18) : I.undo(18) });
   addAudit('林雅婷 記帳士', `${act === 'ok' ? '核准' : '退回'}分錄 ${r.id}（${r.flag}）${r.note && act !== 'ok' ? `：${r.note}` : ''}`, act === 'ok' ? 'ok' : 'warn');
 }
 function updateAcctStats() {
@@ -801,7 +804,7 @@ function updateRing() {
   const ok = review.filter(r => r.state === 'ok').length, back = review.filter(r => r.state === 'back').length;
   $('#hubRingLg', root).innerHTML = [['已核准', ok, '#2DB674'], ['已退回', back, '#F0A531'], ['待審核', review.length - ok - back, 'rgba(214,240,226,0.4)']]
     .map(([n, v, c]) => `<li><i style="background:${c}"></i>${n}<b>${v}</b></li>`).join('') +
-    `<li class="hub-ring-note">退回的分錄會出現在阿美的待辦，補件後自動回到佇列。</li>` +
+    `<li class="hub-ring-note">退回的分錄會出現在${esc(OWN)}的待辦，補件後自動回到佇列。</li>` +
     `<li class="hub-ring-close">${icon('calendar', 14)}<span>${review.every(r => r.state !== 'pending') ? `可以結帳：AI 將產生 ${new Date().getMonth() || 12} 月結帳分錄` : '全部處理後，AI 自動執行月結'}</span></li>`;
 }
 
@@ -898,18 +901,18 @@ function fmtLocal(c, twd) {
   catch { return `${c.sym} ${v.toFixed(c.dec)}`; }
 }
 function geoCards(c) {
-  const lemon = 420;
+  const lemon = DEMO_ITEM.price;
   const t = Number(c.taxes[c.calc || 0][1].match(/\d+/)[0]);
   return {
     cur: `<div class="card-h"><h3>${icon('coins', 17)} 幣別</h3><span class="chip-sm">${c.locale}</span></div>
       <div class="hub-cur"><b class="hub-big" style="--c:${c.color}">${c.cur}</b><span class="hub-sym">${esc(c.sym)}</span></div>
       <div class="hub-kv"><span>示意匯率</span><b>${c.id === 'tw' ? '本國幣別' : `1 TWD ≈ ${c.rate} ${c.cur}`}</b></div>
-      <div class="hub-kv"><span>檸檬塔（4 入）</span><b>${fmtLocal(c, lemon)}</b></div>
+      <div class="hub-kv"><span>${esc(DEMO_ITEM.zh)}</span><b>${fmtLocal(c, lemon)}</b></div>
       <div class="hub-kv"><span>金額小數位</span><b>${c.dec ? c.dec + ' 位' : '整數'}</b></div>`,
     tax: `<div class="card-h"><h3>${icon('percent', 17)} 稅制</h3><span class="chip-sm warn">依最新公告為準</span></div>
       <div class="hub-taxes">${c.taxes.map(([n, r, d]) => `<div class="hub-tax"><b style="--c:${c.color}">${r}</b><div><span>${esc(n)}</span><small>${esc(d)}</small></div></div>`).join('')}</div>
       <p class="hub-g-note">${esc(c.taxNote)}</p>
-      <div class="hub-kv"><span>試算：檸檬塔內含稅額（${t}%）</span><b>${fmtLocal(c, lemon - lemon / (1 + t / 100))}</b></div>`,
+      <div class="hub-kv"><span>試算：${esc(DEMO_ITEM.zh.replace(/（.*$/, ''))}內含稅額（${t}%）</span><b>${fmtLocal(c, lemon - lemon / (1 + t / 100))}</b></div>`,
     einv: `<div class="card-h"><h3>${icon('receipt', 17)} 電子發票制度</h3></div>
       <div class="hub-einv"><b>${esc(c.einv.name)}</b><span>${esc(c.einv.local)}</span></div>
       <div class="hub-kv"><span>主管機關</span><b>${esc(c.einv.body)}</b></div>
@@ -1017,16 +1020,17 @@ function showGeo() {
 // ====================================================================
 // 資安與權限
 // ====================================================================
-const ROLE_COLS = [['負責人', STAFF[0].name], ['員工', `${STAFF[1].name}、${STAFF[2].name}`], ['會計師／記帳士', '林雅婷 記帳士']];
+const ROLE_COLS = [['負責人', STAFF[0].name], ['員工', STAFF.slice(1).map(x => x.name).join('、') || '（目前無員工）'], ['會計師／記帳士', '林雅婷 記帳士']];
 const perms = PERMS.map(p => [...p]);
 const PL = { full: ['完整', 'full'], view: ['唯讀', 'view'], none: ['—', 'none'] };
 const LOCKED = new Set(['管理成員與權限', '匯出客戶個資', '管理串接與 API 金鑰']);
+// 雙因素驗證名單：依 STAFF（最後一位員工尚未設定，可按「提醒設定」）
 const twofa = [
-  { name: '阿美', role: '負責人', how: '驗證器 App', on: true },
-  { name: '小芸', role: '員工', how: '簡訊驗證碼', on: true },
-  { name: '小傑', role: '員工', how: '尚未設定', on: false },
+  { name: OWN, role: '負責人', how: '驗證器 App', on: true },
+  ...EMPS.map((x, i) => i === EMPS.length - 1 ? { name: x.name, role: '員工', how: '尚未設定', on: false } : { name: x.name, role: '員工', how: '簡訊驗證碼', on: true }),
   { name: '林雅婷', role: '記帳士', how: '驗證器 App', on: true },
 ];
+const NO2FA = twofa.find(x => !x.on);
 function secHTML() {
   return `
   <div class="hub-sec-title anim-in"><h3>${icon('shield', 18)} 資安與權限</h3><span class="chip-sm">示意設定・依部署模式調整</span></div>
@@ -1067,19 +1071,20 @@ function bindSec() {
     renderRoles();
     const cell = $(`td[data-r="${r}"][data-c="${c}"] .hub-pl`, root);
     gsap.fromTo(cell, { scale: 1.4 }, { scale: 1, duration: 0.45, ease: 'back.out(3)' });
-    addAudit('阿美', `調整「${ROLE_COLS[c - 1][0]}」權限：${row[0]} → ${PL[row[c]][0] === '—' ? '無' : PL[row[c]][0]}`, 'warn');
+    addAudit(OWN, `調整「${ROLE_COLS[c - 1][0]}」權限：${row[0]} → ${PL[row[c]][0] === '—' ? '無' : PL[row[c]][0]}`, 'warn');
   });
   $('#hub2fa', root).addEventListener('change', (e) => {
     const on = e.target.checked;
     toast(on ? '已要求所有成員啟用雙因素驗證' : '已關閉強制雙因素驗證', on ? '未設定的成員下次登入時需完成設定（示範）' : '不建議關閉：帳務與申報資料屬敏感資料', { kind: on ? 'ok' : 'warn', icon: I.fp(18) });
-    addAudit('阿美', `${on ? '開啟' : '關閉'}強制雙因素驗證`, on ? 'ok' : 'warn');
+    addAudit(OWN, `${on ? '開啟' : '關閉'}強制雙因素驗證`, on ? 'ok' : 'warn');
     render2fa();
   });
   $('#hub2faList', root).addEventListener('click', (e) => {
     const b = e.target.closest('[data-remind]'); if (!b) return;
     b.disabled = true; b.textContent = '已提醒';
-    toast('已提醒小傑設定雙因素驗證', '透過 LINE 與 Email 傳送設定連結（示範）', { kind: 'info', icon: icon('bell', 18) });
-    addAudit('系統', '提醒小傑完成雙因素驗證設定');
+    const who = NO2FA ? NO2FA.name : '成員';
+    toast(`已提醒${who}設定雙因素驗證`, '透過 LINE 與 Email 傳送設定連結（示範）', { kind: 'info', icon: icon('bell', 18) });
+    addAudit('系統', `提醒${who}完成雙因素驗證設定`);
   });
 }
 function renderRoles() {
@@ -1100,8 +1105,8 @@ function seedAudit() {
     [-5.2, '林雅婷 記帳士', '登入（驗證器 App 通過）', ''],
     [-5.0, '林雅婷 記帳士', '核准分錄 JE-0930-061（員工伙食費）', 'ok'],
     [-3.6, '系統', '玉山銀行 API 權杖自動更新', ''],
-    [-2.1, '阿美', '下載 9 月損益表', ''],
-    [-1.4, '小芸', '嘗試存取帳務分錄（權限不足，已阻擋）', 'warn'],
+    [-2.1, OWN, '下載 9 月損益表', ''],
+    EMPS.length ? [-1.4, EMPS[0].name, '嘗試存取帳務分錄（權限不足，已阻擋）', 'warn'] : [-1.4, '未知裝置', '嘗試登入負責人帳號（雙因素驗證未通過，已阻擋）', 'warn'],
     [-0.4, '系統', '每日異地備份完成（2.4 GB）', 'ok'],
   ];
   for (const [h, who, what, k] of seed) audit.unshift({ ts: now + h * 3600e3, who, what, k });

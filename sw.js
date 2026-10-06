@@ -1,5 +1,5 @@
 // GreenUP 原型：離線快取（網路優先，失敗時用快取），部署新版時會自動取得最新檔案
-const CACHE = 'greenup-solo-v1';
+const CACHE = 'greenup-solo-v2';
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));

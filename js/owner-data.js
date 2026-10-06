@@ -4,18 +4,48 @@
 import { store } from './state.js';
 import { mulberry32 } from './data.js';
 import { month, monthList, position, annualEstimate, withholdings, taxCalendar, RATES, STAFF } from './ledger.js';
+import { TENANT } from './tenant.js';
+import { AMEI, BIG_BUY } from './bank-data.js';
 
 const r0 = (n) => Math.round(n);
-const OWNER = STAFF.find(s => s.kind === 'owner');
+const OWNER = STAFF.find(s => s.kind === 'owner') || STAFF[0];
+export const OWNER_NAME = OWNER.name;
+const EMPS = STAFF.filter(s => s.kind !== 'owner');
+// 設備汰換基金：阿美為旋風烤箱；其他業主依 TENANT.fixed.equip 與折舊推估
+const EQUIP = AMEI ? '旋風烤箱' : (TENANT.fixed?.equip || '營業設備');
+export const EQUIP_NAME = EQUIP;
+const depr = TENANT.fixed?.depreciation || 2000;
+const EQ_TARGET = Math.max(50000, Math.round(depr * 60 * 1.33 / 10000) * 10000);
+const EQ_MONTHLY = Math.max(1000, Math.ceil(EQ_TARGET / 40 / 500) * 500);
+// 老闆代墊情境：依業態大類（TENANT.cat）各一組
+const ADV_CAT = {
+  food: ['不鏽鋼湯勺與砧板一批', '週末市集（虛構）', '急件外送運費', '食品級手套、外帶袋補貨'],
+  drink: ['器具零件與量杯一批', '週末市集（虛構）', '急件宅配運費', '濾紙、杯蓋補貨'],
+  dessert: ['模具與擠花嘴一批', '週末市集（虛構）', '冷藏急件運費', '食品級手套、烤盤紙補貨'],
+  retail: ['展示架與標價卡一批', '週末選物市集（虛構）', '急件宅配運費', '包裝膠帶、緩衝材補貨'],
+  craft: ['工具刀片與蠟線一批', '手作市集（虛構）', '急件宅配運費', '包裝紙盒、緩衝材補貨'],
+  flower: ['花剪與保水管一批', '假日花市（虛構）', '冷藏急件配送運費', '包裝紙、緞帶補貨'],
+  service: ['工作用工具與收納盒一批', '週末體驗市集（虛構）', '急件快遞運費', '一次性耗材、消毒用品補貨'],
+  farm: ['採收籃與分級秤一批', '農夫市集（虛構）', '冷藏急件宅配運費', '紙箱、保鮮袋補貨'],
+};
 
 // ---- 已承諾支出（與「金流對帳」60 天現金流預測一致） ----
-export const COMMITMENTS = [
+export const COMMITMENTS = AMEI ? [
   { id: 'gift', name: '年節禮盒原料＋包材預購', who: '北海乳品、綠紙包裝', due: [11, 12], amt: 360000, note: '已下單，11/12 付款（金流對帳頁現金流預測同一筆）' },
   { id: 'design', name: '聖誕限定禮盒包裝設計尾款', who: '自由接案設計師', due: [11, 30], amt: 12000, note: '研發專案「聖誕限定禮盒」委外設計，交稿後支付' },
+] : [
+  { id: 'gift', name: BIG_BUY.name, who: BIG_BUY.who, due: BIG_BUY.due, amt: BIG_BUY.amt, note: `已下單，${BIG_BUY.due[0]}/${BIG_BUY.due[1]} 付款（金流對帳頁現金流預測同一筆）` },
+  { id: 'design', name: '年節檔期視覺設計尾款', who: '自由接案設計師（虛構）', due: [11, 30], amt: 8000, note: '年節檔期主視覺與包裝委外設計，交稿後支付' },
 ];
 
 // ---- 老闆代墊（應付股東／業主往來貸方） ----
-export const ADVANCES = [
+const ADV = ADV_CAT[TENANT.cat] || ADV_CAT.retail;
+export const ADVANCES = !AMEI ? [
+  { id: 'a1', date: [9, 18], item: ADV[0], vendor: `蝦皮購物（${OWNER.name}個人信用卡）`, amt: 2640, doc: '電子發票（個人手機條碼）' },
+  { id: 'a2', date: [9, 25], item: '市集攤位清潔保證金（不退部分）', vendor: `${ADV[1]}（${OWNER.name}現金）`, amt: 500, doc: '收據' },
+  { id: 'a3', date: [10, 1], item: ADV[2], vendor: `綠野物流（${OWNER.name} LINE Pay）`, amt: 1180, doc: '電子發票' },
+  { id: 'a4', date: [10, 3], item: ADV[3], vendor: `全聯福利中心（${OWNER.name}個人卡）`, amt: 868, doc: '電子發票（個人載具）' },
+] : [
   { id: 'a1', date: [9, 18], item: '蛋糕模具與擠花嘴一批', vendor: '蝦皮購物（阿美個人信用卡）', amt: 2640, doc: '電子發票（個人手機條碼）' },
   { id: 'a2', date: [9, 25], item: '市集攤位清潔保證金（不退部分）', vendor: '華山文創市集（阿美現金）', amt: 500, doc: '收據' },
   { id: 'a3', date: [10, 1], item: '冷藏急件運費', vendor: '綠野冷鏈物流（阿美 LINE Pay）', amt: 1180, doc: '電子發票' },
@@ -24,7 +54,7 @@ export const ADVANCES = [
 
 // ---- AI 偵測：可能的私人支出（公司卡／公司帳戶支付） ----
 export const FLAGS = [
-  { id: 'f1', date: [9, 14], vendor: '誠品書店', item: '小說 2 本、旅遊書 1 本', amt: 1260, conf: 86, why: '書名與烘焙營業無關，且於週日在住家附近分店消費', acct: '雜項費用' },
+  { id: 'f1', date: [9, 14], vendor: '誠品書店', item: '小說 2 本、旅遊書 1 本', amt: 1260, conf: 86, why: `書名與${AMEI ? '烘焙' : TENANT.typeName}營業無關，且於週日在住家附近分店消費`, acct: '雜項費用' },
   { id: 'f2', date: [9, 21], vendor: '全聯福利中心', item: '衛生紙、洗衣精、貓砂', amt: 2380, conf: 81, why: '發票品項含家用品（貓砂、洗衣精），非店內耗材', acct: '清潔消毒費' },
   { id: 'f3', date: [9, 27], vendor: '台灣中油', item: '加油 95 無鉛', amt: 1500, conf: 74, why: '公司未登記營業用車輛，加油費可能屬個人用車', acct: '運費' },
   { id: 'f4', date: [10, 2], vendor: 'Netflix', item: '標準方案月費', amt: 390, conf: 92, why: '影音串流訂閱，與營業項目無直接關聯', acct: '軟體訂閱費' },
@@ -32,19 +62,31 @@ export const FLAGS = [
 ];
 
 // ---- 存錢目標 ----
+// 員工年終：全職 1.5 個月＋兼職 0.5 個月；只有負責人時改存年度保費與記帳費用
+function bonusGoal() {
+  if (!EMPS.length) {
+    const t = Math.max(12000, Math.round(OWNER.pay * 0.4 / 1000) * 1000);
+    return { name: '年度保費與記帳費預備', target: t, monthly: Math.ceil(t / 3 / 500) * 500, due: [new Date().getFullYear() + 1, 1, 20], note: '目前只有負責人、沒有員工年終；改存商業保險與記帳費用' };
+  }
+  const t = EMPS.reduce((a, e) => a + Math.round(e.pay * (e.kind === 'full' ? 1.5 : 0.5)), 0);
+  return { name: '員工年終獎金', target: t, monthly: Math.ceil(t / 3 / 500) * 500, due: [new Date().getFullYear() + 1, 1, 20], note: EMPS.map(e => `${e.name} ${e.kind === 'full' ? '1.5' : '0.5'} 個月`).join('＋') };
+}
 export const GOALS = {
   emergency: { months: 6 },                         // 緊急預備金：6 個月固定支出；已存＝安全金
-  bonus: { name: '員工年終獎金', target: 58300, monthly: 19500, due: [2027, 1, 20], note: '小芸 1.5 個月＋小傑 0.5 個月' },
-  oven: { name: '烤箱汰換基金', target: 240000, saved: 18000, monthly: 6000, due: [2029, 10], note: '旋風烤箱（現有設備成本 18 萬，耐用 5 年）預計 3 年後汰換，新機含安裝約 24 萬' },
+  bonus: AMEI ? { name: '員工年終獎金', target: 58300, monthly: 19500, due: [2027, 1, 20], note: '小芸 1.5 個月＋小傑 0.5 個月' } : bonusGoal(),
+  oven: AMEI ? { name: '烤箱汰換基金', target: 240000, saved: 18000, monthly: 6000, due: [2029, 10], note: '旋風烤箱（現有設備成本 18 萬，耐用 5 年）預計 3 年後汰換，新機含安裝約 24 萬' }
+    : { name: `${EQUIP}汰換基金`, target: EQ_TARGET, saved: EQ_MONTHLY * 3, monthly: EQ_MONTHLY, due: [new Date().getFullYear() + 3, 10], note: `${EQUIP}（耐用約 5 年，每月折舊 ${depr.toLocaleString()}）預計 3 年後汰換，新設備含安裝約 ${Math.round(EQ_TARGET / 10000)} 萬（示範估計）` },
 };
 
 // 每月固定支出（取最近一個完整月的實際帳務，排除老闆自己的董事酬勞）
 const FIXED_GROUPS = [
-  ['pay', '員工薪資（小芸、小傑）', e => e.acct === '薪資支出'],
+  ['pay', AMEI ? '員工薪資（小芸、小傑）' : EMPS.length ? `員工薪資（${EMPS.map(e => e.name).join('、')}）` : '員工薪資（目前無員工）', e => e.acct === '薪資支出'],
   ['ins', '勞健保・勞退（雇主負擔）', e => e.acct === '保險費－勞健保' || e.acct === '退休金'],
-  ['rent', '店面租金＋市集攤位', e => e.acct === '租金支出'],
+  ['rent', AMEI ? '店面租金＋市集攤位' : '營業場所租金', e => e.acct === '租金支出'],
   ['util', '水電瓦斯', e => e.acct === '水電瓦斯費'],
-  ['misc', '通訊、軟體、保險、清潔', e => ['通訊費', '軟體訂閱費', '保險費', '清潔消毒費'].includes(e.acct)],
+  ['misc', '通訊、軟體、保險、清潔', e => ['通訊費', '軟體訂閱費', '保險費', '清潔消毒費', '清潔費'].includes(e.acct)],
+  ['pro', '記帳士、管理費、修繕、郵電', e => ['記帳及申報費', '管理費', '修繕費', '郵電費'].includes(e.acct)],
+  ['ops', '交通、牌照稅、伙食、平台手續費', e => ['交通費', '稅捐', '伙食費', '佣金支出'].includes(e.acct)],
 ];
 export function fixedMonthly() {
   const full = monthList().filter(x => !x.current);
@@ -95,8 +137,8 @@ export function snapshot({ safetyMonths = 3, repaid = new Set(), privateIds = ne
   const advLeft = ADVANCES.filter(a => !repaid.has(a.id));
   const advAmt = advLeft.reduce((s, a) => s + a.amt, 0);
   const apItems = [
-    { name: '應付帳款（供應商月結）', amt: ap, note: '原料進貨月結未付款；與資產負債表同源' },
-    { name: '應付股東（老闆代墊未還）', amt: advAmt, note: advLeft.length ? `${advLeft.length} 筆代墊款待還給阿美` : '代墊款已全部還清' },
+    { name: '應付帳款（供應商月結）', amt: ap, note: `${AMEI ? '原料' : ''}進貨月結未付款；與資產負債表同源` },
+    { name: '應付股東（老闆代墊未還）', amt: advAmt, note: advLeft.length ? `${advLeft.length} 筆代墊款待還給${OWNER.name}` : '代墊款已全部還清' },
   ];
   const apTotal = ap + advAmt;
 

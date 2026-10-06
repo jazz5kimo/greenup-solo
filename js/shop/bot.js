@@ -1,6 +1,7 @@
 // 聊天導購機器人（規則式意圖比對 + 多語言 + 語音）
 import { PRODUCTS, PRODUCT_MAP } from '../data.js';
-import { LANGS, t, pName, PRODUCT_ALIASES, detectLang } from '../i18n.js';
+import { LANGS, pName, pDesc, pUnit, PRODUCT_ALIASES, detectLang } from '../i18n.js';
+import { T as t, isAmei, SHIP_MODE, visibleProducts, tagsOf, slotText, saleTag, promoOf } from './storefront.js';
 import { $, $$, el, gsap, esc, money, sleep, speak, stopSpeak, getRecognizer } from '../util.js';
 import { icon } from '../icons.js';
 import { productArt } from '../art.js';
@@ -49,7 +50,7 @@ export function initBot(shop) {
   function renderChips() {
     const chips = t(L(), 'chips');
     $('#botChips').innerHTML = chips.map((c, i) => `<button data-i="${i}">${esc(c)}</button>`).join('');
-    $$('#botChips button').forEach(b => b.addEventListener('click', () => userSay(b.textContent, { zh: t('zh', 'chips')[+b.dataset.i], chip: true })));
+    $$('#botChips button').forEach(b => b.addEventListener('click', () => userSay(b.textContent, { zh: t('zh', 'chips')[+b.dataset.i], chip: true, chipIdx: +b.dataset.i })));
   }
   renderChips();
 
@@ -60,7 +61,7 @@ export function initBot(shop) {
       fab.classList.add('hide');
       if (!msgs.children.length) botSay(() => t(L(), 'botGreet'), { delay: 300 });
     }
-    if (prefill) { const i = t(L(), 'chips').indexOf(prefill); setTimeout(() => userSay(prefill, { zh: i >= 0 ? t('zh', 'chips')[i] : undefined, chip: i >= 0 }), 500); }
+    if (prefill) { const i = t(L(), 'chips').indexOf(prefill); setTimeout(() => userSay(prefill, { zh: i >= 0 ? t('zh', 'chips')[i] : undefined, chip: i >= 0, chipIdx: i >= 0 ? i : undefined }), 500); }
     setTimeout(() => $('#botInput').focus(), 300);
   }
   function close() { gsap.to(box, { opacity: 0, y: 30, scale: 0.92, duration: 0.25, onComplete: () => { box.hidden = true; opened = false; fab.classList.remove('hide'); } }); }
@@ -85,13 +86,13 @@ export function initBot(shop) {
   // ---------- 訊息呈現 ----------
   function scroll() { msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'smooth' }); }
   function sysNote(text) { const n = el(`<div class="b-sys">${esc(text)}</div>`); msgs.appendChild(n); gsap.fromTo(n, { opacity: 0 }, { opacity: 1, duration: 0.4 }); scroll(); }
-  function userSay(text, { zh: zhKnown, chip = false } = {}) {
+  function userSay(text, { zh: zhKnown, chip = false, chipIdx } = {}) {
     const n = el(`<div class="b-msg me"><div class="b-bub">${esc(text)}</div></div>`);
     msgs.appendChild(n); gsap.fromTo(n, { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.35 }); scroll();
     // 自動偵測語言並切換
     const d = detectLang(text);
     if (!chip && d && d !== L() && !(L() === 'ms' && d === 'en')) { shop.setLang(d, { silent: true }); sysNote(t(d, 'rSwitched')); }
-    const res = respond(text);
+    const res = isAmei ? respond(text) : respondGeneric(text, chipIdx);
     conv.push({ from: 'c', text, zh: L() === 'zh' ? undefined : (zhKnown || `〔AI 意圖摘要〕${res.gloss || INTENT_ZH[res.intent] || '一般詢問'}`) });
     botSay(res.text, { cards: res.cards, checkout: res.checkout, delay: 700 + Math.min(900, text.length * 15) });
   }
@@ -122,20 +123,23 @@ export function initBot(shop) {
     if (voiceOn) speak(text, speechLang(), { rate: 1.05 });
   }
   function cardHTML(pid) {
-    const p = PRODUCT_MAP[pid];
+    const p = PRODUCT_MAP[pid]; if (!p) return '';
+    const meta = isAmei ? `${t(L(), 'sweet')} ${'●'.repeat(p.sweet)}${'○'.repeat(5 - p.sweet)}` : esc(pUnit(L(), pid));
     return `<div class="bc-card" style="--pc:${p.color}"><div class="bc-art">${productArt(pid, 86)}</div><b>${esc(pName(L(), pid))}</b>
-      <span class="bc-meta">${money(p.price)} · ${t(L(), 'sweet')} ${'●'.repeat(p.sweet)}${'○'.repeat(5 - p.sweet)}</span>
+      <span class="bc-meta">${promoOf(p) ? `<s>${money(promoOf(p).list)}</s> ` : ''}${money(p.price)} · ${meta}</span>${saleTag(p, L(), 'p-sale bc-sale')}
       <button data-badd="${pid}">${t(L(), 'add')}</button></div>`;
   }
   function checkoutCard() {
     const items = cart.list();
     const regions = t(L(), 'regions');
-    const intl = L() === 'ja' && items.every(i => PRODUCT_MAP[i.pid].storage === 'room');
-    const region = intl ? regions[7] : regions[3];
-    const tt = cart.totals(region);
+    const intl = isAmei && L() === 'ja' && items.every(i => PRODUCT_MAP[i.pid]?.storage === 'room');
+    const pickup = SHIP_MODE !== 'ship';
+    const region = SHIP_MODE === 'service' ? slotText(L()) : SHIP_MODE === 'takeout' ? t(L(), 'ckPickup') : intl ? regions[7] : regions[3];
+    const tt0 = cart.totals(pickup ? '' : region);
+    const tt = pickup ? { ...tt0, shipping: 0, total: tt0.subtotal } : tt0;
     const c = el(`<div class="b-checkout">
-      ${items.map(i => `<div class="bco-row"><span>${esc(pName(L(), i.pid))} × ${i.qty}</span><b>${money(i.price * i.qty)}</b></div>`).join('')}
-      <div class="bco-row muted"><span>${t(L(), 'shipping')}（${esc(region)}）</span><b>${tt.shipping ? money(tt.shipping) : t(L(), 'free')}</b></div>
+      ${items.filter(i => PRODUCT_MAP[i.pid]).map(i => `<div class="bco-row"><span>${esc(pName(L(), i.pid))} × ${i.qty}</span><b>${money(i.price * i.qty)}</b></div>`).join('')}
+      <div class="bco-row muted"><span>${SHIP_MODE === 'service' ? esc(t(L(), 'ckDelivery')) : t(L(), 'shipping')}（${esc(region)}）</span><b>${tt.shipping ? money(tt.shipping) : t(L(), 'free')}</b></div>
       <div class="bco-row big"><span>${t(L(), 'total')}</span><b>${money(tt.total)}</b></div>
       <div class="bco-pay"><span>${icon('lock', 13)} ${t(L(), 'ckCard')} · LINE Pay · Apple Pay</span></div>
       <button class="bco-go">${t(L(), 'rConfirm')}</button>
@@ -146,7 +150,7 @@ export function initBot(shop) {
       await sleep(1200);
       if (!cart.count()) { b.textContent = '—'; return; }
       conv.push({ from: 'c', text: `[${t(L(), 'rConfirm')}]`, zh: '〔按下確認付款〕' });
-      const order = shop.placeOrder({ region, payment: '信用卡', conv: conv.slice() });
+      const order = shop.placeOrder({ region: pickup ? '' : region, pickup, payment: '信用卡', conv: conv.slice() });
       b.innerHTML = '✓ ' + order.id; b.classList.add('done');
       gsap.fromTo(c, { boxShadow: '0 0 0 0 rgba(45,182,116,.8)' }, { boxShadow: '0 0 0 14px rgba(45,182,116,0)', duration: 1 });
       botSay((l) => t(l, 'rPaid', { id: order.id, inv: order.invoice }), { delay: 400 });
@@ -225,6 +229,59 @@ export function initBot(shop) {
     if (R.thanks.test(q)) return { intent: 'thanks', text: (l) => t(l, 'rThanks') };
     if (R.greet.test(q)) return { intent: 'greet', text: (l) => t(l, 'botGreet') };
     return { intent: 'fallback', text: (l) => t(l, 'rFallback'), cards: ['basque', 'cookie', 'lemon'] };
+  }
+
+  // ---------- 非阿美業主：通用導購引擎（只推薦目前業主的商品） ----------
+  const RX = {
+    book: /預約|時段|改時間|改期|\bbook|appointment|reschedul|\bslot|予約|đặt lịch|đổi giờ|tempah|temujanji/i,
+    solo: /一個人|自己吃|\balone\b|\bsolo\b|ひとり|một mình|seorang/i,
+    engrave: /刻字|刻名|engrav|名入れ|khắc|ukir/i,
+  };
+  const pool = () => { const v = visibleProducts(); return v.length ? v : PRODUCTS; };
+  const popular = () => { const v = pool(); return [...v.filter(p => (tagsOf(p) || []).includes('hot')), ...v.filter(p => !(tagsOf(p) || []).includes('hot'))]; };
+  const top = (n = 3) => popular().slice(0, n).map(p => p.id);
+  const aliasesOf = (p) => [p.name, p.en, ...Object.values(p.i18n || {}).map(a => a && a[0]), ...(p.kw || [])].filter(Boolean).map(x => String(x).toLowerCase());
+  function matchGeneric(q) { return pool().filter(p => aliasesOf(p).some(a => a.length >= 2 && q.includes(a))).map(p => p.id); }
+  function respondGeneric(text, chipIdx) {
+    const q = text.toLowerCase();
+    const CHIP = ['recommend', SHIP_MODE === 'service' ? 'book' : SHIP_MODE === 'takeout' ? 'solo' : 'gift', 'budget', 'shipping', null, 'checkout'];
+    const forced = chipIdx != null ? CHIP[chipIdx] : null;
+    const prods = matchGeneric(q);
+    if (forced === 'checkout' || R.checkout.test(q)) {
+      if (!cart.count()) return { intent: 'checkout', text: (l) => t(l, 'rCartEmpty'), cards: top() };
+      return { intent: 'checkout', text: (l) => t(l, 'rCheckout'), checkout: true };
+    }
+    if (forced === 'book' || (SHIP_MODE === 'service' && RX.book.test(q))) return { intent: 'book', gloss: '詢問預約時段', text: (l) => t(l, 'rBook'), cards: top() };
+    if (RX.engrave.test(q)) return { intent: 'engrave', gloss: '詢問刻字服務', text: (l) => t(l, 'rEngrave'), cards: pool().filter(p => (tagsOf(p) || []).includes('gift')).slice(0, 3).map(p => p.id).concat(top()).slice(0, 3) };
+    if (R.allergen.test(q) || R.storage.test(q)) return { intent: R.allergen.test(q) ? 'allergen' : 'storage', text: (l) => t(l, 'rAsk'), cards: top() };
+    if (forced === 'shipping' || (R.shipping.test(q) && !prods.length)) return { intent: 'shipping', text: (l) => t(l, 'rShip') };
+    if (forced === 'solo' || RX.solo.test(q)) {
+      const pop = popular(); const a = pop[0]; const b = [...pool()].filter(p => p !== a).sort((x, y) => x.price - y.price)[0] || a;
+      return { intent: 'solo', gloss: '一個人用餐的推薦', cards: [a.id, b.id], text: (l) => t(l, 'rSolo', { a: pName(l, a.id), b: pName(l, b.id), t: (a.price + b.price).toLocaleString() }) };
+    }
+    const amt = budgetAmount(q);
+    if (forced === 'budget' || (amt && (R.budget.test(q) || R.money.test(q)) && !prods.length)) {
+      const n = amt || 500;
+      const ok = popular().filter(p => p.price <= n);
+      if (!ok.length) { const c = [...pool()].sort((x, y) => x.price - y.price)[0]; return { intent: 'budget', gloss: `預算 NT$${n} 內的推薦`, text: (l) => t(l, 'rBudgetNone', { n: n.toLocaleString(), p: pName(l, c.id), price: c.price.toLocaleString() }), cards: [c.id] }; }
+      const list = pool(); let best = null;
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) { const sm = list[i].price + list[j].price; if (sm <= n && (!best || sm > best.s)) best = { a: list[i].id, b: list[j].id, s: sm }; }
+      return { intent: 'budget', gloss: `預算 NT$${n} 內的推薦`, cards: ok.slice(0, 3).map(p => p.id),
+        text: (l) => t(l, 'rBudget', { n: n.toLocaleString() }) + (best ? ' ' + t(l, 'rBudgetCombo', { a: pName(l, best.a), b: pName(l, best.b), t: best.s.toLocaleString() }) : '') };
+    }
+    if (prods.length && (R.add.test(q) || extractQty(q)) && forced == null) {
+      const qty = Math.max(1, extractQty(q));
+      prods.forEach(pid => cart.add(pid, qty));
+      const total = cart.totals().subtotal;
+      return { intent: 'add', gloss: `要購買 ${prods.map(pid => pName('zh', pid)).join('、')} × ${qty}`, text: (l) => t(l, 'rAdded', { p: prods.map(pid => pName(l, pid)).join(' + '), q: qty, t: total.toLocaleString() }) };
+    }
+    if (forced === 'gift' || R.gift.test(q)) { const g = pool().filter(p => (tagsOf(p) || []).includes('gift')).map(p => p.id); return { intent: 'gift', text: (l) => t(l, 'rGift'), cards: (g.length ? g : top()).slice(0, 3) }; }
+    if (prods.length) return { intent: 'product', gloss: `詢問 ${prods.map(pid => pName('zh', pid)).join('、')}`, text: (l) => prods.slice(0, 2).map(pid => `${pName(l, pid)}（${pUnit(l, pid)}，NT$${PRODUCT_MAP[pid].price.toLocaleString()}）：${pDesc(l, pid)}`).join(' '), cards: prods.slice(0, 3) };
+    if (R.cartView.test(q)) { shop.openCart(); return { intent: 'cartView', text: (l) => cart.count() ? t(l, 'rCheckout') : t(l, 'rCartEmpty'), checkout: cart.count() > 0 }; }
+    if (forced === 'recommend' || R.recommend.test(q) || R.less.test(q)) return { intent: 'recommend', text: (l) => t(l, 'rRecommend'), cards: top() };
+    if (R.thanks.test(q)) return { intent: 'thanks', text: (l) => t(l, 'rThanks') };
+    if (R.greet.test(q)) return { intent: 'greet', text: (l) => t(l, 'botGreet') };
+    return { intent: 'fallback', text: (l) => t(l, 'rFallback'), cards: top() };
   }
 
   return { open, close, say: userSay };

@@ -1,4 +1,5 @@
 // 後台 SPA：路由、側邊欄、頂欄、全域事件
+import { TENANT, TENANTS, TENANT_ID, CATS, setTenant, tenantInfra } from './tenant.js'; // 必須最先載入：資料隔離層
 import { store } from './state.js';
 import { $, $$, el, gsap, toast, fmtTime, money } from './util.js';
 import { icon } from './icons.js';
@@ -20,6 +21,10 @@ import staff from './views/staff.js';
 import bank from './views/bank.js';
 import hub from './views/hub.js';
 import auto from './views/auto.js';
+import market from './views/market.js';
+import studio from './views/studio.js';
+import auctionView from './views/auction.js';
+import promoView from './views/promo.js';
 import timeView from './views/time.js';
 import importView from './views/import.js';
 import comply from './views/comply.js';
@@ -41,6 +46,10 @@ const VIEWS = [
   { mod: pos, id: 'pos', group: '接客收單', name: 'POS 收銀台', icon: 'pos', sub: '門市結帳、會員、載具統編、電子發票、交班日結' },
   { mod: crm, id: 'crm', group: '接客收單', name: '會員與行銷', icon: 'heart', sub: '跨通路會員、分眾、AI 多語行銷活動與自動推播' },
   { mod: listing, id: 'listing', group: '接客收單', name: 'AI 商品上架', icon: 'sparkle', sub: '拍一張照，AI 寫五語介紹、建議定價、一鍵上架各通路' },
+  { mod: market, id: 'market', group: '接客收單', name: '多平台上架', icon: 'store', sub: '一次上架蝦皮、momo、PChome、Yahoo、露天、Pinkoi…；不能串接的自動打包上傳檔', tag: '新' },
+  { mod: promoView, id: 'promo', group: '接客收單', name: '節日特價', icon: 'percent', sub: '先排好中秋、雙 11、聖誕、春節的特價，時間到自動變價、結束自動恢復原價', tag: '新' },
+  { mod: auctionView, id: 'auction', group: '接客收單', name: '競標管理', icon: 'trend', sub: '1 元起標集客、即時出價、得標自動成立訂單、非得標者送優惠券', tag: '新' },
+  { mod: studio, id: 'studio', group: '接客收單', name: '網站設計工作室', icon: 'wand', sub: '銷售網頁的商家、風格、產品自由切換，即時預覽' },
   { mod: booking, id: 'booking', group: '接客收單', name: '預約與訂金', icon: 'calendar', sub: '客製蛋糕、取貨時段、課程預約，LINE 收訂金與提醒' },
   { mod: quotes, id: 'quotes', group: '接客收單', name: '報價與請款', icon: 'file', sub: '企業客戶報價、電子簽回、月結請款、定期扣款' },
   { mod: inventory, id: 'inventory', group: '營運管理', name: '庫存與生產', icon: 'box', sub: '配方 BOM、原料效期、AI 補貨與今日生產排程' },
@@ -68,7 +77,7 @@ const mounted = new Map();
 let current = null;
 
 // 簡單模式：一人公司只看核心頁面（接單、收款、帳務報稅、用問的、自動化），其餘收進「全部功能」
-const SIMPLE = new Set(['dashboard', 'auto', 'brief', 'chat', 'phone', 'pos', 'receipts', 'bank', 'books', 'tax', 'ask']);
+const SIMPLE = new Set(['dashboard', 'auto', 'brief', 'chat', 'phone', 'pos', 'promo', 'receipts', 'bank', 'books', 'tax', 'ask']);
 const LS_NAV = 'greenup-solo:nav';
 let simpleNav = true;
 try { simpleNav = localStorage.getItem(LS_NAV) !== 'all'; } catch { /* ignore */ }
@@ -91,6 +100,7 @@ function applyNavMode() {
   modeBtn.innerHTML = simpleNav
     ? `${icon('plus', 14)}<span>顯示全部功能（${VIEWS.length}）</span>`
     : `${icon('minus', 14)}<span>簡單模式（只看核心 ${SIMPLE.size} 項）</span>`;
+  modeBtn.title = simpleNav ? `顯示全部功能（${VIEWS.length}）` : `簡單模式（只看核心 ${SIMPLE.size} 項）`;
 }
 modeBtn.addEventListener('click', () => {
   simpleNav = !simpleNav;
@@ -201,3 +211,40 @@ window.addEventListener('appinstalled', () => toast('已安裝 GreenUP', '之後
 
 // 自動化中心在背景預先載入，讓開啟前進來的訂單也會記錄在即時執行流水
 setTimeout(() => ensureMounted(VIEWS.find(v => v.id === 'auto')), 1200);
+
+// ── 業主切換：同一套後台介面，每個業主各自獨立的資料（正式版：各自的資料庫與 n8n）──
+(function tenantSwitcher() {
+  const box = $('.topbar .company');
+  if (!box) return;
+  const inf = tenantInfra();
+  box.innerHTML = `<button class="tenant-btn" id="tenantBtn" aria-haspopup="true" aria-expanded="false" title="切換業主（示範）">
+      <span class="avatar">${TENANT.avatar}</span><span class="tn-txt"><b>${TENANT.name}</b><small>負責人：${TENANT.owner}・${TENANT.typeName}</small></span><span class="tn-caret">▾</span></button>
+    <div class="tenant-menu" id="tenantMenu" hidden role="menu">
+      <div class="tm-head">切換業主 <em>示範</em><small>同一套後台，${TENANTS.length} 個業主的資料完全分開</small></div>
+      <input class="tm-search" id="tmSearch" type="search" placeholder="搜尋店名、業態、負責人…" aria-label="搜尋業主">
+      <div class="tm-list" id="tmList"></div>
+      <div class="tm-foot">目前資料庫 <code>${inf.db}</code>・自動化 <code>${inf.n8n}</code>・流程版本 ${inf.workflows}</div>
+    </div>`;
+  const item = (x) => `<button class="tm-item${x.id === TENANT_ID ? ' on' : ''}" role="menuitem" data-tenant="${x.id}"><span class="avatar">${x.avatar || x.name[0]}</span><span><b>${x.name}</b><small>${x.typeName}・${x.region || ''}</small></span>${x.id === TENANT_ID ? '<i>目前</i>' : ''}</button>`;
+  const renderList = (q = '') => {
+    const k = q.trim().toLowerCase();
+    const hit = TENANTS.filter(x => !k || [x.name, x.en, x.typeName, x.owner, x.region, CATS[x.cat]].some(f => f && String(f).toLowerCase().includes(k)));
+    const groups = Object.keys(CATS).map(c => [c, hit.filter(x => x.cat === c)]).filter(([, l]) => l.length);
+    $('#tmList').innerHTML = groups.length ? groups.map(([c, l]) => `<div class="tm-cat">${CATS[c]}<span>${l.length}</span></div>${l.map(item).join('')}`).join('') : '<div class="tm-empty">找不到符合的業主</div>';
+  };
+  renderList();
+  $('#tmSearch').addEventListener('input', (e) => renderList(e.target.value));
+  const btn = $('#tenantBtn'), menu = $('#tenantMenu');
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute('aria-expanded', String(!menu.hidden)); if (!menu.hidden) { const on = menu.querySelector('.tm-item.on'); if (on) on.scrollIntoView({ block: 'nearest' }); if (matchMedia('(min-width: 861px)').matches) $('#tmSearch').focus(); } });
+  menu.addEventListener('click', (e) => {
+    const it = e.target.closest('[data-tenant]'); if (!it) return;
+    if (it.dataset.tenant === TENANT_ID) { close(); return; }
+    toast(`切換到「${TENANTS.find(x => x.id === it.dataset.tenant).name}」的後台…`);
+    setTimeout(() => setTenant(it.dataset.tenant), 250);
+  });
+  document.addEventListener('click', (e) => { if (!menu.hidden && !box.contains(e.target)) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  document.title = `${TENANT.name}・GreenUP 一人公司後台`;
+  const shopLink = $('.topbar a[href^="shop.html"]'); if (shopLink) shopLink.href = `shop.html?tenant=${TENANT_ID}`;
+})();

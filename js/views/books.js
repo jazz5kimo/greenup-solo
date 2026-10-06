@@ -82,7 +82,7 @@ function render(anim) {
     ['應收帳款', d.ar, 'clock', '#EC6A55', `${d.arN} 筆待收款`],
   ];
   $('#bkKpis', root).innerHTML = k.map(([t, v, ic, c, sub], i) => `<div class="glass kpi" style="--c:${c}"><div class="kpi-top"><span class="kpi-ic">${icon(ic, 16)}</span><span class="kpi-label">${t}</span></div><div class="kpi-val" id="bkK${i}">NT$ 0</div><div class="kpi-sub">${sub}</div></div>`).join('');
-  k.forEach(([, v], i) => countUp($('#bkK' + i, root), v, { prefix: 'NT$ ', from: 0 }));
+  k.forEach(([, v], i) => { const n = $('#bkK' + i, root); n.classList.toggle('neg', v < 0); countUp(n, Math.abs(v), { prefix: v < 0 ? '−NT$ ' : 'NT$ ', from: 0 }); });
   const max = Math.max(...d.byFive.map(f => f.value), 1);
   for (const f of d.byFive) {
     countUp($(`[data-v="${f.id}"]`, root), f.value, { prefix: 'NT$ ', from: 0 });
@@ -96,9 +96,9 @@ function renderIS(d) {
   $('#isChip', root).textContent = d.current ? `${d.m}/1–${d.m}/${d.elapsed}` : `${d.y} 年 ${d.m} 月`;
   const L = [
     ['h', '營業收入淨額', d.net], ['s', '銷貨收入（全通路）', d.net],
-    ['h', '營業成本', -d.cost], ['s', '銷貨成本（依 BOM 標準成本結轉）', -d.cogs], ['s', '製造費用（水電、折舊、清潔）', -d.mfg],
+    ['h', '營業成本', -d.cost], ['s', '銷貨成本（依 BOM 標準成本結轉）', -d.cogs], ['s', '製造費用（水電、折舊、清潔、修繕）', -d.mfg],
     ['t', '營業毛利', d.gross],
-    ['h', '營業費用', -d.opex], ['s', '推銷費用（廣告、運費、金流、攤位）', -d.sell], ['s', '管理費用（薪資、勞健保、租金等）', -d.admin], ['s', '研究發展費用', -d.rd],
+    ['h', '營業費用', -d.opex], ['s', '推銷費用（廣告、運費、金流、平台手續費、交通）', -d.sell], ['s', '管理費用（薪資、勞健保、租金、記帳士、管理費等）', -d.admin], ['s', '研究發展費用', -d.rd],
     ['t', '營業淨利', d.opInc],
     ['s', '營業外收入（利息）', d.other],
     ['g', '稅前淨利', d.pretax],
@@ -171,7 +171,7 @@ function renderPane() {
     const pos = position(sel.y, sel.m), fl = pos.flow;
     const sideRows = (arr) => arr.map(([t, v]) => `<div class="bs-row"><span>${t}</span><b>${n0(v)}</b></div>`).join('');
     pane.innerHTML = head + chips([
-      ['資產總額', money(pos.A), '期末'], ['負債總額', money(pos.L), `負債比 ${pct(pos.L, pos.A)}`], ['期末現金', money(fl.close), `本月淨流入 ${money(fl.close - fl.open)}`], ['流動比率', pos.L ? ((pos.A - pos.assets[3][1]) / pos.L).toFixed(1) + ' 倍' : '—', '流動資產 ÷ 流動負債'],
+      ['資產總額', money(pos.A), '期末'], ['負債總額', money(pos.L), `負債比 ${pct(pos.L, pos.A)}`], ['期末現金', money(fl.close), (fl.close >= fl.open ? `本月淨流入 ${money(fl.close - fl.open)}` : `本月淨流出 ${money(fl.open - fl.close)}`)], ['流動比率', pos.L ? ((pos.A - pos.assets[3][1]) / pos.L).toFixed(1) + ' 倍' : '—', '流動資產 ÷ 流動負債'],
     ]) + `<div class="pane-split"><div class="bs"><div class="bs-col"><h4>資產</h4>${sideRows(pos.assets)}<div class="bs-row tot"><span>資產總計</span><b>${n0(pos.A)}</b></div></div><div class="bs-col"><h4>負債</h4>${sideRows(pos.liab)}<h4>權益</h4>${sideRows(pos.equity)}<div class="bs-row tot"><span>負債及權益總計</span><b>${n0(pos.L + pos.E)}</b></div></div></div><div class="chart" id="cF1"></div></div>`;
     const steps = [['期初現金', fl.open, 'base'], ['銷貨收款', fl.receipts, 'up'], ['原料進貨', -fl.buy, 'down'], ['營業費用', -fl.exp, 'down'], ['薪資勞健保', -fl.hr, 'down'], ['繳納營業稅', -fl.vat, 'down'], ['期末現金', fl.close, 'base']];
     let run = 0; const base = [], val = [];
