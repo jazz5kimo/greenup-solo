@@ -60,6 +60,12 @@ function score(q, item) {
   return 0;
 }
 
+// 小幫手找不到答案時，用同一套說法建議頁面
+export function rankPages(q, views) {
+  const n = norm(q); if (!n) return [];
+  return views.map(v => [score(n, { name: v.name, syn: SYN[v.id] || '', group: v.group, sub: v.sub }), v]).filter(([s]) => s >= 30).sort((a, b) => b[0] - a[0]).map(([, v]) => v);
+}
+
 /**
  * @param {object} o
  * @param {Array} o.views   VIEWS（id, group, name, icon, sub）

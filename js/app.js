@@ -5,7 +5,8 @@ import { $, $$, el, gsap, toast, fmtTime, money } from './util.js';
 import { icon } from './icons.js';
 import { resizeAll } from './charts.js';
 import * as auth from './auth.js';
-import { initPalette, pushRecent } from './palette.js'; // 分權示範：角色、矩陣、唯讀鎖定、需核准、稽核（前端體驗，非安全邊界）
+import { initPalette, pushRecent, rankPages } from './palette.js';
+import { initSupport } from './support.js'; // 分權示範：角色、矩陣、唯讀鎖定、需核准、稽核（前端體驗，非安全邊界）
 import dashboard from './views/dashboard.js';
 import chat from './views/chat.js';
 import phone from './views/phone.js';
@@ -248,21 +249,26 @@ window.addEventListener('hashchange', () => go(location.hash.slice(1)));
 // 指令面板（⌘K）：打字找功能或直接做事；只列出目前角色看得到／可操作的項目
 const canDo = (id, act = 'view') => !auth.currentUser() || auth.can(id, act);
 const after = (fn) => setTimeout(fn, 150);
-const palette = initPalette({
-  views: VIEWS, groups: GROUPS, go, can: canDo,
-  actions: [
-    { id: 'shop', name: '開啟銷售網頁（客人端）', icon: 'external', hint: '用客人的角度看你的店', syn: '網站 商店 前台 客人', run: () => window.open(`shop.html?tenant=${TENANT_ID}`, 'greenup-shop') },
-    { id: 'promo-new', name: '新增節日特價檔期', icon: 'percent', view: 'promo', need: 'edit', hint: '排好時間，到期自動變價、結束自動恢復', syn: '特價 中秋 雙11 聖誕 春節 折扣 打折', run: () => { go('promo'); after(() => { const b = $('#view-promo [data-new]'); if (b) b.click(); }); } },
-    { id: 'designer', name: '用 AI 設計銷售網頁', icon: 'wand', view: 'studio', need: 'edit', hint: '用一句話描述想要的風格', syn: 'AI 設計師 prompt 風格 網站 版型', run: () => { go('studio'); after(() => { const b = $('#view-studio [data-tab="designer"]'); if (b) b.click(); }); } },
-    { id: 'scan', name: '拍收據記帳', icon: 'receipt', view: 'receipts', need: 'edit', hint: '拍一張，AI 辨識金額與統編', syn: '收據 發票 拍照 費用 房租', run: () => { go('receipts'); after(() => { const b = $('#rcScan'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); }); } },
-    { id: 'checkout', name: '開始收銀結帳', icon: 'pos', view: 'pos', need: 'edit', hint: '門市結帳、開電子發票', syn: '收銀 結帳 發票 POS', run: () => go('pos') },
-    { id: 'quote', name: 'AI 一句話報價', icon: 'file', view: 'quotes', need: 'edit', hint: '企業客戶報價單，一句話產生', syn: '報價 估價 請款', run: () => { go('quotes'); after(() => { const b = $('#qtNew'); if (b) b.click(); }); } },
-    { id: 'askai', name: '問 AI 一個經營問題', icon: 'ask', view: 'ask', hint: '例如：上個月哪個商品賣最好？', syn: '問 圖表 報表 分析', run: () => { go('ask'); after(() => { const i = $('#askInput'); if (i) i.focus(); }); } },
-    { id: 'approvals', name: '查看待核准申請', icon: 'shield', view: 'hub', need: 'edit', hint: '員工送出的作廢、退款、折讓', syn: '核准 審核 申請 作廢 退款', run: () => { go('hub'); after(() => { const h = $('#hubApprN'); if (h) h.closest('.card')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } },
-    { id: 'tenant', name: '切換業主（示範）', icon: 'users', hint: '50 種業態的示範店家', syn: '業主 店家 切換 業態', run: () => { const b = $('#tenantBtn'); if (b) b.click(); } },
-    { id: 'role', name: '切換角色／登出', icon: 'user', hint: '負責人、店長、員工、記帳士、支援', syn: '角色 登出 登入 使用者 權限', run: () => { const b = $('#authBtn'); if (b) b.click(); } },
-    { id: 'navmode', name: '切換側欄：簡單模式／全部功能', icon: 'dashboard', hint: '簡單模式只顯示核心功能', syn: '簡單 全部 側欄 選單', run: () => modeBtn.click() },
-  ],
+const ACTIONS = [
+  { id: 'shop', name: '開啟銷售網頁（客人端）', icon: 'external', hint: '用客人的角度看你的店', syn: '網站 商店 前台 客人', run: () => window.open(`shop.html?tenant=${TENANT_ID}`, 'greenup-shop') },
+  { id: 'promo-new', name: '新增節日特價檔期', icon: 'percent', view: 'promo', need: 'edit', hint: '排好時間，到期自動變價、結束自動恢復', syn: '特價 中秋 雙11 聖誕 春節 折扣 打折', run: () => { go('promo'); after(() => { const b = $('#view-promo [data-new]'); if (b) b.click(); }); } },
+  { id: 'designer', name: '用 AI 設計銷售網頁', icon: 'wand', view: 'studio', need: 'edit', hint: '用一句話描述想要的風格', syn: 'AI 設計師 prompt 風格 網站 版型', run: () => { go('studio'); after(() => { const b = $('#view-studio [data-tab="designer"]'); if (b) b.click(); }); } },
+  { id: 'scan', name: '拍收據記帳', icon: 'receipt', view: 'receipts', need: 'edit', hint: '拍一張，AI 辨識金額與統編', syn: '收據 發票 拍照 費用 房租', run: () => { go('receipts'); after(() => { const b = $('#rcScan'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); }); } },
+  { id: 'checkout', name: '開始收銀結帳', icon: 'pos', view: 'pos', need: 'edit', hint: '門市結帳、開電子發票', syn: '收銀 結帳 發票 POS', run: () => go('pos') },
+  { id: 'quote', name: 'AI 一句話報價', icon: 'file', view: 'quotes', need: 'edit', hint: '企業客戶報價單，一句話產生', syn: '報價 估價 請款', run: () => { go('quotes'); after(() => { const b = $('#qtNew'); if (b) b.click(); }); } },
+  { id: 'askai', name: '問 AI 一個經營問題', icon: 'ask', view: 'ask', hint: '例如：上個月哪個商品賣最好？', syn: '問 圖表 報表 分析', run: () => { go('ask'); after(() => { const i = $('#askInput'); if (i) i.focus(); }); } },
+  { id: 'approvals', name: '查看待核准申請', icon: 'shield', view: 'hub', need: 'edit', hint: '員工送出的作廢、退款、折讓', syn: '核准 審核 申請 作廢 退款', run: () => { go('hub'); after(() => { const h = $('#hubApprN'); if (h) h.closest('.card')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } },
+  { id: 'tenant', name: '切換業主（示範）', icon: 'users', hint: '50 種業態的示範店家', syn: '業主 店家 切換 業態', run: () => { const b = $('#tenantBtn'); if (b) b.click(); } },
+  { id: 'role', name: '切換角色／登出', icon: 'user', hint: '負責人、店長、員工、記帳士、支援', syn: '角色 登出 登入 使用者 權限', run: () => { const b = $('#authBtn'); if (b) b.click(); } },
+  { id: 'navmode', name: '切換側欄：簡單模式／全部功能', icon: 'dashboard', hint: '簡單模式只顯示核心功能', syn: '簡單 全部 側欄 選單', run: () => modeBtn.click() },
+  { id: 'help', name: '問小幫手／聯絡 GreenUP 支援', icon: 'chat', hint: '常見問題、轉真人客服、回報問題', syn: '幫忙 客服 支援 問題 求助 怎麼 教學', run: () => support.open() },
+];
+const palette = initPalette({ views: VIEWS, groups: GROUPS, go, can: canDo, actions: ACTIONS });
+// 右下角小幫手：常見問題即答、帶我去、轉真人客服、允許支援存取、錯誤回報
+const support = initSupport({
+  views: VIEWS, go, can: canDo, auth, current: () => current,
+  runAction: (id) => { if (id === 'palette') return palette.open(); const a = ACTIONS.find(x => x.id === id); if (a) a.run(); },
+  rankPages: (q) => rankPages(q, VIEWS),
 });
 navSearch.addEventListener('click', () => palette.open());
 const tbSearch = $('#tbSearch'); if (tbSearch) { tbSearch.innerHTML = icon('search', 18); tbSearch.addEventListener('click', () => palette.open()); }
