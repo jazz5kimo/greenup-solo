@@ -4,6 +4,7 @@ import { store } from './state.js';
 import { $, $$, el, gsap, toast, fmtTime, money } from './util.js';
 import { icon } from './icons.js';
 import { resizeAll } from './charts.js';
+import * as auth from './auth.js'; // 分權示範：角色、矩陣、唯讀鎖定、需核准、稽核（前端體驗，非安全邊界）
 import dashboard from './views/dashboard.js';
 import chat from './views/chat.js';
 import phone from './views/phone.js';
@@ -75,6 +76,8 @@ const nav = $('#nav');
 const viewsHost = $('#views');
 const mounted = new Map();
 let current = null;
+auth.registerModules(VIEWS);
+auth.init(); // ?role= 直接以該角色進入；?nolaunch 無 role → 負責人；否則沿用上次登入或顯示登入畫面
 
 // 簡單模式：一人公司只看核心頁面（接單、收款、帳務報稅、用問的、自動化），其餘收進「全部功能」
 const SIMPLE = new Set(['dashboard', 'auto', 'brief', 'chat', 'phone', 'pos', 'promo', 'receipts', 'bank', 'books', 'tax', 'ask']);
@@ -85,7 +88,7 @@ try { simpleNav = localStorage.getItem(LS_NAV) !== 'all'; } catch { /* ignore */
 let lastGroup = '';
 VIEWS.forEach((v, i) => {
   if (v.group !== lastGroup) { nav.appendChild(el(`<div class="nav-group" data-g="${v.group}">${v.group}</div>`)); lastGroup = v.group; }
-  const a = el(`<a class="nav-item ${SIMPLE.has(v.id) ? '' : 'adv'}" data-g="${v.group}" href="#${v.id}" data-id="${v.id}">${icon(v.icon, 20)}<span>${v.name}</span>${v.tag ? `<em>${v.tag}</em>` : ''}<i class="nav-badge" hidden></i></a>`);
+  const a = el(`<a class="nav-item ${SIMPLE.has(v.id) ? '' : 'adv'}" data-g="${v.group}" href="#${v.id}" data-id="${v.id}">${icon(v.icon, 20)}<span>${v.name}</span>${v.tag ? `<em>${v.tag}</em>` : ''}<i class="nav-ro" title="唯讀" hidden>${icon('lock', 11)}唯讀</i><i class="nav-badge" hidden></i></a>`);
   nav.appendChild(a);
 });
 
@@ -94,13 +97,14 @@ $('.side-foot').prepend(modeBtn);
 function applyNavMode() {
   document.body.classList.toggle('nav-simple', simpleNav);
   $$('.nav-group', nav).forEach(g => {
-    const items = $$(`.nav-item[data-g="${g.dataset.g}"]`, nav);
-    g.hidden = simpleNav && !items.some(a => !a.classList.contains('adv') || a.classList.contains('active'));
+    const items = $$(`.nav-item[data-g="${g.dataset.g}"]`, nav).filter(a => !a.hidden);
+    g.hidden = !items.length || (simpleNav && !items.some(a => !a.classList.contains('adv') || a.classList.contains('active')));
   });
+  const visible = $$('.nav-item[data-id]', nav).filter(a => !a.hidden), coreN = visible.filter(a => !a.classList.contains('adv')).length; // 分權：只數這個角色看得到的
   modeBtn.innerHTML = simpleNav
-    ? `${icon('plus', 14)}<span>顯示全部功能（${VIEWS.length}）</span>`
-    : `${icon('minus', 14)}<span>簡單模式（只看核心 ${SIMPLE.size} 項）</span>`;
-  modeBtn.title = simpleNav ? `顯示全部功能（${VIEWS.length}）` : `簡單模式（只看核心 ${SIMPLE.size} 項）`;
+    ? `${icon('plus', 14)}<span>顯示全部功能（${visible.length}）</span>`
+    : `${icon('minus', 14)}<span>簡單模式（只看核心 ${coreN} 項）</span>`;
+  modeBtn.title = simpleNav ? `顯示全部功能（${visible.length}）` : `簡單模式（只看核心 ${coreN} 項）`;
 }
 modeBtn.addEventListener('click', () => {
   simpleNav = !simpleNav;
@@ -130,9 +134,35 @@ function ensureMounted(v) {
 }
 
 function go(id) {
-  const v = VIEWS.find(x => x.id === id) || VIEWS[0];
+  let v = VIEWS.find(x => x.id === id) || VIEWS[0];
+  // 分權：直接改網址到看不到的模組 → 導回第一個看得到的模組（未登入時由登入畫面擋住，不在此處理）
+  if (auth.currentUser() && !auth.can(v.id, 'view')) {
+    const first = auth.firstVisible(VIEWS.map(x => x.id));
+    auth.deny(`「${v.name}」對 ${auth.roleName()} 不開放`, first ? `已回到「${VIEWS.find(x => x.id === first).name}」` : '此角色沒有任何可見模組', { key: 'nav:' + v.id });
+    if (!first) return;
+    v = VIEWS.find(x => x.id === first);
+  }
   if (location.hash.slice(1) !== v.id) history.replaceState(null, '', '#' + v.id);
   show(v);
+}
+
+// 分權：套用側欄／手機分頁列可見性、唯讀標記、目前 section 的 ro、頂欄、待核准徽章
+function applyAuth() {
+  const u = auth.currentUser();
+  for (const v of VIEWS) {
+    const lv = u ? auth.level(v.id) : 'edit';
+    const a = $(`.nav-item[data-id="${v.id}"]`, nav);
+    if (a) { a.hidden = lv === 'none'; a.classList.toggle('ro', lv === 'view'); const ro = $('.nav-ro', a); if (ro) ro.hidden = lv !== 'view'; }
+    const t = $(`#tabbar [data-tab="${v.id}"]`); if (t) t.hidden = lv === 'none';
+    const m = $(`.more-sheet .ms-grid a[data-id="${v.id}"]`); if (m) { m.hidden = lv === 'none'; m.classList.toggle('ro', lv === 'view'); }
+    const sec = mounted.get(v.id); if (sec) sec.classList.toggle('ro', lv === 'view');
+  }
+  $$('.more-sheet h4').forEach(h => { let n = h.nextElementSibling; h.hidden = !(n && $$('a', n).some(a => !a.hidden)); });
+  const rb = $('#resetBtn'); if (rb) rb.hidden = !!u && !auth.can('reset', 'edit');
+  const hb = $('.nav-item[data-id="hub"] .nav-badge');
+  if (hb && u) { const n = auth.pendingApprovals().length; if (auth.can('hub', 'edit') && n && !(current && current.id === 'hub')) { hb.hidden = false; hb.textContent = n; } else if (!n) hb.hidden = true; }
+  applyNavMode();
+  if (u && current && !auth.can(current.id, 'view')) go(current.id);
 }
 
 function show(v) {
@@ -140,6 +170,7 @@ function show(v) {
   const prev = current; current = v;
   const section = ensureMounted(v);
   $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.id === v.id));
+  section.classList.toggle('ro', !!auth.currentUser() && auth.level(v.id) === 'view');
   $$('#tabbar [data-tab]').forEach(a => a.classList.toggle('on', a.dataset.tab === v.id || (a.dataset.tab === 'more' && !TABS.some(t => t[0] === v.id))));
   applyNavMode();
   const badge = $(`.nav-item[data-id="${v.id}"] .nav-badge`); if (badge) badge.hidden = true;
@@ -184,6 +215,13 @@ store.on('reset', () => toast('示範資料已重置', '已清除示範中新增
 
 $('#resetBtn').addEventListener('click', () => { store.reset(); });
 
+// 分權：登入畫面（覆蓋在內容上）＋角色變更即時套用（本分頁與跨分頁）
+auth.showGate(!auth.currentUser());
+auth.onAuth((type) => {
+  if (type === 'user') { auth.showGate(!auth.currentUser()); applyAuth(); }
+  else if (type === 'matrix' || type === 'approvals') applyAuth();
+});
+
 // 啟動頁（Launcher）
 const launcher = $('#launcher');
 function hideLauncher() {
@@ -202,6 +240,7 @@ $('#launchShop').addEventListener('click', () => setTimeout(hideLauncher, 300));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !launcher.hidden) hideLauncher(); });
 
 go(location.hash.slice(1) || 'dashboard');
+applyAuth();
 // 可安裝成手機 App（PWA）＋離線快取
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* ignore */ });
 let installEvt = null;
@@ -247,4 +286,6 @@ setTimeout(() => ensureMounted(VIEWS.find(v => v.id === 'auto')), 1200);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   document.title = `${TENANT.name}・GreenUP 一人公司後台`;
   const shopLink = $('.topbar a[href^="shop.html"]'); if (shopLink) shopLink.href = `shop.html?tenant=${TENANT_ID}`;
+  // 目前使用者（頭像字＋角色名；下拉：查看我的權限、切換角色（示範）、登出）
+  auth.mountUserMenu($('.tb-right'), box);
 })();

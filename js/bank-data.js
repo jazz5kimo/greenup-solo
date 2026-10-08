@@ -304,3 +304,13 @@ export function einvoiceStats(store, now = new Date()) {
     win, uploaded: list.length,
   };
 }
+
+// ---- 線上付款狀態（綠界／藍新：正式模式由 payments.js 輪詢 pay/status；示範模式不連線） ----
+// 清單：待付款的即時訂單，以及已有線上付款紀錄（recs，來自 payments.js）的訂單；最新在前，最多 30 筆
+export function onlinePayRows(store, recs = {}) {
+  return store.live
+    .filter(o => o.status === 'pending' || recs[o.id])
+    .map(o => ({ id: o.id, ts: o.ts, customer: o.customer, total: o.total, payment: o.payment, channel: o.channel, status: o.status, rec: recs[o.id] || null }))
+    .sort((a, b) => b.ts - a.ts).slice(0, 30);
+}
+export const PAY_ROW_STATUS = { pending: '待付款', paid: '已付款', failed: '付款失敗', expired: '已逾期', none: '金流無紀錄', error: '查詢失敗', demo: '示範・不連線', idle: '等待查詢' };

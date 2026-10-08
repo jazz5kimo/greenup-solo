@@ -5,6 +5,19 @@ import { auctions, RULES, maskName } from '../auction-store.js';
 import { $, $$, el, gsap, esc, money, toast as baseToast, pad } from '../util.js';
 import { productArt } from '../art.js';
 import { pName, pUnit } from '../i18n.js';
+import { store } from '../state.js';
+import { isLive, enabledMethods, createPayment, submitToGateway, errorText, methodLabel, defaultReturnUrl } from '../payments.js';
+
+// 得標付款（正式模式：綠界／藍新線上付款）文字；示範模式沿用 L 的 payNow／paid
+const PAY_L = {
+  zh: { goPay: '前往付款', method: '付款方式', note: '會前往綠界／藍新安全付款頁面，付款完成自動回到本店並入帳。', err: '無法建立付款', noOrder: '找不到這筆得標訂單，請聯絡店家。' },
+  en: { goPay: 'Proceed to payment', method: 'Payment method', note: 'You will be taken to the secure ECPay / NewebPay page and brought back here once paid.', err: 'Could not start payment', noOrder: 'Winning order not found. Please contact the shop.' },
+  ja: { goPay: 'お支払いへ進む', method: 'お支払い方法', note: '綠界／藍新の安全な決済ページへ移動し、完了後に自動で戻ります。', err: '決済を開始できませんでした', noOrder: '落札注文が見つかりません。お店にご連絡ください。' },
+  vi: { goPay: 'Tiến hành thanh toán', method: 'Phương thức thanh toán', note: 'Bạn sẽ được chuyển đến trang thanh toán an toàn ECPay / NewebPay và quay lại sau khi hoàn tất.', err: 'Không thể tạo thanh toán', noOrder: 'Không tìm thấy đơn trúng đấu giá. Vui lòng liên hệ cửa hàng.' },
+  ms: { goPay: 'Teruskan ke pembayaran', method: 'Kaedah bayaran', note: 'Anda akan dibawa ke halaman pembayaran selamat ECPay / NewebPay dan kembali selepas selesai.', err: 'Pembayaran tidak dapat dimulakan', noOrder: 'Pesanan menang tidak dijumpai. Sila hubungi kedai.' },
+};
+const ptx = (k) => (PAY_L[shop?.lang] || PAY_L.zh)[k] ?? PAY_L.zh[k] ?? k;
+let payMethod = null;
 
 /* ---------- 介面文字（5 種語言） ---------- */
 const L = {
@@ -378,13 +391,25 @@ function resultHTML(a) {
       <div class="au2-res-h">${sv(IC.trophy, 26)}<div><b>${esc(tx('won'))}</b><span>${esc(tx('wonBody', { p: money(a.final), h: RULES.payHours }))}</span></div></div>
       <dl><dt>${esc(tx('payBy'))}</dt><dd>${fmtClock(a.payBy)}</dd>${a.orderId ? `<dt>${esc(tx('orderNo'))}</dt><dd class="mono">${esc(a.orderId)}</dd>` : ''}</dl>
       <small class="au2-hint">${esc(tx('priceNote'))}・${esc(tx('notice'))}</small>
-      ${a.paidAt ? `<div class="au2-ban lead">${sv(IC.check, 16)}<span><b>${esc(tx('paid'))}</b> ${esc(tx('paidBody'))}</span></div>` : `<button class="au2-go wide" id="au2Pay" type="button">${esc(tx('payNow'))}</button>`}
+      ${a.paidAt ? `<div class="au2-ban lead">${sv(IC.check, 16)}<span><b>${esc(tx('paid'))}</b> ${esc(tx('paidBody'))}</span></div>` : isLive() ? payLiveHTML() : `<button class="au2-go wide" id="au2Pay" type="button">${esc(tx('payNow'))}</button>`}
     </div>`;
   }
   const cp = m && a.coupons.find(c => c.uid === m.uid);
   return `<div class="au2-res">
     <div class="au2-res-row"><span>${esc(tx('winner'))}</span><b>${esc(maskName(a.winner.name))}</b><span>${esc(tx('finalPrice'))}</span><b>${money(a.final)}</b></div>
     ${cp ? `<div class="au2-coupon"><div>${sv(IC.ticket, 22)}</div><div><b>${esc(tx('lost'))}</b><span>${esc(tx('lostBody'))}</span><code>${esc(cp.code)}</code></div><a href="#products" class="au2-go sm" data-close>${esc(tx('shopNow'))}</a></div>` : ''}
+  </div>`;
+}
+
+// 正式模式：付款方式（依後台設定）＋前往付款
+function payLiveHTML() {
+  const ms = enabledMethods(); if (!payMethod || !ms.includes(payMethod)) payMethod = ms[0];
+  return `<div class="au2-pay-live">
+    <small class="au2-pay-lbl">${esc(ptx('method'))}</small>
+    <div class="au2-pay-ms">${ms.map(m => `<button type="button" class="${m === payMethod ? 'on' : ''}" data-pm="${m}">${esc(methodLabel(m, shop?.lang || 'zh'))}</button>`).join('')}</div>
+    <button class="au2-go wide" id="au2Pay" type="button" data-mode="live">${esc(ptx('goPay'))}</button>
+    <small class="au2-hint">${esc(ptx('note'))}</small>
+    <p class="au2-err" id="au2PayErr" hidden></p>
   </div>`;
 }
 
@@ -418,9 +443,19 @@ function bindDetail(a, st) {
     if (!r.ok) toast(tx('closedErr'), '', { kind: 'warn' });
     gsap.fromTo(e.currentTarget, { scale: 0.94 }, { scale: 1, duration: 0.3, ease: 'back.out(3)' });
   });
+  $$('[data-pm]', dlg).forEach(b => b.addEventListener('click', () => { payMethod = b.dataset.pm; $$('[data-pm]', dlg).forEach(x => x.classList.toggle('on', x === b)); }));
   $('#au2Pay')?.addEventListener('click', async (e) => {
-    const b = e.currentTarget; b.disabled = true; b.innerHTML = '<span class="au2-spin"></span>';
-    setTimeout(() => { auctions.markPaid(a.id); toast(tx('paid'), tx('paidBody')); }, 900);
+    const b = e.currentTarget; b.disabled = true; const label = b.innerHTML; b.innerHTML = '<span class="au2-spin"></span>';
+    if (b.dataset.mode !== 'live') { setTimeout(() => { auctions.markPaid(a.id); toast(tx('paid'), tx('paidBody')); }, 900); return; }
+    // 正式模式：得標時已建立待付款訂單（auction-store）→ pay/create → 自動送出到金流商；pay-return.html 回來入帳
+    const errBox = $('#au2PayErr', dlg);
+    const fail = (msg) => { if (errBox) { errBox.textContent = msg; errBox.hidden = false; } toast(ptx('err'), msg, { kind: 'warn' }); b.disabled = false; b.innerHTML = label; };
+    const order = a.orderId && store.live.find(o => o.id === a.orderId);
+    if (!order) { fail(ptx('noOrder')); return; }
+    try {
+      const res = await createPayment(order, payMethod || enabledMethods()[0], { lang: shop?.lang || 'zh', returnUrl: defaultReturnUrl({ lang: shop?.lang || 'zh' }), customer: { name: me()?.name || '' } });
+      submitToGateway(res);
+    } catch (ex) { console.warn('auction pay/create failed', ex); fail(errorText(ex)); }
   });
   const ver = $('#au2Ver');
   if (ver) {
@@ -555,6 +590,12 @@ export function initAuction(shopObj) {
   auctions.on('closed', onClosed);
   auctions.on('created', () => renderSection(true));
   auctions.on('paid', ({ a }) => { renderSection(false); if (a && openId === a.id && modal && !modal.hidden) renderDetail(false); });
+  // 線上付款成功（pay-return.html 或後台輪詢把訂單設為 paid）→ 得標紀錄跟著標記已付款
+  store.on('order-updated', ({ order }) => {
+    if (!order || order.status !== 'paid') return;
+    const a = auctions.list().find(x => x.orderId === order.id && x.winner && !x.paidAt);
+    if (a) auctions.markPaid(a.id);
+  });
   auctions.on('change', ({ remote }) => { if (remote && !(modal && !modal.hidden)) renderSection(false); });
   auctions.on('tick', () => {
     const now = Date.now();

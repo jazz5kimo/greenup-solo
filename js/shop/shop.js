@@ -12,6 +12,17 @@ import { createShopHero } from './shop-hero.js';
 import { initTrack, trackText } from './track.js';
 import { initStorefront, bootStorefront, T, G, isAmei, LAYOUT, SHIP_MODE, STYLE, visibleProducts, featuredId, tagsOf, heroExtra, priceHTML, saleTag, promoOf, saleLabel, bindHeroExtra, onStorefront, getSlot, setSlot, slotDays, dayLabel, TIME_SLOTS, slotText, setHero } from './storefront.js';
 import { initAuction } from './auction.js';
+import { isLive, enabledMethods, createPayment, submitToGateway, errorText, methodLabel, methodPayment, defaultReturnUrl, onPayConfig } from '../payments.js';
+
+// 線上金流（正式模式）文字：示範模式沿用 i18n.js 原本的結帳文案
+const PAY_L = {
+  zh: { goPay: '前往付款', note: '按下後會前往綠界／藍新的安全付款頁面，付款完成會自動回到本店。本站不會接觸你的卡號。', redirect: '正在前往付款頁面…', err: '無法建立付款', retry: '再試一次', pendingNote: '訂單 {id} 已建立（待付款），稍後可到「訂單查詢」確認。', live: '線上付款' },
+  en: { goPay: 'Proceed to payment', note: 'You will be taken to the secure ECPay / NewebPay checkout page and brought back here afterwards. We never see your card number.', redirect: 'Redirecting to payment…', err: 'Could not start payment', retry: 'Try again', pendingNote: 'Order {id} was created (unpaid). You can check it later under “Track order”.', live: 'Online payment' },
+  ja: { goPay: 'お支払いへ進む', note: '綠界／藍新の安全な決済ページへ移動し、完了後に自動でこのお店に戻ります。カード番号を当店が扱うことはありません。', redirect: '決済ページへ移動中…', err: '決済を開始できませんでした', retry: 'もう一度', pendingNote: 'ご注文 {id} は作成済み（未払い）です。あとで「注文照会」から確認できます。', live: 'オンライン決済' },
+  vi: { goPay: 'Tiến hành thanh toán', note: 'Bạn sẽ được chuyển đến trang thanh toán an toàn của ECPay / NewebPay và quay lại sau khi hoàn tất. Chúng tôi không lưu số thẻ của bạn.', redirect: 'Đang chuyển đến trang thanh toán…', err: 'Không thể tạo thanh toán', retry: 'Thử lại', pendingNote: 'Đơn {id} đã được tạo (chưa thanh toán). Bạn có thể kiểm tra sau ở “Tra đơn”.', live: 'Thanh toán trực tuyến' },
+  ms: { goPay: 'Teruskan ke pembayaran', note: 'Anda akan dibawa ke halaman pembayaran selamat ECPay / NewebPay dan kembali ke sini selepas selesai. Kami tidak menyimpan nombor kad anda.', redirect: 'Mengalih ke halaman pembayaran…', err: 'Pembayaran tidak dapat dimulakan', retry: 'Cuba lagi', pendingNote: 'Pesanan {id} telah dibuat (belum dibayar). Semak kemudian di “Jejak pesanan”.', live: 'Bayaran dalam talian' },
+};
+const payT = (k, v = {}) => String((PAY_L[lang] || PAY_L.zh)[k] ?? PAY_L.zh[k] ?? k).replace(/\{(\w+)\}/g, (_, n) => v[n] ?? '');
 
 const t = (l, k, v) => T(l, k, v);
 const LS_LANG = 'greenup-solo:lang';
@@ -213,7 +224,8 @@ function openCheckout() {
   card.className = 's-modal-card checkout';
   const regions = regionList();
   // 外帶業主預設自取；預約服務不需配送
-  let delivery = SHIP_MODE === 'takeout' ? 'pickup' : 'home', pay = '信用卡';
+  const live = isLive(), methods = live ? enabledMethods() : [];
+  let delivery = SHIP_MODE === 'takeout' ? 'pickup' : 'home', pay = live ? methods[0] : '信用卡';
   const dv = SHIP_MODE === 'takeout' ? [['pickup', t(lang, 'ckPickup')], ['home', t(lang, 'ckHome')]] : [['home', t(lang, 'ckHome')], ['pickup', t(lang, 'ckPickup')]];
   const days = slotDays(), s0 = getSlot();
   const slotUI = `<label>${esc(t(lang, 'ckDelivery'))}</label><div class="ck-slot"><select id="ckDay">${days.map(d => `<option value="${+d.day}" ${+d.day === +s0.day ? 'selected' : ''}>${esc(dayLabel(d.day, lang))}</option>`).join('')}</select><select id="ckTime"></select></div>`;
@@ -222,8 +234,10 @@ function openCheckout() {
       <label>${t(lang, 'ckName')}<input id="ckName" placeholder="${esc(t(lang, 'ckNamePh'))}"></label>
       ${SHIP_MODE === 'service' ? slotUI : `<label>${t(lang, 'ckDelivery')}</label><div class="seg2">${dv.map(([id, lb]) => `<button class="${id === delivery ? 'on' : ''}" data-dv="${id}">${esc(lb)}</button>`).join('')}</div>
       <label>${t(lang, 'ckRegion')}<select id="ckRegion" ${delivery === 'pickup' ? 'disabled' : ''}>${regions.map((r, i) => `<option ${i === 3 ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>`}
-      <label>${t(lang, 'ckPay')}</label><div class="seg2 pay"><button class="on" data-pm="信用卡">${t(lang, 'ckCard')}</button><button data-pm="LINE Pay">LINE Pay</button><button data-pm="Apple Pay">Apple Pay</button></div>
-      <small class="ck-note">${t(lang, 'ckNote')}</small>
+      <label>${t(lang, 'ckPay')}${live ? ` <span class="ck-live">${esc(payT('live'))}</span>` : ''}</label><div class="seg2 pay">${live
+        ? methods.map((m, i) => `<button class="${i === 0 ? 'on' : ''}" data-pm="${m}">${esc(methodLabel(m, lang))}</button>`).join('')
+        : `<button class="on" data-pm="信用卡">${t(lang, 'ckCard')}</button><button data-pm="LINE Pay">LINE Pay</button><button data-pm="Apple Pay">Apple Pay</button>`}</div>
+      <small class="ck-note">${live ? esc(payT('note')) : t(lang, 'ckNote')}</small>
     </div><div class="ck-sum" id="ckSum"></div></div>`;
   const fillTimes = () => {
     const ds = $('#ckDay', card); if (!ds) return;
@@ -237,14 +251,34 @@ function openCheckout() {
     $('#ckSum').innerHTML = cart.list().filter(i => PRODUCT_MAP[i.pid]).map(i => { const pi = promoOf(PRODUCT_MAP[i.pid]); return `<div class="cs-row"><span>${esc(pName(lang, i.pid))} × ${i.qty}${pi ? saleTag(PRODUCT_MAP[i.pid], lang) : ''}</span><b>${pi ? `<s>${money(pi.list * i.qty)}</s> ` : ''}${money(i.price * i.qty)}</b></div>`; }).join('')
       + (SHIP_MODE === 'service' ? `<div class="cs-row muted"><span>${esc(t(lang, 'ckDelivery'))}</span><b>${esc(slotText(lang))}</b></div>` : `<div class="cs-row muted"><span>${t(lang, 'shipping')}</span><b>${ship ? money(ship) : t(lang, 'free')}</b></div>`)
       + `<div class="cs-row big"><span>${t(lang, 'total')}</span><b>${money(tt.subtotal + ship)}</b></div>
-      <button class="s-btn s-btn-primary wide" id="ckPay">${t(lang, 'ckPayBtn')}</button>`;
+      <button class="s-btn s-btn-primary wide" id="ckPay" data-mode="${live ? 'live' : 'demo'}">${live ? esc(payT('goPay')) : t(lang, 'ckPayBtn')}</button><p class="ck-err" id="ckErr" hidden></p>`;
     $('#ckPay').addEventListener('click', async (e) => {
-      const btn = e.currentTarget; btn.disabled = true; btn.innerHTML = `<span class="s-spin"></span>${t(lang, 'ckProcessing')}`;
-      await sleep(1300);
-      const order = placeOrder({ name: $('#ckName').value.trim(), region, pickup: SHIP_MODE === 'service' || delivery === 'pickup', payment: pay });
-      showSuccess(order);
+      const btn = e.currentTarget; btn.disabled = true;
+      const opts = { name: $('#ckName').value.trim(), region, pickup: SHIP_MODE === 'service' || delivery === 'pickup' };
+      if (!live) {
+        btn.innerHTML = `<span class="s-spin"></span>${t(lang, 'ckProcessing')}`;
+        await sleep(1300);
+        showSuccess(placeOrder({ ...opts, payment: pay }));
+        return;
+      }
+      // 正式模式：先建立待付款訂單 → pay/create → 隱藏表單自動送出到金流商；回來時 pay-return.html 會輪詢狀態並入帳
+      btn.innerHTML = `<span class="s-spin"></span>${esc(payT('redirect'))}`;
+      const err = $('#ckErr'); err.hidden = true;
+      const order = pendingOrder || placeOrder({ ...opts, payment: methodPayment(pay), status: 'pending', clear: false });
+      pendingOrder = order;
+      try {
+        const res = await createPayment(order, pay, { lang, returnUrl: defaultReturnUrl({ lang }), customer: { name: opts.name } });
+        cart.clear();
+        submitToGateway(res);
+      } catch (ex) {
+        console.warn('pay/create failed', ex);
+        err.innerHTML = `<b>${esc(payT('err'))}</b><span>${esc(errorText(ex))}</span><small>${esc(payT('pendingNote', { id: order.id }))}</small>`;
+        err.hidden = false;
+        btn.disabled = false; btn.textContent = payT('retry');
+      }
     });
   };
+  let pendingOrder = null; // 正式模式：pay/create 失敗後重試時沿用同一筆待付款訂單
   showModal();
   if (SHIP_MODE === 'service') {
     fillTimes();
@@ -258,13 +292,13 @@ function openCheckout() {
   $('.m-x', card).addEventListener('click', hideModal);
 }
 
-function placeOrder({ name = '', region = '', pickup = false, payment = '信用卡', conv = null } = {}) {
+function placeOrder({ name = '', region = '', pickup = false, payment = '信用卡', conv = null, status = 'paid', clear = true } = {}) {
   const items = cart.list().filter(i => PRODUCT_MAP[i.pid]).map(i => ({ pid: i.pid, qty: i.qty }));
   const customer = name || `官網訪客${lang !== 'zh' ? `（${LANGS.find(l => l.id === lang).label}）` : ''}`;
   // 後台以中文顯示取貨方式
   const where = SHIP_MODE === 'service' ? `${G('zh', 'ckService')} ${slotText('zh')}` : pickup ? (isAmei ? '台中門市自取' : T('zh', 'ckPickup')) : (region || '宅配');
-  const order = store.createOrder({ channel: 'web', customer, lang, items, payment, status: 'paid', region: where, pickup: pickup || SHIP_MODE === 'service', conv });
-  cart.clear();
+  const order = store.createOrder({ channel: 'web', customer, lang, items, payment, status, region: where, pickup: pickup || SHIP_MODE === 'service', conv });
+  if (clear) cart.clear();
   return order;
 }
 
@@ -312,5 +346,10 @@ const storefront = initStorefront(shop);
 const auction = initAuction(shop);
 window.__storefront = storefront; window.__auction = auction;
 $('#heroAsk').addEventListener('click', () => bot.open());
+// 從付款結果頁「查看訂單」回來：?track=訂單編號 直接開訂單查詢
+const urlTrack = new URLSearchParams(location.search).get('track');
+if (urlTrack) setTimeout(() => track.open(urlTrack), 600);
+// 後台切換示範／正式模式時，結帳視窗若開著就重開（付款方式會不同）
+onPayConfig(() => { const c = $('#sModalCard'); if (!$('#sModal').hidden && c.classList.contains('checkout')) openCheckout(); });
 window.__shop = shop;
 export { toast };

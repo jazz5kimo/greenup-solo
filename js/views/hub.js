@@ -6,7 +6,8 @@ import { icon } from '../icons.js';
 import { makeChart } from '../charts.js';
 import { mulberry32, startOfDay, addDays } from '../data.js';
 import { STAFF } from '../ledger.js';
-import { CATS, CAT_MAP, SERVICES, EVENT_TPL, REVIEW_QUEUE, CLIENTS, PLAN_PRICE, REFERRAL_RATE, COUNTRIES, PERMS, fxSeries, ANCHOR_NOTE, DEMO_ITEM } from '../hub-data.js';
+import { CATS, CAT_MAP, SERVICES, EVENT_TPL, REVIEW_QUEUE, CLIENTS, PLAN_PRICE, REFERRAL_RATE, COUNTRIES, fxSeries, ANCHOR_NOTE, DEMO_ITEM } from '../hub-data.js';
+import { ROLES, ROLE_MAP, LEVELS, LOCKED, modules, getMatrix, isDefaultMatrix, setPerm, resetMatrix, can, currentUser, roleName, defaultName, audit, auditLog, approvals, decideApproval, onAuth } from '../auth.js';
 import { TENANT } from '../tenant.js';
 const OWN = STAFF[0].name; // 負責人
 const EMPS = STAFF.filter(x => x.kind !== 'owner');
@@ -38,7 +39,6 @@ const collaborators = [
   { name: '林雅婷 記帳士', org: '林記帳士事務所', email: 'yating@lin-bookkeeping.example', role: 'review', perms: ['view', 'review', 'download'], status: '已加入' },
   { name: '陳志明 會計師', org: '明誠聯合會計師事務所（示範）', email: 'cpa.chen@mingcheng.example', role: 'view', perms: ['view'], status: '已加入' },
 ];
-const audit = [];
 
 // ---------- 今日同步筆數（依 store 今日訂單推算） ----------
 function todayOrders() { const t = startOfDay(new Date()); return store.ordersBetween(t, addDays(t, 1)); }
@@ -67,7 +67,6 @@ export default {
   mount(section) {
     root = section;
     computeCounts();
-    seedAudit();
     section.innerHTML = `
     <div class="hub-wrap">
       <div class="glass hub-head anim-in">
@@ -1018,12 +1017,10 @@ function showGeo() {
 }
 
 // ====================================================================
-// 資安與權限
+// 資安與權限（分權示範：矩陣、待核准、稽核皆來自 auth.js，依業主分開存於瀏覽器並跨分頁同步）
 // ====================================================================
-const ROLE_COLS = [['負責人', STAFF[0].name], ['員工', STAFF.slice(1).map(x => x.name).join('、') || '（目前無員工）'], ['會計師／記帳士', '林雅婷 記帳士']];
-const perms = PERMS.map(p => [...p]);
-const PL = { full: ['完整', 'full'], view: ['唯讀', 'view'], none: ['—', 'none'] };
-const LOCKED = new Set(['管理成員與權限', '匯出客戶個資', '管理串接與 API 金鑰']);
+const LV_ICON = { none: '', view: () => I.eye(12), edit: () => icon('check', 12), approve: () => icon('shield', 12) };
+const lvName = (lv) => (LEVELS.find(l => l[0] === lv) || ['', '—'])[1];
 // 雙因素驗證名單：依 STAFF（最後一位員工尚未設定，可按「提醒設定」）
 const twofa = [
   { name: OWN, role: '負責人', how: '驗證器 App', on: true },
@@ -1033,13 +1030,18 @@ const twofa = [
 const NO2FA = twofa.find(x => !x.on);
 function secHTML() {
   return `
-  <div class="hub-sec-title anim-in"><h3>${icon('shield', 18)} 資安與權限</h3><span class="chip-sm">示意設定・依部署模式調整</span></div>
+  <div class="hub-sec-title anim-in"><h3>${icon('shield', 18)} 資安與權限</h3><span class="chip-sm">示範：正式版由 API 與資料庫強制執行</span></div>
   <div class="hub-sec">
     <div class="glass card hub-roles anim-in">
-      <div class="card-h"><h3>${icon('users', 17)} 角色權限</h3><small class="hub-fine">點選員工、會計師欄位可調整</small></div>
-      <div class="tbl-wrap"><table class="tbl hub-rtbl"><thead><tr><th>權限</th>${ROLE_COLS.map(([r, n]) => `<th><b>${r}</b><small>${esc(n)}</small></th>`).join('')}</tr></thead><tbody id="hubRoles"></tbody></table></div>
+      <div class="card-h"><h3>${icon('users', 17)} 成員與權限矩陣</h3><div class="hub-roles-act"><small class="hub-fine" id="hubRolesHint"></small><button class="btn btn-ghost btn-sm" id="hubRolesReset" hidden>恢復預設</button></div></div>
+      <div class="tbl-wrap hub-mtx-wrap"><table class="tbl hub-rtbl hub-mtx"><thead><tr><th>模組</th>${ROLES.map(r => `<th style="--rc:${r.color}"><b>${r.name}</b><small>${esc(defaultName(r.id))}</small></th>`).join('')}</tr></thead><tbody id="hubRoles"></tbody></table></div>
+      <div class="hub-mtx-legend">${LEVELS.map(([k, n]) => `<span class="hub-pl ${k}">${typeof LV_ICON[k] === 'function' ? LV_ICON[k]() : ''}${n}</span>`).join('')}<small>點格子循環切換；存檔即時生效並寫稽核。${icon('lock', 11)} 為僅限負責人。</small></div>
     </div>
     <div class="hub-sec-mid">
+      <div class="glass card hub-appr anim-in">
+        <div class="card-h"><h3>${icon('clock', 17)} 待核准</h3><span class="chip-sm" id="hubApprN">0 筆</span></div>
+        <ul class="hub-appr-list" id="hubAppr"></ul>
+      </div>
       <div class="glass card hub-2fa anim-in">
         <div class="card-h"><h3>${I.fp(17)} 雙因素驗證</h3><label class="hub-sw"><input type="checkbox" id="hub2fa" checked><i></i></label></div>
         <ul class="hub-2fa-list" id="hub2faList"></ul>
@@ -1056,22 +1058,35 @@ function secHTML() {
       </div>
     </div>
     <div class="glass card hub-audit anim-in">
-      <div class="card-h"><h3>${icon('file', 17)} 稽核日誌</h3><span class="chip-sm">不可竄改・保留 5 年（示意）</span></div>
+      <div class="card-h"><h3>${icon('file', 17)} 稽核日誌</h3><span class="chip-sm" id="hubAuditN">本機・最多 200 筆</span></div>
       <ul class="hub-audit-list" id="hubAudit"></ul>
     </div>
   </div>`;
 }
 function bindSec() {
-  renderRoles(); render2fa(); renderAudit();
+  renderRoles(); renderAppr(); render2fa(); renderAudit();
   $('#hubRoles', root).addEventListener('click', (e) => {
-    const td = e.target.closest('td[data-r]'); if (!td) return;
-    const r = +td.dataset.r, c = +td.dataset.c; const row = perms[r];
-    if (LOCKED.has(row[0])) { toast('此權限僅限負責人', `「${row[0]}」為高風險權限，無法授予其他角色`, { kind: 'warn', icon: icon('lock', 18) }); return; }
-    const order = ['none', 'view', 'full']; row[c] = order[(order.indexOf(row[c]) + 1) % 3];
+    const td = e.target.closest('td[data-m]'); if (!td) return;
+    const mod = td.dataset.m, role = td.dataset.role;
+    if (!can('hub', 'edit')) { toast('只有負責人能修改權限', `目前身分：${currentUser()?.name || ''}・${roleName()}`, { kind: 'warn', icon: icon('lock', 18) }); return; }
+    if (LOCKED.has(mod)) { toast('此項目僅限負責人', `「${td.closest('tr').querySelector('td').textContent.trim()}」為高風險權限，無法授予其他角色`, { kind: 'warn', icon: icon('lock', 18) }); return; }
+    const order = LEVELS.map(l => l[0]); const cur = getMatrix()[role][mod];
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    if (!setPerm(role, mod, next)) return;
     renderRoles();
-    const cell = $(`td[data-r="${r}"][data-c="${c}"] .hub-pl`, root);
-    gsap.fromTo(cell, { scale: 1.4 }, { scale: 1, duration: 0.45, ease: 'back.out(3)' });
-    addAudit(OWN, `調整「${ROLE_COLS[c - 1][0]}」權限：${row[0]} → ${PL[row[c]][0] === '—' ? '無' : PL[row[c]][0]}`, 'warn');
+    const cell = $(`td[data-m="${mod}"][data-role="${role}"] .hub-pl`, root);
+    if (cell) gsap.fromTo(cell, { scale: 1.4 }, { scale: 1, duration: 0.45, ease: 'back.out(3)' });
+    toast(`已更新「${ROLE_MAP[role].name}」的權限`, `${td.closest('tr').querySelector('td').textContent.trim()} → ${lvName(next)}；側欄與鎖定已即時生效（含其他分頁）`, { icon: icon('check', 18), duration: 2600 });
+  });
+  $('#hubRolesReset', root).addEventListener('click', () => { if (resetMatrix()) { renderRoles(); toast('已恢復預設權限矩陣', '', { icon: icon('refresh', 18) }); } });
+  $('#hubAppr', root).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-decide]'); if (!b) return;
+    const id = b.closest('[data-id]').dataset.id, act = b.dataset.decide;
+    let reason = '';
+    if (act === 'rejected') { reason = (window.prompt('駁回原因（可留白）', '') || '').trim(); }
+    const a = decideApproval(id, act, reason); if (!a) return;
+    toast(act === 'approved' ? `已核准：${a.title}` : `已駁回：${a.title}`, act === 'approved' ? '示範：只寫稽核日誌，不實際執行（正式版核准後由 API 執行並通知申請人）' : (reason ? `原因：${reason}` : '已通知申請人（示範）'), { kind: act === 'approved' ? 'ok' : 'warn', icon: icon(act === 'approved' ? 'check' : 'x', 18) });
+    renderAppr();
   });
   $('#hub2fa', root).addEventListener('change', (e) => {
     const on = e.target.checked;
@@ -1086,11 +1101,35 @@ function bindSec() {
     toast(`已提醒${who}設定雙因素驗證`, '透過 LINE 與 Email 傳送設定連結（示範）', { kind: 'info', icon: icon('bell', 18) });
     addAudit('系統', `提醒${who}完成雙因素驗證設定`);
   });
+  // 其他分頁或頂欄切換角色／改矩陣／新申請 → 這裡即時更新
+  onAuth((type) => {
+    if (!root || !root.isConnected) return;
+    if (type === 'matrix' || type === 'user') renderRoles();
+    if (type === 'approvals' || type === 'user') renderAppr();
+    if (type === 'audit') renderAudit();
+  });
 }
 function renderRoles() {
-  $('#hubRoles', root).innerHTML = perms.map((p, r) => `<tr><td>${esc(p[0])}${LOCKED.has(p[0]) ? ` <span class="hub-lock" title="僅限負責人">${icon('lock', 11)}</span>` : ''}</td>${[1, 2, 3].map(c =>
-    `<td data-r="${r}" data-c="${c}" class="${c === 1 ? 'own' : 'edit'}"><span class="hub-pl ${PL[p[c]][1]}">${p[c] === 'full' ? icon('check', 12) : p[c] === 'view' ? I.eye(12) : ''}${PL[p[c]][0]}</span></td>`).join('')}</tr>`).join('');
-  $$('#hubRoles td.own', root).forEach(td => td.removeAttribute('data-r'));
+  const host = $('#hubRoles', root); if (!host) return;
+  const m = getMatrix(), editable = can('hub', 'edit');
+  const groups = [...new Set(modules().map(x => x.group))];
+  host.innerHTML = groups.map(g => `<tr class="hub-mtx-g"><td colspan="${ROLES.length + 1}">${esc(g)}</td></tr>` + modules().filter(x => x.group === g).map(x => `<tr><td>${esc(x.name)}${LOCKED.has(x.id) ? ` <span class="hub-lock" title="僅限負責人">${icon('lock', 11)}</span>` : ''}</td>${ROLES.map(r => {
+    const lv = r.id === 'owner' ? 'edit' : (m[r.id][x.id] || 'none'); const lock = r.id === 'owner' || LOCKED.has(x.id);
+    return `<td ${lock ? '' : `data-m="${x.id}" data-role="${r.id}"`} class="${lock ? 'own' : editable ? 'edit' : 'ro-cell'}"><span class="hub-pl ${lv}">${typeof LV_ICON[lv] === 'function' ? LV_ICON[lv]() : ''}${lvName(lv)}</span></td>`;
+  }).join('')}</tr>`).join('')).join('');
+  host.closest('table').classList.toggle('editable', editable);
+  const hint = $('#hubRolesHint', root); if (hint) hint.textContent = editable ? (isDefaultMatrix() ? '預設矩陣（設計文件第三節）' : '已自訂・存於此業主的瀏覽器儲存') : `只有負責人能編輯（目前：${roleName() || '未登入'}）`;
+  const rb = $('#hubRolesReset', root); if (rb) rb.hidden = !editable || isDefaultMatrix();
+}
+function renderAppr() {
+  const host = $('#hubAppr', root); if (!host) return;
+  const list = approvals(); const pend = list.filter(a => a.status === 'pending'); const done = list.filter(a => a.status !== 'pending').slice(0, 4);
+  const editable = can('hub', 'edit');
+  $('#hubApprN', root).textContent = `${pend.length} 筆待核准`;
+  const item = (a) => `<li class="${a.status}" data-id="${a.id}"><div class="hub-appr-t"><b>${esc(a.title)}</b><small>${esc(a.by)}・${ROLE_MAP[a.role]?.name || a.role}・${fmtTime(a.ts)}${a.detail ? `・${esc(a.detail)}` : ''}</small></div>
+    ${a.status === 'pending' ? (editable ? `<div class="hub-appr-btns"><button class="btn btn-primary btn-sm ro-ok" data-decide="approved">核准</button><button class="btn btn-ghost btn-sm ro-ok" data-decide="rejected">駁回</button></div>` : '<span class="chip-sm">待負責人核准</span>')
+    : `<span class="chip-sm ${a.status === 'approved' ? 'ok' : 'warn'}">${a.status === 'approved' ? '已核准' : '已駁回'}${a.reason ? `・${esc(a.reason)}` : ''}</span>`}</li>`;
+  host.innerHTML = (pend.length ? pend.map(item).join('') : `<li class="hub-appr-empty">目前沒有待核准的申請。員工在 POS 按「作廢／折讓／退款」會送到這裡。</li>`) + (done.length ? `<li class="hub-appr-sub">最近處理</li>${done.map(item).join('')}` : '');
 }
 function render2fa() {
   const force = $('#hub2fa', root)?.checked ?? true;
@@ -1099,27 +1138,16 @@ function render2fa() {
     <li><span class="hub-av sm">${esc(x.name.slice(0, 1))}</span><div><b>${esc(x.name)}</b><small>${x.role}・${x.how}</small></div>
     ${x.on ? `<span class="hub-ok">${icon('check', 13)} 已啟用</span>` : `<button class="btn btn-ghost btn-sm" data-remind>提醒設定</button>`}</li>`).join('');
 }
-function seedAudit() {
-  const now = Date.now();
-  const seed = [
-    [-5.2, '林雅婷 記帳士', '登入（驗證器 App 通過）', ''],
-    [-5.0, '林雅婷 記帳士', '核准分錄 JE-0930-061（員工伙食費）', 'ok'],
-    [-3.6, '系統', '玉山銀行 API 權杖自動更新', ''],
-    [-2.1, OWN, '下載 9 月損益表', ''],
-    EMPS.length ? [-1.4, EMPS[0].name, '嘗試存取帳務分錄（權限不足，已阻擋）', 'warn'] : [-1.4, '未知裝置', '嘗試登入負責人帳號（雙因素驗證未通過，已阻擋）', 'warn'],
-    [-0.4, '系統', '每日異地備份完成（2.4 GB）', 'ok'],
-  ];
-  for (const [h, who, what, k] of seed) audit.unshift({ ts: now + h * 3600e3, who, what, k });
-}
-function addAudit(who, what, k = '') {
-  audit.unshift({ ts: Date.now(), who, what, k, fresh: true });
-  if (audit.length > 30) audit.pop();
-  renderAudit();
-}
+// 整合中心其他區塊沿用的寫法：addAudit(誰, 做了什麼, 類別) → 寫入 auth.js 的稽核日誌（本機、跨分頁同步）
+function addAudit(who, what, k = '') { audit(what, '', { who, kind: k }); }
+let auditSeen = 0;
 function renderAudit() {
   const host = $('#hubAudit', root); if (!host) return;
-  host.innerHTML = audit.slice(0, 9).map(a => `<li class="${a.k} ${a.fresh ? 'fresh' : ''}"><time class="mono">${fmtTime(a.ts)}</time><div><b>${esc(a.who)}</b><span>${esc(a.what)}</span></div></li>`).join('');
+  const list = auditLog();
+  const n = $('#hubAuditN', root); if (n) n.textContent = `${list.length} 筆・本機・最多 200 筆`;
+  host.innerHTML = list.length ? list.slice(0, 14).map((a, i) => `<li class="${a.k || ''} ${i === 0 && list.length > auditSeen ? 'fresh' : ''}"><time class="mono">${fmtTime(a.ts)}</time><div><b>${esc(a.who)}${a.role && ROLE_MAP[a.role] ? ` <em>${ROLE_MAP[a.role].name}</em>` : ''}</b><span>${esc(a.action)}${a.detail ? `：${esc(a.detail)}` : ''}</span></div></li>`).join('')
+    : '<li class="hub-appr-empty">尚無紀錄。登入、切換角色、變更權限、被拒絕的操作都會記在這裡。</li>';
   const f = $('li.fresh', host);
-  if (f) gsap.fromTo(f, { opacity: 0, x: -12, backgroundColor: 'rgba(94,224,196,0.18)' }, { opacity: 1, x: 0, backgroundColor: 'rgba(94,224,196,0)', duration: 0.9, clearProps: 'all' });
-  audit.forEach(a => { a.fresh = false; });
+  if (f && list.length > auditSeen) gsap.fromTo(f, { opacity: 0, x: -12, backgroundColor: 'rgba(94,224,196,0.18)' }, { opacity: 1, x: 0, backgroundColor: 'rgba(94,224,196,0)', duration: 0.9, clearProps: 'all' });
+  auditSeen = list.length;
 }

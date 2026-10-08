@@ -6,6 +6,7 @@ import { makeChart } from '../charts.js';
 import { startOfDay, addDays, mulberry32 } from '../data.js';
 import { IS_AMEI, KIT } from '../inventory-data.js';
 import { PROMPT_EX, QUOTE_CAT } from '../quotes-data.js';
+import { getPayConfig, PAY_NOTE } from '../payments.js';
 // 品牌字樣：阿美沿用原本示範；其他業主用目前業主名稱
 const AV = IS_AMEI ? '美' : KIT.avatar;
 const STAMP = IS_AMEI ? '阿美手作<br>甜點工作室<br>報價專用章' : (() => { const n = String(SELLER_NAME()); return `${n.slice(0, 4)}<br>${n.slice(4, 9) || '工作室'}<br>報價專用章`; })();
@@ -669,6 +670,7 @@ function openBill(d) {
           <small>每張請款單專屬帳號，入帳即自動對到這筆款項，不用再核對末五碼。</small>
         </div>
         <div class="qt-pay-link"><div class="qt-pay-qr">${fakeQR(S.invSeq + 7, 25)}</div><div><small>付款連結</small><b class="mono">pay.greenup.example/i/${inv}</b><button class="btn btn-ghost btn-sm" id="qtCopy">${icon('link', 13)} 複製連結</button></div></div>
+        <small class="qt-pay-mode">${getPayConfig().mode === 'live' ? `正式模式：寄出請款時由 n8n 金流（${esc(getPayConfig().base)}/pay/create）產生綠界／藍新付款連結；上方為版面示意。` : PAY_NOTE}</small>
       </div>
     </div>
     <div class="qt-m-f">
