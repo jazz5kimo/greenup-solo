@@ -527,7 +527,7 @@ export const BIZ = [
         P('bb-swaddle', '紗布包巾', 'Muslin Swaddle Blanket', '1 條', 780, 300, 20, '四層紗布，透氣柔軟。', 'Four-layer muslin, breathable and soft.', 'g3_blanket', '#F8D9C4', '#7FC3AE'),
         P('bb-rattle', '木製搖鈴', 'Wooden Rattle', '1 個', 420, 150, 22, '櫸木手握環，聲音清脆。', 'Beech wood ring with a gentle chime.', 'g3_rattle', '#F6C66B', '#7FC3AE'),
         P('bb-blocks', '布面軟積木 6 入', 'Soft Fabric Blocks ×6', '6 入', 880, 360, 12, '輕軟布面，邊角圓潤。', 'Light fabric blocks with rounded corners.', 'g3_blocks', '#F49A8A', '#7FB8E0'),
-        P('bb-gift', '彌月禮盒', 'Newborn Gift Box', '1 盒', 1680, 760, 8, '包屁衣＋包巾＋搖鈴，附賀卡。', 'Bodysuit, swaddle and rattle with a card.', 'g3_giftbox', '#FFE7B3', '#F49A8A'),
+        P('baby-gift', '彌月禮盒', 'Newborn Gift Box', '1 盒', 1680, 760, 8, '包屁衣＋包巾＋搖鈴，附賀卡。', 'Bodysuit, swaddle and rattle with a card.', 'g3_giftbox', '#FFE7B3', '#F49A8A'),
       ],
     },
     theme: {

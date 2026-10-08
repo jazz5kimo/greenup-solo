@@ -766,7 +766,7 @@ export const BIZ = [
         P('pt-can', '貓咪主食罐 24 入', 'Cat Wet Food ×24', '24 罐', 1200, 780, 14, '鮪魚、雞肉口味綜合。', 'Assorted tuna and chicken.', 'g2_petcan', '#1A6FAE', '#FFD166'),
         P('pt-treat', '凍乾雞肉零食', 'Freeze-dried Chicken Treats', '100g', 280, 140, 40, '單一原料，訓練獎勵好用。', 'Single ingredient, handy for training.', 'g2_bone', '#E8B57A', '#FF8A3D'),
         P('pt-bed', '甜甜圈睡窩', 'Donut Pet Bed', '1 個', 1280, 520, 8, '長毛絨面，可整個下水洗。', 'Plush and fully machine washable.', 'g2_petbed', '#B9D9F2', '#FFE2C4'),
-        P('pt-bowl', '陶瓷寵物碗', 'Ceramic Pet Bowl', '1 個', 420, 150, 24, '加高碗身，吃飯不低頭。', 'Raised bowl for comfier mealtimes.', 'g2_petbowl', '#F2F5F9', '#1A6FAE'),
+        P('pet-bowl', '陶瓷寵物碗', 'Ceramic Pet Bowl', '1 個', 420, 150, 24, '加高碗身，吃飯不低頭。', 'Raised bowl for comfier mealtimes.', 'g2_petbowl', '#F2F5F9', '#1A6FAE'),
       ],
     },
     theme: {
