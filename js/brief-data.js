@@ -122,9 +122,11 @@ export function anomalies(now = new Date()) {
   const cc = {}, pc = {};
   for (const o of cur) cc[o.channel] = (cc[o.channel] || 0) + 1;
   for (const o of prev) pc[o.channel] = (pc[o.channel] || 0) + 1;
-  const rows = CHANNELS.filter(c => (pc[c.id] || 0) >= 10).map(c => ({ ch: c, cur: cc[c.id] || 0, prev: pc[c.id] || 0, d: pct(cc[c.id] || 0, pc[c.id] || 0) }));
-  const down = [...rows].sort((a, b) => a.d - b.d)[0];
-  const up = [...rows].sort((a, b) => b.d - a.d)[0];
+  // 訂單量少的業主（私廚、包棟民宿…）前一週可能沒有任何通路滿 10 筆：降低門檻，仍沒有就不顯示通路異常
+  const rowsAt = (min) => CHANNELS.filter(c => (pc[c.id] || 0) >= min).map(c => ({ ch: c, cur: cc[c.id] || 0, prev: pc[c.id] || 0, d: pct(cc[c.id] || 0, pc[c.id] || 0) }));
+  let rows = rowsAt(10); if (!rows.length) rows = rowsAt(3);
+  const down = [...rows].sort((a, b) => a.d - b.d).find(r => r.d < 0);
+  const up = [...rows].sort((a, b) => b.d - a.d).find(r => r.d > 0 && r !== down);
   const daily = (chId) => Array.from({ length: 14 }, (_, i) => { const d = addDays(today, -14 + i); return store.ordersBetween(d, addDays(d, 1)).filter(o => o.channel === chId).length; });
 
   // 毛利異常（模擬，固定種子）：阿美＝草莓生乳捲的草莓進價上漲；其他業主＝主力商品的主要原物料進價上漲
@@ -145,18 +147,18 @@ export function anomalies(now = new Date()) {
       tip: `建議售價調至 NT$ ${(Math.ceil(roll.price * 1.06 / 10) * 10).toLocaleString('en-US')}，或${VOC.alt}` };
 
   return [
-    { id: 'down', level: 'bad', title: `${down.ch.name} 訂單比上週少 ${Math.abs(down.d).toFixed(0)}%`,
+    down && { id: 'down', level: 'bad', title: `${down.ch.name} 訂單比上週少 ${Math.abs(down.d).toFixed(0)}%`,
       body: `近 7 天 ${down.cur} 筆，前 7 天 ${down.prev} 筆。AI 判斷：上週推播優惠到期、回購客減少。`,
       tip: `建議對 ${down.ch.name} 會員推播回流優惠`, action: { label: '設定推播', go: 'crm' },
       spark: daily(down.ch.id), color: '#EC6A55', unit: '筆' },
     { id: 'margin', level: 'warn', title: margin.title, body: margin.body, tip: margin.tip,
       action: { label: IS_AMEI ? '查看配方成本' : '查看商品成本', go: 'inventory' },
       spark: margins, color: '#F0A531', unit: '%' },
-    { id: 'up', level: 'good', title: `${up.ch.name} 訂單比上週多 ${up.d.toFixed(0)}%`,
+    up && { id: 'up', level: 'good', title: `${up.ch.name} 訂單比上週多 ${up.d.toFixed(0)}%`,
       body: `近 7 天 ${up.cur} 筆，前 7 天 ${up.prev} 筆。AI 導購推薦${IS_AMEI ? '禮盒' : ''}組合的轉換率提升。`,
       tip: '建議把相同推薦組合同步到 LINE 選單', action: { label: '看會員分眾', go: 'crm' },
       spark: daily(up.ch.id), color: '#2DB674', unit: '筆' },
-  ];
+  ].filter(Boolean);
 }
 
 // ---------- 目標進度 ----------

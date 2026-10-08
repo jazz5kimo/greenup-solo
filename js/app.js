@@ -177,8 +177,12 @@ function ensureMounted(v) {
   if (mounted.has(v.id)) return mounted.get(v.id);
   const section = el(`<section class="view view-${v.id}" id="view-${v.id}" hidden></section>`);
   viewsHost.appendChild(section);
-  v.mod.mount(section, { go });
   mounted.set(v.id, section);
+  try { v.mod.mount(section, { go }); } catch (e) {
+    // 單一頁面載入失敗時顯示提示，不讓整個後台卡住；錯誤仍拋出供除錯與測試捕捉
+    section.innerHTML = `<div class="glass card" style="padding:28px"><h3>${icon('alert', 18)} 「${v.name}」暫時無法顯示</h3><p style="color:var(--txt2)">請重新整理頁面；若持續發生，請聯絡 GreenUP 支援。</p></div>`;
+    setTimeout(() => { throw e; });
+  }
   return section;
 }
 
@@ -228,7 +232,7 @@ function show(v) {
   pushRecent(v.id);
   $('#viewTitle').textContent = v.name;
   $('#viewSub').textContent = v.sub;
-  if (prev) { const ps = mounted.get(prev.id); ps.hidden = true; prev.mod.hide && prev.mod.hide(); }
+  if (prev) { const ps = mounted.get(prev.id); if (ps) ps.hidden = true; prev.mod.hide && prev.mod.hide(); }
   section.hidden = false;
   viewsHost.scrollTop = 0;
   gsap.fromTo(section, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, ease: 'power3.out', clearProps: 'transform' });
