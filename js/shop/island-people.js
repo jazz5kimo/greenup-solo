@@ -10,7 +10,7 @@ const PANTS = ['#3a4a6b', '#2f3a40', '#6b5a4a', '#4a5a3a', '#2b2b3a', '#8a7a6a']
 const turn = (a, b, k) => { let d = ((b - a) % TAU + TAU * 1.5) % TAU - Math.PI; return a + d * Math.min(1, k); };
 const angDist = (a, b) => Math.abs(((a - b) % TAU + TAU * 1.5) % TAU - Math.PI);
 
-export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = [], hat: sceneHat, shadows = true }) {
+export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = [], hat: sceneHat, dogs = 0, shadows = true }) {
   const mats = new Map(), geos = new Map();
   const m = (c, o = {}) => { const k = c + JSON.stringify(o); if (!mats.has(k)) mats.set(k, new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.75, ...o })); return mats.get(k); };
   const g = (k, f) => { if (!geos.has(k)) geos.set(k, f()); return geos.get(k); };
@@ -44,6 +44,7 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
     const hat = o.hat;
     if (hat === 'straw') { head.add(mesh(g('straw', () => new THREE.ConeGeometry(0.3, 0.16, 14)), m('#e2c15a', { roughness: 1 }), 0, 0.14, 0)); }
     else if (hat === 'sun') { head.add(mesh(g('sunb', () => new THREE.CylinderGeometry(0.26, 0.26, 0.015, 16)), m(o.hatC || '#fbf3e0'), 0, 0.08, 0)); head.add(mesh(g('sunc', () => new THREE.CylinderGeometry(0.12, 0.135, 0.09, 14)), m(o.hatC || '#fbf3e0'), 0, 0.13, 0)); }
+    else if (hat === 'beanie') { head.add(mesh(g('beanie', () => new THREE.SphereGeometry(0.142, 12, 8, 0, TAU, 0, Math.PI * 0.5)), m(o.hatC || pick(shirts)), 0, 0.02, 0)); head.add(mesh(g('pom', () => new THREE.SphereGeometry(0.045, 8, 6)), m('#ffffff'), 0, 0.17, 0)); }
     else if (hat === 'cap') { head.add(mesh(g('cap', () => new THREE.SphereGeometry(0.14, 12, 8, 0, TAU, 0, Math.PI / 2)), m(o.hatC || pick(shirts)), 0, 0.03, 0)); head.add(mesh(g('capv', () => new THREE.BoxGeometry(0.16, 0.015, 0.1)), m(o.hatC || '#333333'), 0, 0.04, 0.15)); }
     let bag = null;
     if (o.bag !== undefined) { bag = mesh(g('bag', () => new THREE.BoxGeometry(0.16, 0.18, 0.07)), m(o.bagC || hexOf(pal[0])), 0, -0.42, 0); armR.add(bag); bag.visible = !!o.bag; }
@@ -162,10 +163,9 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
       if (dist > 0.01 && !still) { const s = Math.min(dist, dt * SPEED * 4); root.position.x += dx / dist * s; root.position.z += dz / dist * s; d.heading = turn(d.heading, Math.atan2(dx, dz), dt * 8); d.phase += s * 40; d.mode = 'walk'; }
       else d.mode = 'stand';
       root.rotation.y = d.heading; root.position.y = L.ground(root.position.x, root.position.z);
-      const sw = d.mode === 'walk' ? Math.sin(d.phase) * 0.7 : 0;
-      legs[0].rotation.x = legs[3].rotation.x = sw; legs[1].rotation.x = legs[2].rotation.x = -sw;
-      tail.rotation.y = Math.sin(t * (still ? 14 : 8)) * 0.5;
+      d.legsSwing(d.mode === 'walk' ? Math.sin(d.phase) * 0.7 : 0, t, still);
     };
+    d.legsSwing = (sw, t, still) => { legs[0].rotation.x = legs[3].rotation.x = sw; legs[1].rotation.x = legs[2].rotation.x = -sw; tail.rotation.y = Math.sin(t * (still ? 14 : 8)) * 0.5; };
     people.push(d);
     return d;
   }
@@ -236,10 +236,26 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
     p.root.position.set(s.x, y, s.z); p.heading = Math.atan2(s.face[0] - s.x, s.face[1] - s.z); p.root.rotation.y = p.heading;
     p.seatY = 0; p.mode = s.pose;
     if (s.pose === 'sit') { p.seatY = 0; p.body.position.y = -0.4; }
-    let idle = 3 + rnd() * 4;
+    let idle = 3 + rnd() * 4, sa = rnd() * TAU;
     p.update = (dt) => {
       p.mode = s.pose;
+      // 溜冰：繞著冰池滑行（雙手張開）
+      if (s.skate) { sa += dt * 0.7; const { cx, cz, r } = s.skate; p.root.position.set(cx + Math.sin(sa) * r, s.y ?? 0.15, cz + Math.cos(sa) * r); p.heading = sa + Math.PI / 2; p.root.rotation.y = p.heading; p.mode = 'wave'; p.armL.rotation.z = 1.2; return; }
       if (s.pose === 'stand') { idle -= dt; if (idle < 0) { idle = 4 + rnd() * 5; p.heading += (rnd() - 0.5) * 0.8; } p.root.rotation.y = turn(p.root.rotation.y, p.heading, dt * 3); }
+    };
+  }
+  // 寵物公園：狗狗繞著廣場追逐，偶爾停下來搖尾巴
+  for (let i = 0; i < dogs; i++) {
+    const d = makeDog(pick(['#c9a06b', '#f2ead8', '#5a4636', '#e8c38a', '#2b2b2b'])); d.kind = 'dog';
+    let a = rnd() * TAU, rest = 0; const r = 1.55 + (i % 2) * 0.2, sp = 0.5 + rnd() * 0.3, dir = i % 2 ? 1 : -1;
+    d.root.position.set(Math.sin(a) * r, 0.13, 0.9 + Math.cos(a) * r);
+    d.update = (dt, t) => {
+      if (rest > 0) { rest -= dt; d.mode = 'stand'; }
+      else { a += dir * sp * dt; if (rnd() < 0.002) rest = 1.5 + rnd() * 2; }
+      const x = Math.sin(a) * r, z = 0.9 + Math.cos(a) * r, dx = x - d.root.position.x, dz = z - d.root.position.z, dist = Math.hypot(dx, dz);
+      if (dist > 0.005) { d.root.position.x = x; d.root.position.z = z; d.heading = Math.atan2(dx, dz); d.phase += dist * 40; d.mode = 'walk'; }
+      d.root.rotation.y = d.heading; d.root.position.y = 0.13;
+      d.legsSwing(d.mode === 'walk' ? Math.sin(d.phase) * 0.7 : 0, t, rest > 0);
     };
   }
   // 店長：站在門口，有人走近就揮手

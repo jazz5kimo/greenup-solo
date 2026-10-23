@@ -2,7 +2,7 @@
 // 再依業主代號決定島的形狀、擺設位置與細節，讓每家店的小島都不一樣。
 // 這裡也負責島上的空地規劃（避開步道、店舖、展台、人物走的路線與鏡頭視線），人物（island-people.js）共用同一份規劃。
 import * as THREE from 'three';
-import { SCENE_BY_CAT } from './scene-names.js';
+import { SCENE_BY_CAT, SCENE_BY_TENANT } from './scene-names.js';
 
 const TAU = Math.PI * 2;
 const C = (c) => new THREE.Color(c);
@@ -40,14 +40,15 @@ export const SCENES = {
   city: { id: 'city', kind: 'city', name: '城市百貨商圈', sand: '#d9d4c8', grass: '#cfc8b8', roof: 'flat' },
   farm: { id: 'farm', name: '田園牧場島', sand: '#efdbb0', grass: '#97c967', roof: 'barn', hat: 'straw', build: farm },
 };
-// 業態預設的場景（scene-names.js：零售選物是城市百貨商圈）；override 可指定場景代號（candy、market…、city）
-const DEFAULT_SCENE = SCENE_BY_CAT;
-export const SCENE_LIST = Object.values(SCENES).filter((v, i, a) => a.indexOf(v) === i);
+// 加入更多場景（island-scenes-more.js）
+export function registerScenes(more) { Object.assign(SCENES, more); }
+export const sceneList = () => Object.values(SCENES).filter((v, i, a) => a.indexOf(v) === i);
+// 預設場景：每個業主專屬（scene-names.js 的 SCENE_BY_TENANT），沒有時依業態；override 可指定場景代號（candy、market…、city）
 export function sceneFor(t, override) {
-  const byId = (id) => SCENE_LIST.find(s => s.id === id);
+  const byId = (id) => sceneList().find(s => s.id === id);
   if (override && override !== 'auto' && byId(override)) return byId(override);
   const cat = (t && t.cat) || 'retail';
-  return byId(DEFAULT_SCENE[cat]) || SCENES[cat] || SCENES.retail;
+  return byId(SCENE_BY_TENANT[t && t.id]) || byId(SCENE_BY_CAT[cat]) || SCENES[cat] || SCENES.retail;
 }
 
 // ---------- 空地規劃 ----------
@@ -411,7 +412,7 @@ function tea(k, L, world, pal) {
   return { spots };
 }
 
-function house(k, x, z, wall, roof) {
+export function house(k, x, z, wall, roof) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   g.add(k.mesh(k.g('hbody', () => new THREE.BoxGeometry(0.95, 0.8, 0.8)), k.m(wall, { roughness: 0.7 }), 0, 0.4, 0));
   const r = k.mesh(k.g('hroof', () => { const s = new THREE.Shape(); s.moveTo(-0.52, 0); s.lineTo(0.52, 0); s.lineTo(0, 0.5); const geo = new THREE.ExtrudeGeometry(s, { depth: 1.05, bevelEnabled: false }); geo.translate(0, 0, -0.525); geo.rotateY(Math.PI / 2); return geo; }), [k.m(wall), k.m(roof, { flatShading: true })], 0, 0.8, 0);
@@ -444,7 +445,7 @@ function town(k, L, world, pal) {
   return { spots };
 }
 
-function cabin(k, x, z) {
+export function cabin(k, x, z) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   const logs = k.tex(64, 64, (c, w, h) => { for (let i = 0; i < 6; i++) { c.fillStyle = i % 2 ? '#9a6a42' : '#b07b4f'; c.fillRect(0, i * h / 6, w, h / 6); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(0, (i + 1) * h / 6 - 2, w, 2); } });
   const lm = new THREE.MeshStandardMaterial({ map: logs, roughness: 0.9 });
@@ -687,7 +688,7 @@ export function buildScene(scene, { world, anim, rnd, night, mobile, pal, layout
     const s = k.mesh(k.g('shorerock', () => new THREE.DodecahedronGeometry(1, 0)), k.m(night ? '#5a5f6a' : '#b9b0a3', { flatShading: true }), Math.sin(th) * r, -0.42, Math.cos(th) * r);
     s.scale.setScalar(0.2 + rnd() * 0.25); s.rotation.set(rnd(), rnd(), rnd()); world.add(s);
   }
-  return { spots: out.spots || [], deco: out.deco || null, kit: k };
+  return { spots: out.spots || [], deco: out.deco || null, dogs: out.dogs || 0, kit: k };
 }
 
 // 店舖的小裝飾（依業態）

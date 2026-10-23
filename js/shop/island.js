@@ -11,7 +11,10 @@ import { getShopConfig } from '../shop-config.js';
 import { esc, money } from '../util.js';
 import { artImage, productPiece, heroKind, heroCenterpiece } from './shop-hero.js';
 import { visibleProducts, featuredId, priceHTML } from './storefront.js';
-import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco, makeBoat } from './island-scenes.js';
+import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco, makeBoat, kit, registerScenes } from './island-scenes.js';
+import { MORE_SCENES } from './island-scenes-more.js';
+import { buildLandmark } from './island-landmarks.js';
+registerScenes(MORE_SCENES);
 import { createPeople } from './island-people.js';
 import { cityLayout, buildCity, CITY_VENUE } from './island-city.js';
 
@@ -101,7 +104,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
   let world = new THREE.Group(); scene.add(world);
   let anim = [], stations = [], hits = [], products = [], look = {}, lookKey = '', night = false;
   let water = null, sky = null, centerpiece = null, balloon = null, boat = null, birds = [], clouds = [], sparkle = null, buildId = 0;
-  let sceneDef = null, crowd = null, cityObj = null;
+  let sceneDef = null, crowd = null, cityObj = null, landmark = null;
   // 場景：網址 ?scene= 優先，其次網站設計工作室的設定（auto＝依業態）
   let sceneOverride = new URLSearchParams(location.search).get('scene') || getShopConfig().scene || 'auto';
   const ISL_VENUE = { pinZ: SHOP_Z, pinY: 3.9, lookZ: SHOP_Z, lookY: 1.6 };
@@ -119,11 +122,12 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const pal = (look.pal && look.pal.length ? look.pal : ['#f7b2c4', '#b8e0c8', '#f9dc82', '#c9b6ec', '#ffc8a2', '#a8dadc']).map(c => C(c).getHex());
     while (pal.length < 6) pal.push(0xffffff);
     const vars = look.vars || {};
-    night = !!look.dim || lum(vars.cream || '#ffffff') < 0.3;
     const seed = seedOf(TENANT.id);
     const rnd = rng(seed);
     SHAPE = shapeOf(seed);
     sceneDef = sceneFor(TENANT, sceneOverride);
+    // 霓虹街、月夜燈會一律是夜景
+    night = !!look.dim || lum(vars.cream || '#ffffff') < 0.3 || !!sceneDef.night;
     const city = sceneDef.kind === 'city';
     VENUE = city ? CITY_VENUE : ISL_VENUE; cityObj = null;
 
@@ -224,15 +228,24 @@ export function createIsland({ shop, onOpen, onAdd }) {
 
     // 業態風景（避開步道、店舖、展台、人物路線與鏡頭視線）
     const stAngles = products.map((_, i) => stationAngle(i, products.length));
-    let layout, built;
+    let layout, built; landmark = null;
+    // 業主的招牌地標：先佔一塊最顯眼的空地，再擺其他造景
+    const placeLandmark = (L) => {
+      const lk = kit(world, anim, rnd, night, mobile()), lm = buildLandmark(TENANT.id, lk, pal); if (!lm) return;
+      const p = L.place(rnd, lm.rad, lm.h) || L.place(rnd, lm.rad * 0.8, lm.h, { zone: 'any' }); if (!p) { dispose(lm.group); return; }
+      lm.group.position.set(p.x, 0.13, p.z); lm.group.rotation.y = Math.atan2(-p.x, 0.9 - p.z); world.add(lm.group);
+      landmark = { id: TENANT.id, x: p.x, z: p.z, rad: lm.rad };
+    };
     if (city) {
       // 城市百貨商圈：大樓要避開鏡頭路線
       const kc = makeKeys(stAngles), cv0 = new THREE.CatmullRomCurve3(kc.map(q => q.pos), false, 'centripetal');
       const camPts = cv0.getSpacedPoints(160);
       layout = cityLayout({ RING, SHOP_Z, stations: stAngles });
+      placeLandmark(layout);
       built = cityObj = buildCity({ world, anim, rnd, night, mobile: mobile(), pal, vars, layout, camPts });
     } else {
       layout = makeLayout({ shore, RING, SHOP_Z, stations: stAngles, beach: sceneDef.beach });
+      placeLandmark(layout);
       built = buildScene(sceneDef, { world, anim, rnd, night, mobile: mobile(), pal, layout });
       shopDeco(built.deco, shopG, built.kit, sceneDef.roof);
     }
@@ -292,7 +305,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     anim.push((t) => { sparkle.rotation.y = t * 0.02; sparkle.position.y = Math.sin(t * 0.5) * 0.15; });
 
     // 島上的人
-    crowd = createPeople({ world, anim, rnd, night, mobile: mobile(), pal, L: layout, spots: built.spots, hat: sceneDef.hat, shadows: renderer.shadowMap.enabled });
+    crowd = createPeople({ world, anim, rnd, night, mobile: mobile(), pal, L: layout, spots: built.spots, hat: sceneDef.hat, dogs: built.dogs || 0, shadows: renderer.shadowMap.enabled });
     if (cityObj) cityObj.attach(crowd);
 
     // 商品展台
@@ -517,7 +530,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     screenOf(pid) { const st = stations.find(x => x.pid === pid); if (!st) return null; const v = st.pos.clone().setY(1.95).project(camera); const r = cv.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height, onScreen: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 }; },
     setProducts() { products = pickProducts(); build(); renderTexts(); onScroll(); },
     // 測試用：目前的風景、島形與島上的人
-    info() { return { scene: sceneDef && sceneDef.id, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null }; },
+    info() { return { scene: sceneDef && sceneDef.id, night, landmark, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null }; },
     // 換場景（網站設計工作室即時預覽）：auto＝依業態
     setScene(id) { const v = id || 'auto'; if (v === sceneOverride) return; sceneOverride = v; build(); renderTexts(); onScroll(); },
     destroy() { cancelAnimationFrame(raf); removeEventListener('scroll', onScroll); dispose(world); if (sky) dispose(sky); if (water) dispose(water); renderer.dispose(); sec.remove(); document.body.classList.remove('isl-on'); },
