@@ -2,6 +2,7 @@
 // 往下滾動時鏡頭一站一站飛過去，可拖曳轉視角、點商品看詳情或加入購物車。
 // 配色跟著業主風格（含夜間風格）；手機降低細節；不支援 WebGL 時不顯示（沿用原本的主視覺）；
 // 系統設定「減少動態效果」時不綁滾動、改為靜態鏡頭。
+// 每種業態有自己的風景（island-scenes.js），島的形狀與擺設依業主代號變化；島上有人走動（island-people.js）。
 import * as THREE from 'three';
 import { TENANT } from '../tenant.js';
 import { PRODUCT_MAP } from '../data.js';
@@ -10,6 +11,8 @@ import { getShopConfig } from '../shop-config.js';
 import { esc, money } from '../util.js';
 import { artImage, productPiece, heroKind, heroCenterpiece } from './shop-hero.js';
 import { visibleProducts, featuredId, priceHTML } from './storefront.js';
+import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco } from './island-scenes.js';
+import { createPeople } from './island-people.js';
 
 const TXT = {
   zh: { scroll: '往下滾動，逛逛小島', drag: '拖曳可以轉動視角', skip: '直接逛商品', add: '加入購物車', detail: '看詳情', enter: '逛全部商品', welcome: '歡迎光臨', stop: '第 {n} 站', loading: '小島建造中…', shop: '店舖' },
@@ -28,10 +31,12 @@ export function islandEnabled() {
 
 const C = (c) => new THREE.Color(c);
 const lum = (c) => { const x = C(c); return 0.2126 * x.r + 0.7152 * x.g + 0.0722 * x.b; };
-const R = 7; // 島的半徑
-const shore = (th, k = 1) => R * k * (1 + 0.07 * Math.sin(3 * th + 1.3) + 0.05 * Math.sin(5 * th + 0.4) + 0.03 * Math.sin(7 * th + 2.1));
-const RING = 4.4; // 環島步道半徑（商品展台位置）
-const SHOP_Z = -3.1;
+const R = 8.4; // 島的半徑
+// 海岸線形狀（每個業主不同，build 時設定）
+let SHAPE = { fr: [3, 5, 7], amp: [0.07, 0.05, 0.03], ph: [1.3, 0.4, 2.1] };
+const shore = (th, k = 1) => { const { fr, amp, ph } = SHAPE; return R * k * (1 + amp[0] * Math.sin(fr[0] * th + ph[0]) + amp[1] * Math.sin(fr[1] * th + ph[1]) + amp[2] * Math.sin(fr[2] * th + ph[2])); };
+const RING = 5.0; // 環島步道半徑（商品展台位置）
+const SHOP_Z = -3.3;
 
 function outline(k) {
   const s = new THREE.Shape(); const N = 96;
@@ -83,13 +88,14 @@ export function createIsland({ shop, onOpen, onAdd }) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
   const hemi = new THREE.HemisphereLight(0xffffff, 0x88aa77, 1.4); scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff1dc, 2.4); sun.position.set(9, 14, 7); scene.add(sun, sun.target);
+  const sun = new THREE.DirectionalLight(0xfff1dc, 2.4); sun.position.set(10, 16, 8); scene.add(sun, sun.target);
   sun.castShadow = renderer.shadowMap.enabled; sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 }); sun.shadow.bias = -0.0008;
+  Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 44 }); sun.shadow.bias = -0.0008;
 
   let world = new THREE.Group(); scene.add(world);
   let anim = [], stations = [], hits = [], products = [], look = {}, lookKey = '', night = false;
   let water = null, sky = null, centerpiece = null, balloon = null, boat = null, birds = [], clouds = [], sparkle = null, buildId = 0;
+  let sceneDef = null, crowd = null;
 
   function dispose(o) {
     o.traverse(n => { if (n.geometry) n.geometry.dispose(); const m = n.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); });
@@ -104,7 +110,10 @@ export function createIsland({ shop, onOpen, onAdd }) {
     while (pal.length < 6) pal.push(0xffffff);
     const vars = look.vars || {};
     night = !!look.dim || lum(vars.cream || '#ffffff') < 0.3;
-    const rnd = (() => { let a = 1234 + (TENANT.id || '').length * 97; return () => { a = (a * 16807) % 2147483647; return a / 2147483647; }; })();
+    const seed = seedOf(TENANT.id);
+    const rnd = rng(seed);
+    SHAPE = shapeOf(seed);
+    sceneDef = sceneFor(TENANT);
 
     // 天空、霧、光
     const zen = night ? C('#0b1430') : C(look.sky || '#bfe3ff').lerp(C('#6fb6ff'), 0.55);
@@ -138,12 +147,12 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const wg = new THREE.PlaneGeometry(260, 260, seg, seg); wg.rotateX(-Math.PI / 2);
     water = new THREE.Mesh(wg, new THREE.ShaderMaterial({
       fog: false,
-      uniforms: { t: { value: 0 }, deep: { value: night ? C('#0d2a4a') : C('#1f8fc9') }, shallow: { value: night ? C('#1b5a6e') : C('#5fd6d2') }, foam: { value: night ? C('#9fc3d6') : C('#ffffff') }, hor: { value: hor }, R: { value: R } },
+      uniforms: { t: { value: 0 }, deep: { value: C('#1f8fc9') }, shallow: { value: C('#5fd6d2') }, foam: { value: night ? C('#9fc3d6') : C('#ffffff') }, hor: { value: hor }, R: { value: R }, amp: { value: new THREE.Vector3() }, ph: { value: new THREE.Vector3() }, fr: { value: new THREE.Vector3() } },
       vertexShader: `uniform float t; varying vec3 vW; varying float vH;
         void main(){ vec3 p = position; float w = sin(p.x*0.32+t*1.1)*0.16 + cos(p.z*0.41+t*0.9)*0.13 + sin((p.x+p.z)*0.9+t*2.0)*0.04;
-          float d = length(p.xz); p.y += w * smoothstep(6.5, 11.0, d); vH = w; vec4 wp = modelMatrix*vec4(p,1.0); vW = wp.xyz; gl_Position = projectionMatrix*viewMatrix*wp; }`,
-      fragmentShader: `uniform float t; uniform vec3 deep; uniform vec3 shallow; uniform vec3 foam; uniform vec3 hor; uniform float R; varying vec3 vW; varying float vH;
-        void main(){ float th = atan(vW.x, vW.z); float s = R*(1.0+0.07*sin(3.0*th+1.3)+0.05*sin(5.0*th+0.4)+0.03*sin(7.0*th+2.1));
+          float d = length(p.xz); p.y += w * smoothstep(8.0, 12.5, d); vH = w; vec4 wp = modelMatrix*vec4(p,1.0); vW = wp.xyz; gl_Position = projectionMatrix*viewMatrix*wp; }`,
+      fragmentShader: `uniform float t; uniform vec3 deep; uniform vec3 shallow; uniform vec3 foam; uniform vec3 hor; uniform float R; uniform vec3 amp; uniform vec3 ph; uniform vec3 fr; varying vec3 vW; varying float vH;
+        void main(){ float th = atan(vW.x, vW.z); float s = R*(1.0+amp.x*sin(fr.x*th+ph.x)+amp.y*sin(fr.y*th+ph.y)+amp.z*sin(fr.z*th+ph.z));
           float d = length(vW.xz) - s; vec3 c = mix(shallow, deep, smoothstep(0.5, 7.0, d));
           float f = smoothstep(1.3, 0.0, d) * (0.65 + 0.35*sin(d*6.0 - t*2.4)); f += smoothstep(0.12, 0.2, vH) * 0.35;
           c = mix(c, foam, clamp(f,0.0,1.0)*0.85);
@@ -152,12 +161,14 @@ export function createIsland({ shop, onOpen, onAdd }) {
     }));
     water.position.y = -0.55; scene.add(water);
     }
-    { const u = water.material.uniforms; u.deep.value.copy(night ? C('#0d2a4a') : C('#1f8fc9')); u.shallow.value.copy(night ? C('#1b5a6e') : C('#5fd6d2')); u.foam.value.copy(night ? C('#9fc3d6') : C('#ffffff')); u.hor.value.copy(hor); }
+    { const u = water.material.uniforms, wc = sceneDef.water || {};
+      u.deep.value.copy(night ? C('#0d2a4a') : C(wc.deep || '#1f8fc9')); u.shallow.value.copy(night ? C('#1b5a6e') : C(wc.shallow || '#5fd6d2')); u.foam.value.copy(night ? C('#9fc3d6') : C('#ffffff')); u.hor.value.copy(hor);
+      u.amp.value.fromArray(SHAPE.amp); u.ph.value.fromArray(SHAPE.ph); u.fr.value.fromArray(SHAPE.fr); }
 
     // 島：沙灘、草地、水下岩層
-    const sandC = night ? C('#8d7a5c') : C('#f3ddb0');
+    const sandC = night ? C(sceneDef.sand).lerp(C('#3e3528'), 0.55) : C(sceneDef.sand);
     const sand = slab(outline(1.0), 0.6, 0.25, -0.25, std(sandC, { roughness: 1 })); sand.receiveShadow = true; world.add(sand);
-    const grassBase = C(night ? '#2f5a3a' : '#7cc46a').lerp(C(look.ground || '#9cc489'), 0.22);
+    const grassBase = night ? C(sceneDef.grass).lerp(C('#173322'), 0.6) : C(sceneDef.grass).lerp(C(look.ground || '#9cc489'), 0.18);
     const grass = slab(outline(0.84), 0.5, 0.3, 0.12, std(grassBase, { roughness: 0.95 })); grass.receiveShadow = true; world.add(grass);
     const rock = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.95, R * 0.55, 3.2, 28, 1), std(night ? 0x3a3f4a : 0x8a7f72, { flatShading: true }));
     rock.position.y = -2.2; world.add(rock);
@@ -171,7 +182,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const shopG = new THREE.Group(); shopG.position.set(0, 0.13, SHOP_Z);
     const wallC = lum(vars.card || '#fffaf2') > 0.55 ? C(vars.card || '#fffaf2') : C('#f3ead9'); const roofC = C(pal[0]).lerp(C('#000000'), 0.18);
     const body = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.1, 2.3), std(wallC, { roughness: 0.7 })); body.position.y = 1.05; body.castShadow = body.receiveShadow = true;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.75, 1.3, 4, 1), std(roofC, { roughness: 0.6, flatShading: true })); roof.rotation.y = Math.PI / 4; roof.scale.set(1.0, 1, 0.78); roof.position.y = 2.75; roof.castShadow = true;
+    const roof = shopRoof(sceneDef.roof, roofC, wallC);
     const stripe = canvasTex(256, 64, (g, w, h) => { const cs = ['#' + C(pal[0]).getHexString(), '#ffffff']; for (let i = 0; i < 8; i++) { g.fillStyle = cs[i % 2]; g.fillRect(i * w / 8, 0, w / 8, h); } });
     const awning = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.07, 1.0), [std(0xffffff), std(0xffffff), new THREE.MeshStandardMaterial({ map: stripe, roughness: 0.7 }), std(0xffffff), new THREE.MeshStandardMaterial({ map: stripe }), std(0xffffff)]);
     awning.position.set(0, 1.42, 1.55); awning.rotation.x = 0.3; awning.castShadow = true;
@@ -195,42 +206,16 @@ export function createIsland({ shop, onOpen, onAdd }) {
     if (piece) { piece.scale.setScalar(kind === 'dessert' ? 0.62 : 0.85); if (kind === 'dessert') piece.position.y = -0.55; piece.traverse(n => { if (n.isMesh) n.castShadow = true; }); centerpiece.add(piece); }
     anim.push((t) => { centerpiece.rotation.y = t * 0.4; centerpiece.position.y = 1.65 + Math.sin(t * 1.2) * 0.1; });
 
-    // 樹、花叢、石頭（避開步道、店舖與展台）
-    const nTree = mobile() ? 16 : 30;
-    const leafCs = [C(night ? '#2e6b3f' : '#4fae5b'), C(night ? '#3d7a3a' : '#6cc163'), C(night ? '#24573a' : '#3d9b57')];
-    const trunkM = std(0x8a5a3a);
-    for (let i = 0, tries = 0; i < nTree && tries < 400; tries++) {
-      const th = rnd() * Math.PI * 2; const r = shore(th, 0.84) * (0.7 + rnd() * 0.24);
-      const x = Math.sin(th) * r, z = Math.cos(th) * r;
-      if (Math.abs(Math.hypot(x, z) - RING) < 1.1) continue;
-      if (Math.hypot(x, z) > RING && products.some((_, k) => { const d = Math.abs(((th - stationAngle(k, products.length)) + Math.PI * 3) % (Math.PI * 2) - Math.PI); return d < 0.42; })) continue;
-      if (Math.abs(x) < 2.6 && z < SHOP_Z + 2.2 && z > SHOP_Z - 2.2) continue;
-      if (Math.abs(x) < 1.0 && z > 0) continue;
-      const t = new THREE.Group(); t.position.set(x, 0.13, z);
-      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.7, 6), trunkM); tr.position.y = 0.35; tr.castShadow = true; t.add(tr);
-      const pine = rnd() < 0.45; const lc = leafCs[i % 3];
-      const top = pine ? new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 7), std(lc, { flatShading: true })) : new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), std(lc, { flatShading: true }));
-      top.position.y = pine ? 1.25 : 1.05; top.castShadow = true; t.add(top);
-      const s = 0.75 + rnd() * 0.6; t.scale.setScalar(s); t.rotation.y = rnd() * 6;
-      world.add(t); i++;
-      const ph = rnd() * 6; anim.push((tt) => { t.rotation.z = Math.sin(tt * 0.8 + ph) * 0.03; });
-    }
-    for (let i = 0; i < (mobile() ? 14 : 26); i++) {
-      const th = rnd() * Math.PI * 2; const r = RING + (rnd() < 0.5 ? -1 : 1) * (0.75 + rnd() * 0.4);
-      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + rnd() * 0.1, 0), std(C(pal[i % 6]), { roughness: 0.6, flatShading: true }));
-      b.position.set(Math.sin(th) * r, 0.25, Math.cos(th) * r); world.add(b);
-    }
-    for (let i = 0; i < 10; i++) {
-      const th = rnd() * Math.PI * 2; const r = shore(th, 0.93);
-      const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2 + rnd() * 0.25, 0), std(night ? 0x5a5f6a : 0xb9b0a3, { flatShading: true }));
-      s.position.set(Math.sin(th) * r, -0.1, Math.cos(th) * r); s.rotation.set(rnd(), rnd(), rnd()); world.add(s);
-    }
+    // 業態風景（避開步道、店舖、展台、人物路線與鏡頭視線）
+    const layout = makeLayout({ shore, RING, SHOP_Z, stations: products.map((_, i) => stationAngle(i, products.length)), beach: sceneDef.beach });
+    const built = buildScene(sceneDef, { world, anim, rnd, night, mobile: mobile(), pal, layout });
+    shopDeco(built.deco, shopG, built.kit, sceneDef.roof);
 
     // 碼頭與小船
     const pier = new THREE.Group(); const plank = std(0x9b6b45);
     const deck = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 3.2), plank); deck.position.set(0, -0.05, 0); pier.add(deck);
     for (const dz of [-1.2, 0, 1.2]) for (const dx of [-0.45, 0.45]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 6), plank); p.position.set(dx, -0.5, dz); pier.add(p); }
-    const pth = 2.5; const pr = shore(pth, 1.0) + 1.0; pier.position.set(Math.sin(pth) * pr, 0, Math.cos(pth) * pr); pier.rotation.y = pth; world.add(pier);
+    pier.position.set(layout.pier.x, 0, layout.pier.z); pier.rotation.y = layout.pier.th; world.add(pier);
     boat = new THREE.Group();
     const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 1.8, 10, 1, false, 0, Math.PI), std(0xf6efe4)); hull.rotation.set(Math.PI / 2, 0, Math.PI); boat.add(hull);
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.8, 6), std(0x7a5236)); mast.position.y = 0.9; boat.add(mast);
@@ -272,6 +257,9 @@ export function createIsland({ shop, onOpen, onAdd }) {
     sparkle = new THREE.Points(pg, new THREE.PointsMaterial({ size: night ? 0.16 : 0.12, map: dotT, vertexColors: true, transparent: true, opacity: night ? 0.95 : 0.75, depthWrite: false }));
     world.add(sparkle);
     anim.push((t) => { sparkle.rotation.y = t * 0.02; sparkle.position.y = Math.sin(t * 0.5) * 0.15; });
+
+    // 島上的人
+    crowd = createPeople({ world, anim, rnd, night, mobile: mobile(), pal, L: layout, spots: built.spots, hat: sceneDef.hat, shadows: renderer.shadowMap.enabled });
 
     // 商品展台
     buildStations(my, pal, vars);
@@ -321,7 +309,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
   let keys = [], curve = null;
   function buildPath() {
     const m = mobile();
-    const wide = { pos: new THREE.Vector3(0, m ? 19 : 13, m ? 29 : 21), look: new THREE.Vector3(0, m ? 4.2 : 0.6, m ? -1.5 : -0.6) };
+    const wide = { pos: new THREE.Vector3(0, m ? 23.5 : 15, m ? 35 : 24.5), look: new THREE.Vector3(0, m ? 3.6 : 0.6, m ? -1.5 : -0.6) };
     keys = [wide];
     stations.forEach((s) => {
       const dir = new THREE.Vector3(Math.sin(s.th), 0, Math.cos(s.th));
@@ -485,6 +473,8 @@ export function createIsland({ shop, onOpen, onAdd }) {
     // 測試與輔助用：某個展台商品在畫面上的位置（相對視窗）
     screenOf(pid) { const st = stations.find(x => x.pid === pid); if (!st) return null; const v = st.pos.clone().setY(1.95).project(camera); const r = cv.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height, onScreen: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 }; },
     setProducts() { products = pickProducts(); build(); renderTexts(); onScroll(); },
+    // 測試用：目前的風景、島形與島上的人
+    info() { return { scene: sceneDef && sceneDef.id, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })) }; },
     destroy() { cancelAnimationFrame(raf); removeEventListener('scroll', onScroll); dispose(world); if (sky) dispose(sky); if (water) dispose(water); renderer.dispose(); sec.remove(); document.body.classList.remove('isl-on'); },
   };
   products = pickProducts();
