@@ -324,3 +324,22 @@ export function createShopHero(host, { cat, center: centerless = false, card = '
   loop();
   return api;
 }
+
+// ---- 給 3D 小島（island.js）共用：商品卡、業態主角 ----
+export { artImage, productPiece };
+export const heroKind = () => KIND_BY_TENANT[TENANT.id] || 'products';
+// 業態主角（放在小島廣場中央）；沒有專屬主角的業態回傳 null，由小島改放主打商品
+export function heroCenterpiece(kind, pal) {
+  if (kind === 'dessert') {
+    const tower = new THREE.Group();
+    [pal[0], pal[1], pal[2]].forEach((c, i) => { const m = macaron(c, i === 1 ? 0xffffff : 0xfff6e8); m.position.y = i * 0.98; m.rotation.y = i; tower.add(m); });
+    return tower;
+  }
+  if (kind === 'cup') return cup(pal);
+  if (kind === 'craft') return wallet(pal);
+  if (kind === 'flower') return flower(pal);
+  if (kind === 'bottle') return bottle(pal);
+  if (kind === 'bowl') return bowl(pal);
+  if (kind === 'fruit') { const g = new THREE.Group(); [[0, 0, 0, pal[0]], [0.85, -0.2, 0.3, pal[1]], [-0.8, -0.25, 0.25, pal[2]]].forEach(([x, y, z, c]) => { const f = fruit(c); f.position.set(x, y, z); g.add(f); }); return g; }
+  return null;
+}

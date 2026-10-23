@@ -37,6 +37,7 @@ const D = (owner, manager, staff, accountant, support) => ({ owner, manager, sta
 const DEFAULTS = {
   dashboard: D('edit', 'view', 'none', 'view', 'view'),
   auto: D('edit', 'view', 'none', 'none', 'view'),
+  autopilot: D('edit', 'edit', 'none', 'view', 'view'),
   brief: D('edit', 'view', 'none', 'view', 'view'),
   time: D('edit', 'none', 'none', 'none', 'none'),
   chat: D('edit', 'edit', 'edit', 'none', 'view'),

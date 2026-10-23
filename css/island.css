@@ -1,0 +1,65 @@
+/* 銷售網頁開頭的沉浸式 3D 小島（js/shop/island.js） */
+.isl { position: relative; height: calc(var(--isl-k, 7) * 100svh); margin-top: -1px; }
+.isl.isl-static { height: 100svh; }
+.isl-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; background: var(--cream2); }
+.isl-cv, .isl-cv canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.isl-cv canvas { cursor: grab; touch-action: pan-y; }
+
+/* 開場標題 */
+.isl-title { position: absolute; left: 48px; top: calc(var(--nav-h, 78px) + 22px); max-width: min(620px, calc(100% - 96px)); color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35); pointer-events: none; transition: opacity .5s, transform .5s; }
+.isl-title.off { opacity: 0; transform: translateY(-16px); }
+.isl-kicker { display: inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.22); backdrop-filter: blur(8px); font-size: 13px; letter-spacing: .08em; text-shadow: none; }
+.isl-title h2 { font-size: clamp(32px, 5vw, 64px); line-height: 1.15; margin: 16px 0 12px; font-weight: 900; letter-spacing: .02em; }
+.isl-title h2 em, .isl-title h2 b { color: inherit; }
+.isl-hint { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; opacity: .95; }
+.isl-mouse { width: 22px; height: 34px; border: 2px solid #fff; border-radius: 12px; position: relative; flex: none; }
+.isl-mouse::after { content: ''; position: absolute; left: 50%; top: 6px; width: 4px; height: 7px; margin-left: -2px; border-radius: 2px; background: #fff; animation: islWheel 1.6s infinite; }
+@keyframes islWheel { 0% { opacity: 1; transform: translateY(0); } 70% { opacity: 0; transform: translateY(10px); } 100% { opacity: 0; } }
+
+/* 地圖標籤 */
+.isl-pins { position: absolute; inset: 0; pointer-events: none; }
+.isl-pin { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 5px; border: 0; border-radius: 999px; background: rgba(255,255,255,0.92); color: #1f2a24; font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.18); cursor: pointer; transition: opacity .25s; will-change: transform; }
+.isl-pin::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-top-color: rgba(255,255,255,0.92); border-bottom: 0; }
+.isl-pin i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; color: #fff; background: var(--g); }
+.isl-pin:hover { background: #fff; }
+.isl-pin span { max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
+
+/* 每站的商品卡 */
+.isl-card { position: absolute; left: 48px; bottom: 104px; width: min(380px, calc(100% - 96px)); padding: 20px 22px; border-radius: var(--r-card, 18px); background: color-mix(in srgb, var(--card, #fff) 90%, transparent); backdrop-filter: blur(14px); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,0.22); }
+.isl-step { font-size: 12px; letter-spacing: .12em; color: var(--ink3); font-weight: 700; }
+.isl-card h3 { margin: 6px 0 6px; font-size: 24px; line-height: 1.3; }
+.isl-price { font-size: 18px; font-weight: 800; margin-bottom: 14px; }
+.isl-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.isl-btns .s-btn { padding: 11px 18px; font-size: 14px; }
+
+/* 進度與略過 */
+.isl-rail { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; }
+.isl-rail button { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: transparent; cursor: pointer; box-shadow: 0 0 0 1px rgba(0,0,0,0.12); transition: transform .2s, background .2s; }
+.isl-rail button.on { background: #fff; transform: scale(1.35); }
+.isl-skip { position: absolute; right: 112px; bottom: 30px; padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.7); background: rgba(0,0,0,0.22); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; backdrop-filter: blur(6px); }
+.isl-skip:hover { background: rgba(0,0,0,0.38); }
+.isl-drag { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); margin: 0; font-size: 12px; color: #fff; opacity: .85; text-shadow: 0 1px 8px rgba(0,0,0,0.4); pointer-events: none; }
+.isl-static .isl-hint, .isl-static .isl-rail { display: none; }
+
+/* 載入畫面 */
+.isl-load { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; background: var(--cream); color: var(--ink2); font-size: 14px; transition: opacity .6s; z-index: 3; }
+.isl-load b { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--cream2); border-top-color: var(--gl); animation: islSpin 0.9s linear infinite; }
+.isl-load.done { opacity: 0; pointer-events: none; }
+@keyframes islSpin { to { transform: rotate(360deg); } }
+
+/* 小島開啟時：原本的主視覺只保留文字，3D 不重複出現 */
+body.shop.isl-on .s-hero-3d { display: none; }
+body.shop.isl-on .s-hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-top: 72px; padding-bottom: 40px; }
+body.shop.isl-on[data-sf-hero="banner"] .s-hero { height: auto; padding: 48px; }
+
+@media (max-width: 760px) {
+  .isl-title { left: 20px; top: calc(var(--nav-h, 78px) + 54px); max-width: calc(100% - 40px); }
+  .isl-card { left: 14px; right: 14px; bottom: 96px; width: auto; padding: 16px 18px; }
+  .isl-card h3 { font-size: 20px; }
+  .isl-rail { right: 10px; gap: 8px; }
+  .isl-skip { right: 12px; top: calc(var(--nav-h, 78px) + 10px); bottom: auto; padding: 7px 12px; font-size: 12px; }
+  .isl-drag { display: none; }
+  .isl-pin { font-size: 12px; }
+  .isl-pin span { max-width: 7em; }
+}
+@media (prefers-reduced-motion: reduce) { .isl-mouse::after, .isl-load b { animation: none; } }

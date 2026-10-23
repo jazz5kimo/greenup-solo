@@ -1,7 +1,7 @@
 // 後台 SPA：路由、側邊欄、頂欄、全域事件
 import { TENANT, TENANTS, TENANT_ID, CATS, setTenant, tenantInfra } from './tenant.js'; // 必須最先載入：資料隔離層
 import { store } from './state.js';
-import { $, $$, el, gsap, toast, fmtTime, money } from './util.js';
+import { $, $$, el, gsap, toast, fmtTime, money, esc } from './util.js';
 import { icon } from './icons.js';
 import { resizeAll } from './charts.js';
 import * as auth from './auth.js';
@@ -38,9 +38,12 @@ import booking from './views/booking.js';
 import quotes from './views/quotes.js';
 import agent from './views/agent.js';
 import owner from './views/owner.js';
+import autopilotView from './views/autopilot.js';
+import * as AP from './autopilot.js';
 
 const VIEWS = [
   { mod: dashboard, id: 'dashboard', group: '今天', name: '總覽', icon: 'dashboard', sub: '今天的生意，AI 都幫你顧好了' },
+  { mod: autopilotView, id: 'autopilot', group: '今天', name: 'AI 自動駕駛', icon: 'bot', sub: '例行工作 AI 自動完成，要你決定的集中在這裡；每一項都能改成自己做', tag: 'AI' },
   { mod: brief, id: 'brief', group: '今天', name: 'AI 晨報', icon: 'sparkle', sub: '每天早上 AI 告訴你：昨天發生什麼、今天該做什麼', tag: 'AI' },
   { mod: auto, id: 'auto', group: '今天', name: '自動化中心', icon: 'wand', sub: '設定一次，AI 自動接單、收款、開發票、記帳、報稅提醒', tag: '自動' },
   { mod: pos, id: 'pos', group: '接單收款', name: 'POS 收銀台', icon: 'pos', sub: '門市結帳、會員、載具統編、電子發票、交班日結' },
@@ -95,10 +98,10 @@ auth.registerModules(VIEWS);
 auth.init(); // ?role= 直接以該角色進入；?nolaunch 無 role → 負責人；否則沿用上次登入或顯示登入畫面
 
 // 簡單模式：一人公司只看核心頁面（接單、收款、帳務報稅、用問的、自動化），其餘收進「全部功能」
-const SIMPLE = new Set(['dashboard', 'auto', 'brief', 'chat', 'phone', 'pos', 'promo', 'receipts', 'bank', 'books', 'tax', 'ask']);
+const SIMPLE = new Set(['dashboard', 'autopilot', 'auto', 'brief', 'chat', 'phone', 'pos', 'promo', 'receipts', 'bank', 'books', 'tax', 'ask']);
 // 依角色決定「核心」：員工的核心是收銀出貨打卡，記帳士的核心是帳務報稅（自訂角色沿用負責人的，太少就全部顯示）
 const CORE_BY_ROLE = {
-  manager: new Set(['dashboard', 'brief', 'pos', 'chat', 'phone', 'booking', 'promo', 'crm', 'inventory', 'shipping', 'staff', 'ask']),
+  manager: new Set(['dashboard', 'autopilot', 'brief', 'pos', 'chat', 'phone', 'booking', 'promo', 'crm', 'inventory', 'shipping', 'staff', 'ask']),
   staff: new Set(['pos', 'chat', 'phone', 'booking', 'inventory', 'shipping', 'staff']),
   accountant: new Set(['dashboard', 'receipts', 'books', 'tax', 'bank', 'owner', 'ask']),
 };
@@ -231,6 +234,7 @@ function show(v) {
   const badge = $(`.nav-item[data-id="${v.id}"] .nav-badge`); if (badge) badge.hidden = true;
   const crumb = $('#viewCrumb'); if (crumb) { crumb.style.setProperty('--gc', gColor(v.group)); crumb.innerHTML = `<i></i>${v.group}`; }
   pushRecent(v.id);
+  renderApStrip(v, section);
   $('#viewTitle').textContent = v.name;
   $('#viewSub').textContent = v.sub;
   if (prev) { const ps = mounted.get(prev.id); if (ps) ps.hidden = true; prev.mod.hide && prev.mod.hide(); }
@@ -245,6 +249,52 @@ function show(v) {
 }
 
 window.addEventListener('hashchange', () => go(location.hash.slice(1)));
+
+// AI 自動駕駛：各頁上方顯示「這一頁的工作交給 AI 到什麼程度」，可直接切換（負責人）或前往調整
+function renderApStrip(v, section) {
+  if (v.id === 'dashboard') return renderApBanner(section);
+  const areas = AP.VIEW_AREAS[v.id];
+  let strip = section.querySelector(':scope > .ap-strip');
+  if (!areas) { if (strip) strip.remove(); return; }
+  if (!strip) { strip = el('<div class="ap-strip"></div>'); section.prepend(strip); }
+  const cfg = AP.canConfigure(), paused = AP.isPaused();
+  strip.classList.toggle('paused', paused);
+  strip.innerHTML = `<b>${icon('bot', 14)} AI 自動駕駛${paused ? '（已暫停，全部手動）' : ''}</b>` + areas.map(id => {
+    const a = AP.AREA_MAP[id], m = AP.mode(id), allowed = a.modes || ['auto', 'ask', 'manual'];
+    return `<span class="ap-chip">${esc(a.name)}${cfg ? `<select data-ap="${id}" aria-label="${esc(a.name)}">${allowed.map(x => `<option value="${x}" ${x === m ? 'selected' : ''}>${AP.MODE_NAME[x]}</option>`).join('')}</select>` : `<em class="${m}">${AP.MODE_NAME[m]}</em>`}</span>`;
+  }).join('') + `<button class="ap-link" data-ap-go>全部設定 ${icon('arrow', 12)}</button>`;
+  $$('select[data-ap]', strip).forEach(sel => sel.addEventListener('change', () => { if (AP.setMode(sel.dataset.ap, sel.value)) toast(`「${AP.AREA_MAP[sel.dataset.ap].name}」改為${AP.MODE_NAME[sel.value]}`, '已寫入稽核日誌', { icon: icon('bot', 18) }); }));
+  $('[data-ap-go]', strip).addEventListener('click', () => go('autopilot'));
+}
+// 總覽上方：一句話告訴老闆 AI 準備好、等你決定的事
+function renderApBanner(section) {
+  let bn = section.querySelector(':scope > .ap-strip');
+  if (!auth.currentUser() || auth.can('autopilot', 'view')) {
+    let list = []; try { list = AP.inbox(); } catch { /* ignore */ }
+    const ask = list.filter(i => i.mode === 'ask'), rem = list.filter(i => i.mode !== 'ask');
+    if (!bn) { bn = el('<div class="ap-strip ap-banner"></div>'); section.prepend(bn); }
+    bn.classList.toggle('paused', AP.isPaused());
+    bn.innerHTML = `<b>${icon('bot', 14)} ${AP.isPaused() ? 'AI 已暫停' : 'AI 自動駕駛中'}</b><span>${ask.length ? `${ask.length} 件 AI 已準備好、等你確認：${esc(ask.slice(0, 3).map(i => i.areaName).join('、'))}${ask.length > 3 ? '…' : ''}` : '目前沒有要你決定的事，例行工作 AI 會自動完成'}${rem.length ? `；${rem.length} 件提醒你自己處理` : ''}</span><button class="ap-link" data-ap-go>${ask.length || rem.length ? '去確認' : '看 AI 做了什麼'} ${icon('arrow', 12)}</button>`;
+    $('[data-ap-go]', bn).addEventListener('click', () => go('autopilot'));
+  } else if (bn) bn.remove();
+}
+// 頂欄狀態＋側欄徽章：等你確認的件數
+function refreshApStatus() {
+  let n = 0; try { n = AP.pendingCount(); } catch { /* ignore */ }
+  const st = $('.ai-status');
+  if (st) {
+    let btn = st;
+    if (st.tagName !== 'BUTTON') { btn = el('<button class="ai-status" id="apStatus" title="AI 自動駕駛"></button>'); st.replaceWith(btn); btn.addEventListener('click', () => go('autopilot')); }
+    btn.classList.toggle('off', AP.isPaused());
+    btn.innerHTML = `<i></i>${AP.isPaused() ? 'AI 已暫停' : 'AI 自動駕駛中'}${n ? `<b class="ap-n">${n}</b>` : ''}`;
+  }
+  const b = $('.nav-item[data-id="autopilot"] .nav-badge');
+  if (b) { b.hidden = !n || !!(current && current.id === 'autopilot'); b.textContent = n; }
+  if (current && (AP.VIEW_AREAS[current.id] || current.id === 'dashboard')) { const sec = mounted.get(current.id); if (sec) renderApStrip(current, sec); }
+}
+AP.onAutopilot(refreshApStatus);
+store.on('order', () => setTimeout(refreshApStatus, 50)); store.on('reset', () => setTimeout(refreshApStatus, 50));
+auth.onAuth(() => setTimeout(refreshApStatus, 50));
 
 // 指令面板（⌘K）：打字找功能或直接做事；只列出目前角色看得到／可操作的項目
 const canDo = (id, act = 'view') => !auth.currentUser() || auth.can(id, act);
@@ -261,6 +311,8 @@ const ACTIONS = [
   { id: 'tenant', name: '切換業主（示範）', icon: 'users', hint: '50 種業態的示範店家', syn: '業主 店家 切換 業態', run: () => { const b = $('#tenantBtn'); if (b) b.click(); } },
   { id: 'role', name: '切換角色／登出', icon: 'user', hint: '負責人、店長、員工、記帳士、支援', syn: '角色 登出 登入 使用者 權限', run: () => { const b = $('#authBtn'); if (b) b.click(); } },
   { id: 'navmode', name: '切換側欄：簡單模式／全部功能', icon: 'dashboard', hint: '簡單模式只顯示核心功能', syn: '簡單 全部 側欄 選單', run: () => modeBtn.click() },
+  { id: 'ap-inbox', name: '看 AI 等我確認的事', icon: 'bot', view: 'autopilot', hint: '補貨、催款、報稅、特價…一鍵核准或自己處理', syn: '待確認 核准 AI 自動駕駛 待辦', run: () => go('autopilot') },
+  { id: 'ap-pause', name: '暫停／恢復全部 AI 自動化', icon: 'x', view: 'autopilot', need: 'edit', hint: '暫停後全部改為手動，AI 只提醒', syn: '暫停 停止 關閉 AI 手動 恢復', run: () => { if (!AP.canConfigure()) { auth.deny('只有負責人可以暫停 AI'); return; } const on = !AP.isPaused(); AP.setPaused(on); toast(on ? '已暫停全部 AI 自動化' : '已恢復 AI 自動化', on ? '所有工作改為手動，AI 只提醒' : '例行工作會依設定自動完成', { kind: on ? 'warn' : 'ok', icon: icon('bot', 18) }); } },
   { id: 'help', name: '問小幫手／聯絡 GreenUP 支援', icon: 'chat', hint: '常見問題、轉真人客服、回報問題', syn: '幫忙 客服 支援 問題 求助 怎麼 教學', run: () => support.open() },
 ];
 const palette = initPalette({ views: VIEWS, groups: GROUPS, go, can: canDo, actions: ACTIONS });
@@ -374,3 +426,5 @@ setTimeout(() => ensureMounted(VIEWS.find(v => v.id === 'auto')), 1200);
   // 目前使用者（頭像字＋角色名；下拉：查看我的權限、切換角色（示範）、登出）
   auth.mountUserMenu($('.tb-right'), box);
 })();
+
+refreshApStatus();

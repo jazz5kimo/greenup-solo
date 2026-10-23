@@ -5,6 +5,7 @@ import { icon } from './icons.js';
 // 每個頁面的常用說法：老闆不一定記得功能叫什麼，但記得要做什麼
 const SYN = {
   dashboard: '總覽 首頁 營收 今天 業績',
+  autopilot: 'AI 自動駕駛 自動 待確認 核准 暫停 手動 全自動 先問我',
   brief: '晨報 今天要做什麼 待辦 摘要',
   auto: '自動化 n8n 流程 排程 自動',
   pos: '收銀 結帳 門市 發票 刷卡 找零 日結 交班 載具 統編',
@@ -96,7 +97,7 @@ export function initPalette({ views, groups, go, can, actions }) {
     if (!q) {
       const r = recent().map(id => pages().find(p => p.id === id)).filter(Boolean).slice(0, 5);
       sections = [['最近使用', r], ['快速動作', acts().slice(0, 6)]];
-      if (!r.length) sections.push(['常用功能', pages().filter(p => ['dashboard', 'pos', 'receipts', 'bank', 'promo', 'ask'].includes(p.id))]);
+      if (!r.length) sections.push(['常用功能', pages().filter(p => ['dashboard', 'autopilot', 'pos', 'receipts', 'bank', 'ask'].includes(p.id))]);
     } else {
       const ranked = (arr) => arr.map(x => [score(q, x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).map(([, x]) => x);
       sections = [['功能', ranked(pages()).slice(0, 8)], ['快速動作', ranked(acts()).slice(0, 5)]];

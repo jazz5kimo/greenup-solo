@@ -9,6 +9,8 @@ import { productArt } from '../art.js';
 import { cart } from './cart.js';
 import { initBot } from './bot.js';
 import { createShopHero } from './shop-hero.js';
+import { createIsland, islandEnabled } from './island.js';
+import { onShopConfig } from '../shop-config.js';
 import { initTrack, trackText } from './track.js';
 import { initStorefront, bootStorefront, T, G, isAmei, LAYOUT, SHIP_MODE, STYLE, visibleProducts, featuredId, tagsOf, heroExtra, priceHTML, saleTag, promoOf, saleLabel, bindHeroExtra, onStorefront, getSlot, setSlot, slotDays, dayLabel, TIME_SLOTS, slotText, setHero } from './storefront.js';
 import { initAuction } from './auction.js';
@@ -188,6 +190,7 @@ function showModal() {
 }
 function hideModal() { const m = $('#sModal'); gsap.to(m, { opacity: 0, duration: 0.2, onComplete: () => { m.hidden = true; } }); }
 $('#sModal').addEventListener('click', (e) => { if (e.target.id === 'sModal') hideModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sModal').hidden) hideModal(); });
 
 // ---------- 購物車 ----------
 function renderCart() {
@@ -339,7 +342,15 @@ onStorefront((kind) => { if (kind === 'catalog') renderProducts(true); if (kind 
 applyI18n(false);
 gsap.from('.s-hero-txt > *', { opacity: 0, y: 30, duration: 0.8, stagger: 0.08, ease: 'power3.out' });
 gsap.from('.s-nav', { y: -30, opacity: 0, duration: 0.6 });
-setHero(STYLE.hero === 'minimal' ? null : createShopHero($('#shopHero'), { cat: document.body.dataset.cat, center: STYLE.hero === 'center' }));
+// 開頭的沉浸式 3D 小島（預設開啟；網站設計工作室可關閉，或網址加 ?island=0）；開啟時原本的主視覺 3D 不再另外建立
+const island = islandEnabled() ? createIsland({ shop, onOpen: (pid) => openDetail(pid), onAdd: (pid, btn) => addToCart(pid, 1, btn) }) : null;
+const classicHero = !island && STYLE.hero !== 'minimal' ? createShopHero($('#shopHero'), { cat: document.body.dataset.cat, center: STYLE.hero === 'center' }) : null;
+setHero({ setLook(l) { if (classicHero) classicHero.setLook(l); if (island) island.setLook(l); } });
+if (island) { shop.onLang(() => island.setLang()); onStorefront((kind) => { if (kind === 'catalog') island.setProducts(); }); }
+window.__island = island;
+// 工作室開關 3D 小島：已開啟的銷售網頁重新載入套用（網址有 ?island= 時以網址為準）
+let islandCfg = islandEnabled();
+onShopConfig((c) => { if (new URLSearchParams(location.search).has('island')) return; const on = c.island !== false; if (on !== islandCfg) { islandCfg = on; location.reload(); } });
 const bot = initBot(shop);
 const track = initTrack(shop);
 const storefront = initStorefront(shop);

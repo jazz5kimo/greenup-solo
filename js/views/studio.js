@@ -144,7 +144,9 @@ function renderThemes(p) {
   const main = [...(own ? [own] : []), ...CORE_THEMES.filter(t => t !== own), ...(custom ? [custom] : [])];
   const others = THEMES.filter(t => t.kind === 'base' && !main.includes(t));
   const today = ymd(r.reason === 'festival' || cfg.simNow ? new Date(cfg.simNow || Date.now()) : new Date());
-  p.innerHTML = `<div class="st-sec-h"><h3>${icon('wand', 16)} 風格模式</h3><small>自動：節慶 ＞ 夜間 ＞ 業主預設</small></div>
+  p.innerHTML = `<div class="st-sec-h"><h3>${icon('globe', 16)} 3D 小島開場</h3><small>銷售網頁開頭的沉浸式 3D 場景：往下滾動逛展台，可拖曳、點商品</small></div>
+    <label class="st-chk st-island"><input type="checkbox" id="stIsland" ${cfg.island !== false ? 'checked' : ''}> 開啟 3D 小島（關閉時使用原本的主視覺；訪客裝置不支援 3D 時也會自動改用原本的主視覺）</label>
+    <div class="st-sec-h"><h3>${icon('wand', 16)} 風格模式</h3><small>自動：節慶 ＞ 夜間 ＞ 業主預設</small></div>
     <div class="st-mode"><button data-mode="auto" class="${isAuto ? 'on' : ''}"><b>自動換風格</b><small>依日期與時間自動切換</small></button><button data-mode="manual" class="${!isAuto ? 'on' : ''}"><b>手動指定</b><small>固定使用選定的風格</small></button></div>
     <div class="st-res"><span class="st-res-sw" style="background:linear-gradient(135deg, ${r.theme.vars.cream} 0 40%, ${r.theme.vars.gl} 40% 70%, ${r.theme.vars.deep} 70%)"></span><div><b>前台目前：${esc(r.theme.id === 'custom' ? 'AI 自訂風格' : themeName(r.theme))}${r.auto ? '（自動）' : ''}</b><small>${REASON_ZH[r.reason]}${r.row ? `：${r.row.from} ～ ${r.row.to}${r.row.note ? `（${esc(r.row.note)}）` : ''}` : ''}</small></div></div>
     <div class="st-sec-h"><h3>${icon('sparkle', 16)} 風格庫</h3><small>點選即手動套用；版面設計軸（字體、版型…）維持本店設定，只換配色</small></div>
@@ -166,6 +168,7 @@ function renderThemes(p) {
       <label>到 <select id="stNt">${Array.from({ length: 24 }, (_, h) => `<option ${h === night.to ? 'selected' : ''}>${h}</option>`).join('')}</select>:00</label></div>
     <div class="st-sim"><label>模擬日期時間（示範用）<input type="datetime-local" id="stSim" value="${cfg.simNow ? cfg.simNow.slice(0, 16) : ''}"></label>
       <div class="st-sim-q">${[['2026-12-20T14:00', '聖誕 12/20'], ['2027-02-06T11:00', '春節 2/6'], ['2027-07-15T15:00', '夏日 7/15'], [`${ymd(new Date())}T21:30`, '今晚 21:30'], ['2026-11-10T10:00', '平日白天']].map(([v, n]) => `<button class="chip-sm" data-sim="${v}">${n}</button>`).join('')}<button class="chip-sm warn" data-sim="">用現在時間</button></div></div>`;
+  $('#stIsland', p).addEventListener('change', (e) => save({ island: e.target.checked }, e.target.checked ? '已開啟 3D 小島開場' : '已關閉 3D 小島，改用原本的主視覺'));
   $$('[data-mode]', p).forEach(b => b.addEventListener('click', () => save({ theme: b.dataset.mode === 'auto' ? 'auto' : (r.theme.id || TENANT.theme) }, b.dataset.mode === 'auto' ? '已切換為自動換風格' : `已固定為「${themeName(r.theme)}」`)));
   $$('[data-t]', p).forEach(b => b.addEventListener('click', () => { const t = b.dataset.t; save({ theme: t }, `套用風格：${t === 'custom' ? 'AI 自訂風格' : themeName(THEME_MAP[t])}`); }));
   const more = $('#stMore', p); if (more) more.addEventListener('click', () => { showAllThemes = !showAllThemes; renderThemes(p); });

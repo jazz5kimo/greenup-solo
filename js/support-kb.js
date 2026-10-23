@@ -91,6 +91,9 @@ export const KB = [
   { id: 'role', k: ['登出', '登入', '切換角色', '密碼', '忘記密碼'], act: 'role',
     t: '怎麼登出或切換身分？',
     a: ['點頂欄右邊的使用者名稱', '原型為示範登入，不需密碼；正式版為帳號密碼＋兩步驟驗證，忘記密碼由負責人重設'] },
+  { id: 'autopilot', k: ['自動駕駛', '全自動', '先問我', '手動', '暫停', 'ai 亂做', '會不會亂', '自己做', '改成手動', '關掉 ai', '關閉 ai'], go: 'autopilot',
+    t: 'AI 會不會自己亂做事？怎麼改成手動？',
+    a: ['到「今天 › AI 自動駕駛」，每一項工作都可以選「全自動／先問我／手動」', '花錢、改價、發訊息的事預設「先問我」：AI 準備好，你按核准才執行；退款與報稅不提供全自動', '每件事都有「我自己處理」，會帶你到對應頁面手動做', '按「暫停全部 AI」可以立刻全部改成手動；所有變更都寫入稽核日誌'] },
   { id: 'search', k: ['找不到', '在哪', '搜尋', '快捷鍵', '功能在哪'], act: 'palette',
     t: '找不到某個功能？',
     a: ['按 ⌘K（Windows 按 Ctrl+K）或在任何頁面按「/」', '直接打想做的事，例如「發票」「出貨」「薪水」'] },
@@ -101,7 +104,7 @@ export const KB = [
 
 // 每個頁面打開小幫手時優先顯示的問題
 export const PAGE_FAQ = {
-  dashboard: ['owner', 'books', 'search'], brief: ['search', 'owner', 'stock'], auto: ['chat', 'pay', 'deploy'],
+  dashboard: ['autopilot', 'owner', 'search'], autopilot: ['autopilot', 'stock', 'vat'], brief: ['search', 'owner', 'stock'], auto: ['chat', 'pay', 'deploy'],
   pos: ['invoice', 'refund', 'approve'], chat: ['chat', 'agent', 'phone'], phone: ['phone', 'agent', 'chat'],
   booking: ['booking', 'pay', 'crm'], quotes: ['quote', 'pay', 'recon'], listing: ['price', 'market', 'promo'],
   market: ['market', 'price', 'promo'], studio: ['studio', 'promo', 'price'], promo: ['promo', 'studio', 'crm'],
