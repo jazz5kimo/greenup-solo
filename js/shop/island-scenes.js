@@ -681,3 +681,53 @@ export function shopDeco(deco, shopG, k, roofStyle) {
     for (const x of [-1.05, 1.05]) { shopG.add(k.mesh(k.g('wbox', () => new THREE.BoxGeometry(0.9, 0.12, 0.18)), k.m('#a8754a'), x, 0.6, 1.24, false)); for (let i = 0; i < 5; i++) shopG.add(k.mesh(k.g('wbl', () => new THREE.IcosahedronGeometry(0.06, 0)), k.m(['#ff7aa2', '#ffd34e', '#ffffff'][i % 3], { flatShading: true }), x - 0.36 + i * 0.18, 0.7, 1.26, false)); }
   }
 }
+
+// ---------- 帆船 ----------
+// 船身朝 +z（船頭）、甲板在 y=0；主帆與前帆都在船的中線平面上，隨風微微鼓起
+export function makeBoat(pal, night) {
+  const g = new THREE.Group();
+  const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: C(c), roughness: 0.6, ...o });
+  // 船身：俯視外形（尖船頭、平船尾）往下擠出，倒角做出圓弧船腹
+  const deckShape = (k = 1) => { const s = new THREE.Shape(); s.moveTo(-0.36 * k, -1.0 * k); s.lineTo(0.36 * k, -1.0 * k); s.bezierCurveTo(0.5 * k, -0.2 * k, 0.48 * k, 0.45 * k, 0, 1.2 * k); s.bezierCurveTo(-0.48 * k, 0.45 * k, -0.5 * k, -0.2 * k, -0.36 * k, -1.0 * k); return s; };
+  const ext = (shape, depth, bevel) => { const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.8, bevelSegments: 3, curveSegments: 12 }); geo.rotateX(Math.PI / 2); return geo; };
+  const hull = new THREE.Mesh(ext(deckShape(0.92), 0.22, 0.12), M('#fbf7f0')); hull.position.y = -0.02; hull.castShadow = true; g.add(hull);
+  const band = new THREE.Mesh(ext(deckShape(1.03), 0.07, 0), M(hex(pal[0]))); band.position.y = -0.04; g.add(band);
+  const deck = new THREE.Mesh(new THREE.ShapeGeometry(deckShape(0.9), 12), M('#c99a6b', { roughness: 0.8 })); deck.rotation.x = Math.PI / 2; deck.position.y = 0.012; deck.scale.y = -1; g.add(deck);
+  // 船艙
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.62), M('#ffffff')); cabin.position.set(0, 0.15, -0.4); cabin.castShadow = true; g.add(cabin);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.05, 0.68), M(hex(pal[0]))); roof.position.set(0, 0.31, -0.4); g.add(roof);
+  const winM = night ? M('#ffd88a', { emissive: C('#ffb84d'), emissiveIntensity: 1.4 }) : M('#3b5b78', { roughness: 0.2 });
+  for (const s of [-1, 1]) for (const z of [-0.55, -0.25]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.09, 0.16), winM); w.position.set(s * 0.255, 0.17, z); g.add(w); }
+  // 桅杆、帆桁
+  const wood = M('#7a5236');
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 2.1, 6), wood); mast.position.set(0, 1.05, 0.2); mast.castShadow = true; g.add(mast);
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.05, 6), wood); boom.rotation.x = Math.PI / 2; boom.position.set(0, 0.42, -0.32); g.add(boom);
+  // 帆：三角形切成細格，往側面彎一點像吃到風
+  // 帆：三角形（帆腳、帆頂、帆尾）切成細格，中間往側面鼓起像吃到風
+  const sail = ([a, b, c], color, belly) => {
+    const N = 8, pos = [];
+    const P = (u, v) => { const w = 1 - u - v; return [belly * 27 * u * v * w, a[1] * w + b[1] * u + c[1] * v, a[0] * w + b[0] * u + c[0] * v]; };
+    for (let i = 0; i < N; i++) for (let j = 0; j < N - i; j++) {
+      const u = i / N, v = j / N, d = 1 / N;
+      pos.push(...P(u, v), ...P(u + d, v), ...P(u, v + d));
+      if (j < N - i - 1) pos.push(...P(u + d, v), ...P(u + d, v + d), ...P(u, v + d));
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: C(color), side: THREE.DoubleSide, roughness: 0.75 })); m.castShadow = true; return m;
+  };
+  const main = sail([[0.18, 0.46], [0.18, 2.05], [-0.82, 0.46]], '#fffaf2', 0.16); g.add(main);
+  const jib = sail([[0.24, 0.3], [0.24, 1.75], [1.05, 0.12]], hex(pal[2]), 0.12); g.add(jib);
+  // 船頭到桅頂的支索
+  const stay = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 3), M('#dddddd'));
+  { const p0 = new THREE.Vector3(0, 0.1, 1.08), p1 = new THREE.Vector3(0, 2.05, 0.2); stay.position.copy(p0).lerp(p1, 0.5); stay.scale.y = p0.distanceTo(p1); stay.lookAt(p1); stay.rotateX(Math.PI / 2); g.add(stay); }
+  // 桅頂小旗
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.14), new THREE.MeshStandardMaterial({ color: pal[0], side: THREE.DoubleSide }));
+  flag.geometry.translate(-0.14, 0, 0); flag.position.set(0, 2.06, 0.2); flag.rotation.y = Math.PI / 2; g.add(flag);
+  // 船尾的白色水痕（V 字）
+  const wakeM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: night ? 0.25 : 0.45, depthWrite: false });
+  const wakes = [-1, 1].map(s => { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 1.6), wakeM); w.rotation.x = -Math.PI / 2; w.rotation.z = -s * 0.35; w.position.set(s * 0.3, -0.06, -1.7); g.add(w); return w; });
+  return {
+    group: g,
+    update(t) { flag.rotation.y = Math.PI / 2 + Math.sin(t * 6) * 0.25; main.rotation.y = 0.12 + Math.sin(t * 0.7) * 0.03; jib.rotation.y = 0.1 + Math.sin(t * 0.8 + 1) * 0.03; wakes.forEach((w, i) => { w.material.opacity = (night ? 0.2 : 0.38) + Math.sin(t * 3 + i) * 0.08; }); },
+  };
+}

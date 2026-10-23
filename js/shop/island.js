@@ -11,7 +11,7 @@ import { getShopConfig } from '../shop-config.js';
 import { esc, money } from '../util.js';
 import { artImage, productPiece, heroKind, heroCenterpiece } from './shop-hero.js';
 import { visibleProducts, featuredId, priceHTML } from './storefront.js';
-import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco } from './island-scenes.js';
+import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco, makeBoat } from './island-scenes.js';
 import { createPeople } from './island-people.js';
 
 const TXT = {
@@ -38,6 +38,9 @@ const shore = (th, k = 1) => { const { fr, amp, ph } = SHAPE; return R * k * (1 
 const RING = 5.0; // 環島步道半徑（商品展台位置）
 const SHOP_Z = -3.3;
 
+// 海浪高度（與海面著色器相同的公式，給帆船浮在浪上）
+const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+const waveAt = (x, z, t) => (Math.sin(x * 0.32 + t * 1.1) * 0.16 + Math.cos(z * 0.41 + t * 0.9) * 0.13 + Math.sin((x + z) * 0.9 + t * 2.0) * 0.04) * smooth(8.0, 12.5, Math.hypot(x, z));
 function outline(k) {
   const s = new THREE.Shape(); const N = 96;
   for (let i = 0; i <= N; i++) { const th = i / N * Math.PI * 2; const r = shore(th, k); const x = Math.sin(th) * r, z = Math.cos(th) * r; i ? s.lineTo(x, -z) : s.moveTo(x, -z); }
@@ -216,12 +219,17 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const deck = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 3.2), plank); deck.position.set(0, -0.05, 0); pier.add(deck);
     for (const dz of [-1.2, 0, 1.2]) for (const dx of [-0.45, 0.45]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 6), plank); p.position.set(dx, -0.5, dz); pier.add(p); }
     pier.position.set(layout.pier.x, 0, layout.pier.z); pier.rotation.y = layout.pier.th; world.add(pier);
-    boat = new THREE.Group();
-    const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 1.8, 10, 1, false, 0, Math.PI), std(0xf6efe4)); hull.rotation.set(Math.PI / 2, 0, Math.PI); boat.add(hull);
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.8, 6), std(0x7a5236)); mast.position.y = 0.9; boat.add(mast);
-    const sail = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.5, 3, 1, true), new THREE.MeshStandardMaterial({ color: pal[2], side: THREE.DoubleSide, roughness: 0.7 })); sail.scale.set(1, 1, 0.08); sail.position.set(0.25, 1.0, 0); boat.add(sail);
-    world.add(boat);
-    anim.push((t) => { const a = t * 0.05 + 1.2, r = R + 5.5; boat.position.set(Math.sin(a) * r, -0.45 + Math.sin(t * 1.4) * 0.06, Math.cos(a) * r); boat.rotation.y = a + Math.PI / 2; boat.rotation.z = Math.sin(t * 1.1) * 0.06; });
+    // 帆船：沿著外海繞島，跟著海浪起伏、前後左右搖晃
+    const sb = makeBoat(pal, night); boat = sb.group; boat.scale.setScalar(0.95); world.add(boat);
+    const fw = new THREE.Vector3(), sd = new THREE.Vector3();
+    anim.push((t) => {
+      const a = t * 0.035 + 1.2, r = R + 7.5, x = Math.sin(a) * r, z = Math.cos(a) * r;
+      fw.set(Math.cos(a), 0, -Math.sin(a)); sd.set(fw.z, 0, -fw.x);
+      const h = waveAt(x, z, t), pitch = Math.atan2(waveAt(x + fw.x * 0.8, z + fw.z * 0.8, t) - waveAt(x - fw.x * 0.8, z - fw.z * 0.8, t), 1.6), roll = Math.atan2(waveAt(x + sd.x * 0.4, z + sd.z * 0.4, t) - waveAt(x - sd.x * 0.4, z - sd.z * 0.4, t), 0.8);
+      boat.position.set(x, -0.55 + h + 0.06, z);
+      boat.rotation.set(-pitch, a + Math.PI / 2, 0, 'YXZ'); boat.rotation.z = roll + 0.07;
+      sb.update(t);
+    });
 
     // 熱氣球（品牌色）
     balloon = new THREE.Group();
