@@ -97,18 +97,24 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
     return d - s;
   }
   function faceTo(p, x, z, dt) { p.heading = turn(p.heading, Math.atan2(x - p.root.position.x, z - p.root.position.z), dt * 5); p.root.rotation.y = p.heading; }
-  function stick(p, dt) { const y = L.ground(p.root.position.x, p.root.position.z); p.root.position.y += (y - p.root.position.y) * Math.min(1, dt * 10); }
+  function stick(p, dt) { const y = (p.ground || L.ground)(p.root.position.x, p.root.position.z); p.root.position.y += (y - p.root.position.y) * Math.min(1, dt * 10); }
 
-  // 依步驟走：{ go:[x,z] } 或 { wait:秒, look:[x,z], mode, on() }，走完從頭再來
-  function script(p, steps, start = 0) {
-    let i = start % steps.length, timer = -1;
+  // 依步驟走：{ go:[x,z] } 或 { wait:秒, look:[x,z], mode, on() }、{ until: () => 條件成立才往下 }，走完從頭再來
+  // ground：自訂地面高度（百貨公司樓層、手扶梯）
+  function script(p, steps, start = 0, ground = null) {
+    let i = start % steps.length, timer = -1, began = false;
+    if (ground) p.ground = ground;
     const s0 = steps.find(s => s.go) || steps[0];
     const first = steps.slice(i).find(s => s.go) || s0;
-    p.root.position.set(first.go[0], L.ground(...first.go), first.go[1]);
+    p.root.position.set(first.go[0], (p.ground || L.ground)(...first.go), first.go[1]);
     p.update = (dt, t) => {
       const s = steps[i];
       if (s.go) { if (stepTo(p, s.go[0], s.go[1], dt, s.speed) < 0.01) i = (i + 1) % steps.length; }
-      else {
+      else if (s.until) {
+        if (!began) { began = true; if (s.on) s.on(p); }
+        p.mode = s.mode || 'stand'; if (s.look) faceTo(p, s.look[0], s.look[1], dt);
+        if (s.until(p)) { began = false; i = (i + 1) % steps.length; }
+      } else {
         if (timer < 0) { timer = s.wait; if (s.on) s.on(p); }
         p.mode = s.mode || 'stand'; if (s.look) faceTo(p, s.look[0], s.look[1], dt);
         timer -= dt; if (timer < 0) { timer = -1; i = (i + 1) % steps.length; }
@@ -175,10 +181,10 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
     if (dog) dog.root.position.set(Math.sin(th) * RING, 0.13, Math.cos(th) * RING);
     ringWalker(person(look({ kind: 'ring' })), th, dir, SPEED * (0.85 + (i >> 1) * 0.12), dog);
   }
-  // 碼頭來的客人：進店買東西 → 提袋子回碼頭
-  const v = L.routes.visitor, door = v[v.length - 1];
-  const sea = [L.pier.x * 3, L.pier.z * 3];
-  const nVis = mobile ? 1 : 2;
+  // 碼頭來的客人：進店買東西 → 提袋子回碼頭（城市場景由 island-city.js 安排過馬路、停車的客人）
+  const v = L.routes.visitor, door = L.door;
+  const sea = L.pier ? [L.pier.x * 3, L.pier.z * 3] : [0, 30];
+  const nVis = !L.pier || !v ? 0 : mobile ? 1 : 2;
   for (let i = 0; i < nVis; i++) {
     const p = person(look({ kind: 'visitor', bag: false }));
     script(p, there(v,
@@ -188,7 +194,7 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
   // 前步道 → 店門口
   if (!mobile) {
     const f = L.routes.front;
-    script(person(look({ kind: 'front' })), there(f, { wait: 2.5, look: [0, 9] }, { wait: 2.8, look: [0, L.SHOP_Z] }));
+    script(person(look({ kind: 'front' })), there(f, { wait: 2.5, look: [0, 9] }, { wait: 2.8, look: [L.door[0], L.door[1] - 3] }));
   }
   // 廣場繞圈看主角
   {
@@ -204,7 +210,7 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
     script(person(look({ kind: 'beach', hat: sceneHat === 'sun' || rnd() < 0.3 ? 'sun' : null })), there(pts, end(a), end(b)), Math.floor(rnd() * pts.length));
   }
   // 碼頭釣魚
-  {
+  if (L.pier) {
     const { th } = L.pier, dx = Math.sin(th), dz = Math.cos(th), r = L.pier.r + L.pier.len / 2 - 0.12;
     const p = person(look({ kind: 'fisher', hat: rnd() < 0.6 ? 'sun' : 'cap' }));
     p.root.position.set(dx * r + dz * 0.25, 0.07, dz * r - dx * 0.25); p.heading = th; p.root.rotation.y = th; p.seatY = 0.07 / p.root.scale.y;
@@ -239,7 +245,7 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
   // 店長：站在門口，有人走近就揮手
   {
     const p = person(look({ kind: 'keeper', apron: true, hat: null, shirt: hexOf(pal[0]) }));
-    const x = -0.78, z = L.SHOP_Z + 1.58; p.root.position.set(x, 0.13, z); p.heading = 0.25; p.root.rotation.y = 0.25;
+    const [x, z] = L.keeper; p.root.position.set(x, L.ground(x, z), z); p.heading = 0.25; p.root.rotation.y = 0.25;
     let wave = 0, cool = 0;
     p.update = (dt) => {
       cool -= dt;
@@ -258,7 +264,7 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
     for (const p of people) { if (p.update) p.update(dt, t); if (p.legL) animate(p, dt, t); }
   });
   return {
-    list: people,
-    info: () => people.map(p => ({ kind: p.kind, mode: p.mode, x: +p.root.position.x.toFixed(3), y: +p.root.position.y.toFixed(3), z: +p.root.position.z.toFixed(3) })),
+    list: people, person, script, there, SPEED, scale: S,
+    info: () => people.map(p => ({ kind: p.kind, mode: p.mode, hidden: p.root.visible === false, x: +p.root.position.x.toFixed(3), y: +p.root.position.y.toFixed(3), z: +p.root.position.z.toFixed(3) })),
   };
 }

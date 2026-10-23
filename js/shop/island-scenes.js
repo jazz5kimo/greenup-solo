@@ -2,6 +2,7 @@
 // 再依業主代號決定島的形狀、擺設位置與細節，讓每家店的小島都不一樣。
 // 這裡也負責島上的空地規劃（避開步道、店舖、展台、人物走的路線與鏡頭視線），人物（island-people.js）共用同一份規劃。
 import * as THREE from 'three';
+import { SCENE_BY_CAT } from './scene-names.js';
 
 const TAU = Math.PI * 2;
 const C = (c) => new THREE.Color(c);
@@ -36,19 +37,29 @@ export const SCENES = {
   craft: { id: 'forest', name: '森林工坊島', sand: '#e6d1a6', grass: '#62a453', roof: 'gable', build: forest },
   flower: { id: 'garden', name: '花田溫室島', sand: '#f4e2bd', grass: '#88cb6d', roof: 'pyramid', build: garden },
   service: { id: 'resort', name: '海灘度假島', sand: '#f7e6bd', grass: '#8ed27a', roof: 'flat', beach: [[0.55, 2.2]], hat: 'sun', water: { shallow: '#58e3d6', deep: '#1aa0d0' }, build: resort },
+  city: { id: 'city', kind: 'city', name: '城市百貨商圈', sand: '#d9d4c8', grass: '#cfc8b8', roof: 'flat' },
   farm: { id: 'farm', name: '田園牧場島', sand: '#efdbb0', grass: '#97c967', roof: 'barn', hat: 'straw', build: farm },
 };
-export function sceneFor(t) { return SCENES[(t && t.cat) || 'retail'] || SCENES.retail; }
+// 業態預設的場景（scene-names.js：零售選物是城市百貨商圈）；override 可指定場景代號（candy、market…、city）
+const DEFAULT_SCENE = SCENE_BY_CAT;
+export const SCENE_LIST = Object.values(SCENES).filter((v, i, a) => a.indexOf(v) === i);
+export function sceneFor(t, override) {
+  const byId = (id) => SCENE_LIST.find(s => s.id === id);
+  if (override && override !== 'auto' && byId(override)) return byId(override);
+  const cat = (t && t.cat) || 'retail';
+  return byId(DEFAULT_SCENE[cat]) || SCENES[cat] || SCENES.retail;
+}
 
 // ---------- 空地規劃 ----------
 // 島上已經有的東西：環島步道（半徑 RING）、步道上的展台（stations 角度）、中央廣場、往前的步道、後方店舖、碼頭；
 // 人物的固定路線（環島兩條人行線、碼頭→店舖、廣場、海灘）也要留空。
-export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach }) {
+// venue（城市百貨用）：{ box 百貨公司範圍, keepOut 其他禁區, inBounds(x,z,rad) 可擺放範圍, walk:[z0,z1] 前步道, routes, door, keeper, ground(x,z) }
+export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach, venue = null }) {
   const occ = [];
   const sP = shore(pierTh);
   const dir = [Math.sin(pierTh), Math.cos(pierTh)];
   const at = (r) => [dir[0] * r, dir[1] * r];
-  const pier = { th: pierTh, r: sP + 1.0, len: 3.2, x: dir[0] * (sP + 1.0), z: dir[1] * (sP + 1.0) };
+  const pier = venue ? null : { th: pierTh, r: sP + 1.0, len: 3.2, x: dir[0] * (sP + 1.0), z: dir[1] * (sP + 1.0) };
   // 環島人行線：平常離步道中心 0.28，經過展台時繞到 0.98 外（內）側
   const W = 0.34;
   const bell = (th) => { let b = 0; for (const a of stations) { const d = angDist(th, a); if (d < W) b = Math.max(b, 0.5 + 0.5 * Math.cos(Math.PI * d / W)); } return b; };
@@ -60,8 +71,9 @@ export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach 
   const front = [[-0.32, 3.3], [-0.32, 2.55]];
   for (const a of [0.25, 0.65, 1.05, 1.45, 1.85, 2.25, 2.62]) front.push([-1.62 * Math.sin(a), 0.9 + 1.62 * Math.cos(a)]);
   front.push([-0.35, SHOP_Z + 2.05]);
-  const beachLanes = beach || [[-2.3, -0.9], [0.6, 2.2]];
-  const routes = [visitor, front];
+  const beachLanes = venue ? [] : beach || [[-2.3, -0.9], [0.6, 2.2]];
+  const R2 = venue && venue.routes ? venue.routes : { visitor, front };
+  const routes = Object.values(R2).filter(Boolean);
   const segs = [];
   for (const r of routes) for (let i = 0; i < r.length - 1; i++) segs.push([...r[i], ...r[i + 1]]);
   const segDist = (x, z, [ax, az, bx, bz]) => { const dx = bx - ax, dz = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - ax - dx * t, z - az - dz * t); };
@@ -73,8 +85,11 @@ export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach 
   function free(x, z, rad = 0.3, h = 0) {
     const r = Math.hypot(x, z), th = Math.atan2(x, z), s = shore(th);
     const edge = s * 0.84;
-    if (r - rad < edge + 0.4 && r + rad > edge - 0.05) return no('edge'); // 不跨在草地邊坡上
-    if (r + rad > s - 0.1) return no('shore');
+    if (venue) { if (!venue.inBounds(x, z, rad)) return no('bounds'); }
+    else {
+      if (r - rad < edge + 0.4 && r + rad > edge - 0.05) return no('edge'); // 不跨在草地邊坡上
+      if (r + rad > s - 0.1) return no('shore');
+    }
     if (Math.abs(r - RING) < 0.47 + rad) return no('path');
     if (Math.abs(r - RING) < 1.3 + rad) for (const [px, pz] of lanePts) if (Math.abs(px - x) < rad + 0.3 && Math.abs(pz - z) < rad + 0.3 && Math.hypot(px - x, pz - z) < rad + 0.24) return no('lane');
     for (const a of stations) {
@@ -82,12 +97,15 @@ export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach 
       if (Math.hypot(x - sx, z - sz) < 1.05 + rad) return no('station');
       if (h > 0 && r > RING && angDist(a, th) < 0.45 && h > Math.min(lineH(r) - 0.3, 1.1)) return no('sight');
     }
-    if (Math.abs(x) < 2.0 + rad && z > SHOP_Z - 1.6 - rad && z < SHOP_Z + 1.65 + rad) return no('shop');
-    if (Math.abs(x) < 0.85 + rad && z > SHOP_Z + 1.5 && z < RING + 0.6) return no('walk');
+    const bx = venue ? venue.box : { x0: -2.0, x1: 2.0, z0: SHOP_Z - 1.6, z1: SHOP_Z + 1.65 };
+    if (x > bx.x0 - rad && x < bx.x1 + rad && z > bx.z0 - rad && z < bx.z1 + rad) return no('shop');
+    if (venue) for (const k of venue.keepOut) if (x > k.x0 - rad && x < k.x1 + rad && z > k.z0 - rad && z < k.z1 + rad) return no('keepout');
+    const [w0, w1] = venue ? venue.walk : [SHOP_Z + 1.5, RING + 0.6];
+    if (Math.abs(x) < 0.85 + rad && z > w0 && z < w1) return no('walk');
     if (Math.hypot(x, z - 0.9) < 1.95 + rad) return no('plaza');
     for (const sg of segs) if (segDist(x, z, sg) < 0.4 + rad) return no('route');
     if (r > edge) { const bw = s * 0.955; if (Math.abs(r - bw) < 0.28 + rad && beachLanes.some(([a, b]) => th > a - 0.06 && th < b + 0.06)) return no('beach'); }
-    if (angDist(th, pierTh) < 0.25 && r > RING) return no('pier');
+    if (pier && angDist(th, pierTh) < 0.25 && r > RING) return no('pier');
     for (const o of occ) if (Math.hypot(o.x - x, o.z - z) < o.r + rad + 0.06) return no('occ');
     return true;
   }
@@ -107,7 +125,8 @@ export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach 
   // 大型造景：掃描整座島找放得下的空地，隨機挑一處（away：離某處越遠越好，讓兩樣大東西分在兩側）
   function place(rnd, rad, h = 0, { zone = 'inner', away = null } = {}) {
     const c = [];
-    for (let x = -RING; x <= RING + 1e-6; x += 0.3) for (let z = -RING; z <= RING + 1e-6; z += 0.3) {
+    const ext = venue && zone !== 'inner' ? 10.5 : RING;
+    for (let x = -ext; x <= ext + 1e-6; x += 0.3) for (let z = -ext; z <= ext + 1e-6; z += 0.3) {
       if (zone === 'inner' && Math.hypot(x, z) > RING) continue;
       if (free(x, z, rad, h)) c.push([x, z, away ? Math.hypot(x - away.x, z - away.z) : 0]);
     }
@@ -119,17 +138,18 @@ export function makeLayout({ shore, RING, SHOP_Z, stations, pierTh = 2.5, beach 
     claim(x, z, rad); return { x, z };
   }
   function ground(x, z) {
+    if (venue) return venue.ground(x, z);
     const r = Math.hypot(x, z), s = shore(Math.atan2(x, z)), e = s * 0.84;
     let y = r <= e ? 0.13 : r <= e + 0.3 ? 0.13 - (r - e) / 0.3 * 0.38 : r <= s ? -0.25 : r <= s + 0.25 ? -0.25 - (r - s) : -0.55;
     const lz = x * dir[0] + z * dir[1] - pier.r, lx = x * dir[1] - z * dir[0];
     if (Math.abs(lx) < 0.5 && lz > -pier.len / 2 && lz < pier.len / 2) y = Math.max(y, 0.01);
     return y;
   }
-  return { free, why: () => why, claim, spot, place, ground, pier, routes: { visitor, front }, beachLanes, laneOff, stations, RING, SHOP_Z, shore };
+  return { free, why: () => why, claim, spot, place, ground, pier, routes: R2, beachLanes, laneOff, stations, RING, SHOP_Z, shore, venue, door: venue ? venue.door : [0.06, SHOP_Z + 1.42], keeper: venue ? venue.keeper : [-0.78, SHOP_Z + 1.58] };
 }
 
 // ---------- 小工具 ----------
-function kit(world, anim, rnd, night, mobile) {
+export function kit(world, anim, rnd, night, mobile) {
   const mats = new Map(), geos = new Map();
   const k = {
     rnd, night, mobile, anim,
@@ -145,9 +165,9 @@ function kit(world, anim, rnd, night, mobile) {
   k.stripes = (a, b, n = 8, vertical = true) => k.tex(128, 128, (g, w, h) => { for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? b : a; if (vertical) g.fillRect(i * w / n, 0, w / n + 1, h); else g.fillRect(0, i * h / n, w, h / n + 1); } });
   return k;
 }
-const faceTo = (o, tx = 0, tz = 0.9) => { o.rotation.y = Math.atan2(tx - o.position.x, tz - o.position.z); return o; };
+export const faceTo = (o, tx = 0, tz = 0.9) => { o.rotation.y = Math.atan2(tx - o.position.x, tz - o.position.z); return o; };
 // 讓上升的煙／蒸氣一顆顆變大再消失（共用材質，只改大小）
-function puffs(k, parent, x, y, z, { n = 4, color = 0xffffff, size = 0.16, rise = 0.9, speed = 0.35, opacity = 0.7 } = {}) {
+export function puffs(k, parent, x, y, z, { n = 4, color = 0xffffff, size = 0.16, rise = 0.9, speed = 0.35, opacity = 0.7 } = {}) {
   const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity, roughness: 1, depthWrite: false });
   const geo = k.g('puff', () => new THREE.IcosahedronGeometry(1, 1));
   const list = [];
@@ -156,7 +176,7 @@ function puffs(k, parent, x, y, z, { n = 4, color = 0xffffff, size = 0.16, rise 
 }
 
 // ---------- 樹與植物 ----------
-function tree(k, x, z, type = 'round', s = 1, leaf) {
+export function tree(k, x, z, type = 'round', s = 1, leaf) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   const night = k.night;
   const greens = night ? ['#2e6b3f', '#3d7a3a', '#24573a'] : ['#4fae5b', '#6cc163', '#3d9b57'];
@@ -191,7 +211,7 @@ function tree(k, x, z, type = 'round', s = 1, leaf) {
   return g;
 }
 // 依高度找地方種樹（樹高約 1.4～2.1，鏡頭視線內不種）
-function plantTrees(k, L, world, n, types, { zone = 'land', leaf } = {}) {
+export function plantTrees(k, L, world, n, types, { zone = 'land', leaf } = {}) {
   let c = 0;
   for (let i = 0; i < n * 3 && c < n; i++) {
     const type = k.pick(types), s = 0.75 + k.rnd() * 0.5, h = (type === 'palm' ? 2.0 : type === 'pine' ? 2.1 : 1.6) * s;
@@ -200,7 +220,7 @@ function plantTrees(k, L, world, n, types, { zone = 'land', leaf } = {}) {
     world.add(tree(k, p.x, p.z, type, s, leaf)); c++;
   }
 }
-function bushes(k, L, world, n, colors) {
+export function bushes(k, L, world, n, colors) {
   const geo = k.g('bush', () => new THREE.IcosahedronGeometry(1, 0));
   for (let i = 0; i < n; i++) {
     const p = L.spot(k.rnd, { zone: 'land', rad: 0.22 }); if (!p) continue;
@@ -209,7 +229,7 @@ function bushes(k, L, world, n, colors) {
   }
 }
 // 一排排的花（同一排用 InstancedMesh，省效能）
-function flowerRow(k, parent, x, z, len, rotY, colors, { n = 9, stem = 0.18, size = 0.09 } = {}) {
+export function flowerRow(k, parent, x, z, len, rotY, colors, { n = 9, stem = 0.18, size = 0.09 } = {}) {
   const row = new THREE.Group(); row.position.set(x, 0.13, z); row.rotation.y = rotY;
   row.add(k.mesh(k.g('soil' + len, () => new THREE.BoxGeometry(0.28, 0.06, len)), k.m(k.night ? '#4a3a2a' : '#7a5a3c'), 0, 0.03, 0, false));
   const leafG = k.g('fleaf', () => new THREE.IcosahedronGeometry(1, 0));
@@ -226,14 +246,14 @@ function flowerRow(k, parent, x, z, len, rotY, colors, { n = 9, stem = 0.18, siz
   row.add(leaves, blooms); parent.add(row);
   return row;
 }
-function lamp(k, x, z, color = '#ffd88a') {
+export function lamp(k, x, z, color = '#ffd88a') {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   g.add(k.mesh(k.g('lpost', () => new THREE.CylinderGeometry(0.035, 0.05, 1.35, 6)), k.m('#2f3a40', { roughness: 0.5 }), 0, 0.68, 0));
   g.add(k.mesh(k.g('lhead', () => new THREE.SphereGeometry(0.12, 12, 8)), k.glow(color, 2.2), 0, 1.42, 0));
   g.add(k.mesh(k.g('lcap', () => new THREE.ConeGeometry(0.14, 0.1, 8)), k.m('#2f3a40'), 0, 1.55, 0));
   return g;
 }
-function bench(k, x, z) {
+export function bench(k, x, z) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   const wood = k.m('#a8754a'), iron = k.m('#3a3f44');
   g.add(k.mesh(k.g('bseat', () => new THREE.BoxGeometry(0.9, 0.06, 0.32)), wood, 0, 0.32, 0));
@@ -241,14 +261,14 @@ function bench(k, x, z) {
   for (const dx of [-0.38, 0.38]) g.add(k.mesh(k.g('bleg', () => new THREE.BoxGeometry(0.05, 0.32, 0.3)), iron, dx, 0.16, 0));
   return g;
 }
-function umbrella(k, x, z, color, { h = 1.55, r = 0.75 } = {}) {
+export function umbrella(k, x, z, color, { h = 1.55, r = 0.75 } = {}) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   g.add(k.mesh(k.g('upole' + h, () => new THREE.CylinderGeometry(0.025, 0.025, h, 6)), k.m('#e8e2d8'), 0, h / 2, 0));
   const tex = k.stripes(hex(color), '#ffffff', 8);
   g.add(k.mesh(k.g('ucone' + r, () => new THREE.ConeGeometry(r, 0.35, 8, 1, true)), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.7 }), 0, h - 0.05, 0));
   return g;
 }
-function table(k, x, z, chairs = 2) {
+export function table(k, x, z, chairs = 2) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   g.add(k.mesh(k.g('ttop', () => new THREE.CylinderGeometry(0.3, 0.3, 0.04, 16)), k.m('#fbf7f0'), 0, 0.42, 0));
   g.add(k.mesh(k.g('tleg', () => new THREE.CylinderGeometry(0.03, 0.05, 0.42, 6)), k.m('#555b60'), 0, 0.21, 0));

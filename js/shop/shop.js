@@ -351,6 +351,8 @@ window.__island = island;
 // 工作室開關 3D 小島：已開啟的銷售網頁重新載入套用（網址有 ?island= 時以網址為準）
 let islandCfg = islandEnabled();
 onShopConfig((c) => { if (new URLSearchParams(location.search).has('island')) return; const on = c.island !== false; if (on !== islandCfg) { islandCfg = on; location.reload(); } });
+// 工作室換場景：即時重建（網址有 ?scene= 時以網址為準）
+if (island) onShopConfig((c) => { if (!new URLSearchParams(location.search).has('scene')) island.setScene(c.scene || 'auto'); });
 const bot = initBot(shop);
 const track = initTrack(shop);
 const storefront = initStorefront(shop);

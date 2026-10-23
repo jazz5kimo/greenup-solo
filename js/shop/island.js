@@ -13,13 +13,14 @@ import { artImage, productPiece, heroKind, heroCenterpiece } from './shop-hero.j
 import { visibleProducts, featuredId, priceHTML } from './storefront.js';
 import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco, makeBoat } from './island-scenes.js';
 import { createPeople } from './island-people.js';
+import { cityLayout, buildCity, CITY_VENUE } from './island-city.js';
 
 const TXT = {
-  zh: { scroll: '往下滾動，逛逛小島', drag: '拖曳可以轉動視角', skip: '直接逛商品', add: '加入購物車', detail: '看詳情', enter: '逛全部商品', welcome: '歡迎光臨', stop: '第 {n} 站', loading: '小島建造中…', shop: '店舖' },
-  en: { scroll: 'Scroll to explore the island', drag: 'Drag to look around', skip: 'Skip to products', add: 'Add to cart', detail: 'Details', enter: 'Browse all products', welcome: 'Welcome', stop: 'Stop {n}', loading: 'Building the island…', shop: 'Shop' },
-  ja: { scroll: 'スクロールして島を散策', drag: 'ドラッグで視点を回転', skip: '商品一覧へ', add: 'カートに入れる', detail: '詳細', enter: '全商品を見る', welcome: 'いらっしゃいませ', stop: '{n} 番目', loading: '島を準備中…', shop: 'ショップ' },
-  vi: { scroll: 'Cuộn để khám phá hòn đảo', drag: 'Kéo để xoay góc nhìn', skip: 'Xem sản phẩm ngay', add: 'Thêm vào giỏ', detail: 'Chi tiết', enter: 'Xem tất cả sản phẩm', welcome: 'Chào mừng', stop: 'Điểm {n}', loading: 'Đang dựng đảo…', shop: 'Cửa hàng' },
-  ms: { scroll: 'Tatal untuk menjelajah pulau', drag: 'Seret untuk melihat sekeliling', skip: 'Terus ke produk', add: 'Tambah ke troli', detail: 'Butiran', enter: 'Lihat semua produk', welcome: 'Selamat datang', stop: 'Hentian {n}', loading: 'Membina pulau…', shop: 'Kedai' },
+  zh: { scrollC: '往下滾動，逛逛商圈', loadingC: '商圈建造中…', scroll: '往下滾動，逛逛小島', drag: '拖曳可以轉動視角', skip: '直接逛商品', add: '加入購物車', detail: '看詳情', enter: '逛全部商品', welcome: '歡迎光臨', stop: '第 {n} 站', loading: '小島建造中…', shop: '店舖' },
+  en: { scrollC: 'Scroll to explore the shopping district', loadingC: 'Building the city…', scroll: 'Scroll to explore the island', drag: 'Drag to look around', skip: 'Skip to products', add: 'Add to cart', detail: 'Details', enter: 'Browse all products', welcome: 'Welcome', stop: 'Stop {n}', loading: 'Building the island…', shop: 'Shop' },
+  ja: { scrollC: 'スクロールして街を散策', loadingC: '街を準備中…', scroll: 'スクロールして島を散策', drag: 'ドラッグで視点を回転', skip: '商品一覧へ', add: 'カートに入れる', detail: '詳細', enter: '全商品を見る', welcome: 'いらっしゃいませ', stop: '{n} 番目', loading: '島を準備中…', shop: 'ショップ' },
+  vi: { scrollC: 'Cuộn để dạo khu mua sắm', loadingC: 'Đang dựng khu phố…', scroll: 'Cuộn để khám phá hòn đảo', drag: 'Kéo để xoay góc nhìn', skip: 'Xem sản phẩm ngay', add: 'Thêm vào giỏ', detail: 'Chi tiết', enter: 'Xem tất cả sản phẩm', welcome: 'Chào mừng', stop: 'Điểm {n}', loading: 'Đang dựng đảo…', shop: 'Cửa hàng' },
+  ms: { scrollC: 'Tatal untuk menjelajah kawasan beli-belah', loadingC: 'Membina bandar…', scroll: 'Tatal untuk menjelajah pulau', drag: 'Seret untuk melihat sekeliling', skip: 'Terus ke produk', add: 'Tambah ke troli', detail: 'Butiran', enter: 'Lihat semua produk', welcome: 'Selamat datang', stop: 'Hentian {n}', loading: 'Membina pulau…', shop: 'Kedai' },
 };
 
 // 開關：網址 ?island=0／1 優先；其次網站設計工作室的設定（預設開啟）
@@ -29,6 +30,7 @@ export function islandEnabled() {
   return getShopConfig().island !== false;
 }
 
+const SIM_X = Math.max(1, Math.min(10, Math.round(+new URLSearchParams(location.search).get('islspeed') || 1)));
 const C = (c) => new THREE.Color(c);
 const lum = (c) => { const x = C(c); return 0.2126 * x.r + 0.7152 * x.g + 0.0722 * x.b; };
 const R = 8.4; // 島的半徑
@@ -64,7 +66,8 @@ export function createIsland({ shop, onOpen, onAdd }) {
   try { renderer = new THREE.WebGLRenderer({ antialias: innerWidth > 700, alpha: false, powerPreference: 'high-performance' }); } catch { return null; }
   const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mobile = () => innerWidth < 760;
-  const tx = (k, v = {}) => (TXT[shop.lang] || TXT.zh)[k].replace(/\{(\w+)\}/g, (_, x) => v[x] ?? '');
+  // 城市場景的提示改說「商圈」
+  const tx = (k, v = {}) => { const T = TXT[shop.lang] || TXT.zh; const kk = sceneDef && sceneDef.kind === 'city' && T[k + 'C'] ? k + 'C' : k; return T[kk].replace(/\{(\w+)\}/g, (_, x) => v[x] ?? ''); };
 
   // ---------- DOM ----------
   const sec = document.createElement('section');
@@ -98,7 +101,11 @@ export function createIsland({ shop, onOpen, onAdd }) {
   let world = new THREE.Group(); scene.add(world);
   let anim = [], stations = [], hits = [], products = [], look = {}, lookKey = '', night = false;
   let water = null, sky = null, centerpiece = null, balloon = null, boat = null, birds = [], clouds = [], sparkle = null, buildId = 0;
-  let sceneDef = null, crowd = null;
+  let sceneDef = null, crowd = null, cityObj = null;
+  // 場景：網址 ?scene= 優先，其次網站設計工作室的設定（auto＝依業態）
+  let sceneOverride = new URLSearchParams(location.search).get('scene') || getShopConfig().scene || 'auto';
+  const ISL_VENUE = { pinZ: SHOP_Z, pinY: 3.9, lookZ: SHOP_Z, lookY: 1.6 };
+  let VENUE = ISL_VENUE;
 
   function dispose(o) {
     o.traverse(n => { if (n.geometry) n.geometry.dispose(); const m = n.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); });
@@ -116,7 +123,9 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const seed = seedOf(TENANT.id);
     const rnd = rng(seed);
     SHAPE = shapeOf(seed);
-    sceneDef = sceneFor(TENANT);
+    sceneDef = sceneFor(TENANT, sceneOverride);
+    const city = sceneDef.kind === 'city';
+    VENUE = city ? CITY_VENUE : ISL_VENUE; cityObj = null;
 
     // 天空、霧、光
     const zen = night ? C('#0b1430') : C(look.sky || '#bfe3ff').lerp(C('#6fb6ff'), 0.55);
@@ -167,19 +176,23 @@ export function createIsland({ shop, onOpen, onAdd }) {
     { const u = water.material.uniforms, wc = sceneDef.water || {};
       u.deep.value.copy(night ? C('#0d2a4a') : C(wc.deep || '#1f8fc9')); u.shallow.value.copy(night ? C('#1b5a6e') : C(wc.shallow || '#5fd6d2')); u.foam.value.copy(night ? C('#9fc3d6') : C('#ffffff')); u.hor.value.copy(hor);
       u.amp.value.fromArray(SHAPE.amp); u.ph.value.fromArray(SHAPE.ph); u.fr.value.fromArray(SHAPE.fr); }
+    water.visible = !city;
 
-    // 島：沙灘、草地、水下岩層
-    const sandC = night ? C(sceneDef.sand).lerp(C('#3e3528'), 0.55) : C(sceneDef.sand);
-    const sand = slab(outline(1.0), 0.6, 0.25, -0.25, std(sandC, { roughness: 1 })); sand.receiveShadow = true; world.add(sand);
-    const grassBase = night ? C(sceneDef.grass).lerp(C('#173322'), 0.6) : C(sceneDef.grass).lerp(C(look.ground || '#9cc489'), 0.18);
-    const grass = slab(outline(0.84), 0.5, 0.3, 0.12, std(grassBase, { roughness: 0.95 })); grass.receiveShadow = true; world.add(grass);
-    const rock = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.95, R * 0.55, 3.2, 28, 1), std(night ? 0x3a3f4a : 0x8a7f72, { flatShading: true }));
-    rock.position.y = -2.2; world.add(rock);
+    // 島：沙灘、草地、水下岩層（城市場景沒有）
+    if (!city) {
+      const sandC = night ? C(sceneDef.sand).lerp(C('#3e3528'), 0.55) : C(sceneDef.sand);
+      const sand = slab(outline(1.0), 0.6, 0.25, -0.25, std(sandC, { roughness: 1 })); sand.receiveShadow = true; world.add(sand);
+      const grassBase = night ? C(sceneDef.grass).lerp(C('#173322'), 0.6) : C(sceneDef.grass).lerp(C(look.ground || '#9cc489'), 0.18);
+      const grass = slab(outline(0.84), 0.5, 0.3, 0.12, std(grassBase, { roughness: 0.95 })); grass.receiveShadow = true; world.add(grass);
+      const rock = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.95, R * 0.55, 3.2, 28, 1), std(night ? 0x3a3f4a : 0x8a7f72, { flatShading: true }));
+      rock.position.y = -2.2; world.add(rock);
+    }
     // 步道與廣場
-    const pathC = C(vars.cream2 || '#ead9bd').lerp(C('#d9c8a8'), 0.4);
+    const pathC = city ? C(night ? '#8d867a' : '#d6cab3') : C(vars.cream2 || '#ead9bd').lerp(C('#d9c8a8'), 0.4);
     const path = new THREE.Mesh(new THREE.RingGeometry(RING - 0.45, RING + 0.45, 96, 1), std(pathC, { roughness: 1 })); path.rotation.x = -Math.PI / 2; path.position.y = 0.135; path.receiveShadow = true; world.add(path);
     const plaza = new THREE.Mesh(new THREE.CircleGeometry(1.9, 48), std(pathC, { roughness: 1 })); plaza.rotation.x = -Math.PI / 2; plaza.position.set(0, 0.136, 0.9); plaza.receiveShadow = true; world.add(plaza);
-    const walk = new THREE.Mesh(new THREE.PlaneGeometry(1.1, RING - 0.6), std(pathC, { roughness: 1 })); walk.rotation.x = -Math.PI / 2; walk.position.set(0, 0.137, 0.9 + (RING - 0.4) / 2); world.add(walk);
+    const walkL = city ? 10.2 - 0.9 : RING - 0.6;
+    const walk = new THREE.Mesh(new THREE.PlaneGeometry(1.1, walkL), std(pathC, { roughness: 1 })); walk.rotation.x = -Math.PI / 2; walk.position.set(0, 0.137, 0.9 + walkL / 2); world.add(walk);
 
     // 店舖
     const shopG = new THREE.Group(); shopG.position.set(0, 0.13, SHOP_Z);
@@ -199,7 +212,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const w2 = w1.clone(); w2.position.x = 1.05;
     shopG.add(body, roof, awning, sign, door, w1, w2);
     if (night) { const lamp = new THREE.PointLight(0xffb84d, 6, 7); lamp.position.set(0, 1.4, 2.0); shopG.add(lamp); }
-    world.add(shopG);
+    if (!city) world.add(shopG);
 
     // 廣場主角（業態主角或主打商品）
     const kind = heroKind();
@@ -210,26 +223,38 @@ export function createIsland({ shop, onOpen, onAdd }) {
     anim.push((t) => { centerpiece.rotation.y = t * 0.4; centerpiece.position.y = 1.65 + Math.sin(t * 1.2) * 0.1; });
 
     // 業態風景（避開步道、店舖、展台、人物路線與鏡頭視線）
-    const layout = makeLayout({ shore, RING, SHOP_Z, stations: products.map((_, i) => stationAngle(i, products.length)), beach: sceneDef.beach });
-    const built = buildScene(sceneDef, { world, anim, rnd, night, mobile: mobile(), pal, layout });
-    shopDeco(built.deco, shopG, built.kit, sceneDef.roof);
+    const stAngles = products.map((_, i) => stationAngle(i, products.length));
+    let layout, built;
+    if (city) {
+      // 城市百貨商圈：大樓要避開鏡頭路線
+      const kc = makeKeys(stAngles), cv0 = new THREE.CatmullRomCurve3(kc.map(q => q.pos), false, 'centripetal');
+      const camPts = cv0.getSpacedPoints(160);
+      layout = cityLayout({ RING, SHOP_Z, stations: stAngles });
+      built = cityObj = buildCity({ world, anim, rnd, night, mobile: mobile(), pal, vars, layout, camPts });
+    } else {
+      layout = makeLayout({ shore, RING, SHOP_Z, stations: stAngles, beach: sceneDef.beach });
+      built = buildScene(sceneDef, { world, anim, rnd, night, mobile: mobile(), pal, layout });
+      shopDeco(built.deco, shopG, built.kit, sceneDef.roof);
+    }
 
-    // 碼頭與小船
-    const pier = new THREE.Group(); const plank = std(0x9b6b45);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 3.2), plank); deck.position.set(0, -0.05, 0); pier.add(deck);
-    for (const dz of [-1.2, 0, 1.2]) for (const dx of [-0.45, 0.45]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 6), plank); p.position.set(dx, -0.5, dz); pier.add(p); }
-    pier.position.set(layout.pier.x, 0, layout.pier.z); pier.rotation.y = layout.pier.th; world.add(pier);
-    // 帆船：沿著外海繞島，跟著海浪起伏、前後左右搖晃
-    const sb = makeBoat(pal, night); boat = sb.group; boat.scale.setScalar(0.95); world.add(boat);
-    const fw = new THREE.Vector3(), sd = new THREE.Vector3();
-    anim.push((t) => {
-      const a = t * 0.035 + 1.2, r = R + 7.5, x = Math.sin(a) * r, z = Math.cos(a) * r;
-      fw.set(Math.cos(a), 0, -Math.sin(a)); sd.set(fw.z, 0, -fw.x);
-      const h = waveAt(x, z, t), pitch = Math.atan2(waveAt(x + fw.x * 0.8, z + fw.z * 0.8, t) - waveAt(x - fw.x * 0.8, z - fw.z * 0.8, t), 1.6), roll = Math.atan2(waveAt(x + sd.x * 0.4, z + sd.z * 0.4, t) - waveAt(x - sd.x * 0.4, z - sd.z * 0.4, t), 0.8);
-      boat.position.set(x, -0.55 + h + 0.06, z);
-      boat.rotation.set(-pitch, a + Math.PI / 2, 0, 'YXZ'); boat.rotation.z = roll + 0.07;
-      sb.update(t);
-    });
+    // 碼頭與小船（城市場景沒有）
+    if (!city) {
+      const pier = new THREE.Group(); const plank = std(0x9b6b45);
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 3.2), plank); deck.position.set(0, -0.05, 0); pier.add(deck);
+      for (const dz of [-1.2, 0, 1.2]) for (const dx of [-0.45, 0.45]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 6), plank); p.position.set(dx, -0.5, dz); pier.add(p); }
+      pier.position.set(layout.pier.x, 0, layout.pier.z); pier.rotation.y = layout.pier.th; world.add(pier);
+      // 帆船：沿著外海繞島，跟著海浪起伏、前後左右搖晃
+      const sb = makeBoat(pal, night); boat = sb.group; boat.scale.setScalar(0.95); world.add(boat);
+      const fw = new THREE.Vector3(), sd = new THREE.Vector3();
+      anim.push((t) => {
+        const a = t * 0.035 + 1.2, r = R + 7.5, x = Math.sin(a) * r, z = Math.cos(a) * r;
+        fw.set(Math.cos(a), 0, -Math.sin(a)); sd.set(fw.z, 0, -fw.x);
+        const h = waveAt(x, z, t), pitch = Math.atan2(waveAt(x + fw.x * 0.8, z + fw.z * 0.8, t) - waveAt(x - fw.x * 0.8, z - fw.z * 0.8, t), 1.6), roll = Math.atan2(waveAt(x + sd.x * 0.4, z + sd.z * 0.4, t) - waveAt(x - sd.x * 0.4, z - sd.z * 0.4, t), 0.8);
+        boat.position.set(x, -0.55 + h + 0.06, z);
+        boat.rotation.set(-pitch, a + Math.PI / 2, 0, 'YXZ'); boat.rotation.z = roll + 0.07;
+        sb.update(t);
+      });
+    }
 
     // 熱氣球（品牌色）
     balloon = new THREE.Group();
@@ -238,7 +263,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const band = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.12, 8, 30), std(C(pal[2]))); band.rotation.x = Math.PI / 2; band.position.y = -0.1; balloon.add(band);
     const basket = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.42), std(0x9b6b45)); basket.position.y = -1.85; balloon.add(basket);
     for (const [x, z] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) { const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.75, 4), std(0x6b5a4a)); rope.position.set(x * 2.4, -1.35, z * 2.4); rope.rotation.set(z * 1.1, 0, -x * 1.1); balloon.add(rope); }
-    world.add(balloon);
+    world.add(balloon); balloon.visible = !city;
     anim.push((t) => { const a = Math.sin(t * 0.05); balloon.position.set(6.5 + a * 3.5, 8 + Math.sin(t * 0.6) * 0.5, -7 + Math.cos(t * 0.05) * 2); balloon.rotation.y = t * 0.1; });
 
     // 雲、鳥
@@ -268,6 +293,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
 
     // 島上的人
     crowd = createPeople({ world, anim, rnd, night, mobile: mobile(), pal, L: layout, spots: built.spots, hat: sceneDef.hat, shadows: renderer.shadowMap.enabled });
+    if (cityObj) cityObj.attach(crowd);
 
     // 商品展台
     buildStations(my, pal, vars);
@@ -315,16 +341,23 @@ export function createIsland({ shop, onOpen, onAdd }) {
 
   // ---------- 鏡頭路線 ----------
   let keys = [], curve = null;
-  function buildPath() {
-    const m = mobile();
-    const wide = { pos: new THREE.Vector3(0, m ? 23.5 : 15, m ? 35 : 24.5), look: new THREE.Vector3(0, m ? 3.6 : 0.6, m ? -1.5 : -0.6) };
-    keys = [wide];
-    stations.forEach((s) => {
-      const dir = new THREE.Vector3(Math.sin(s.th), 0, Math.cos(s.th));
-      keys.push({ pos: s.pos.clone().add(dir.clone().multiplyScalar(m ? 7.6 : 5.8)).add(new THREE.Vector3(0, m ? 3.6 : 2.9, 0)), look: s.pos.clone().add(new THREE.Vector3(0, m ? 1.3 : 1.55, 0)) });
+  // 鏡頭關鍵點：開場全景 → 每個展台 → 最後看向店舖（城市場景的全景拉高，像模擬城市俯瞰）
+  function makeKeys(angles) {
+    const m = mobile(), city = VENUE !== ISL_VENUE;
+    const wide = city ? { pos: new THREE.Vector3(0, m ? 28 : 19.5, m ? 37 : 27), look: new THREE.Vector3(0, m ? 3.2 : 0.4, m ? -3 : -2.5) }
+      : { pos: new THREE.Vector3(0, m ? 23.5 : 15, m ? 35 : 24.5), look: new THREE.Vector3(0, m ? 3.6 : 0.6, m ? -1.5 : -0.6) };
+    const out = [wide];
+    angles.forEach((th) => {
+      const pos = new THREE.Vector3(Math.sin(th) * RING, 0, Math.cos(th) * RING), dir = new THREE.Vector3(Math.sin(th), 0, Math.cos(th));
+      out.push({ pos: pos.clone().add(dir.multiplyScalar(m ? 7.6 : 5.8)).add(new THREE.Vector3(0, m ? 3.6 : 2.9, 0)), look: pos.clone().add(new THREE.Vector3(0, m ? 1.3 : 1.55, 0)) });
     });
     // 最後一站：從兩個展台之間看向店舖，避免商品卡擋住店面
-    keys.push({ pos: new THREE.Vector3(m ? 4.3 : 3.7, m ? 7.0 : 6.0, m ? 9.6 : 8.0), look: new THREE.Vector3(0, 1.6, SHOP_Z) });
+    const fin = (m ? VENUE.finalM : VENUE.final) || (m ? [4.3, 7.0, 9.6] : [3.7, 6.0, 8.0]);
+    out.push({ pos: new THREE.Vector3(...fin), look: new THREE.Vector3(0, VENUE.lookY, VENUE.lookZ) });
+    return out;
+  }
+  function buildPath() {
+    keys = makeKeys(stations.map(s => s.th));
     curve = new THREE.CatmullRomCurve3(keys.map(k => k.pos), false, 'centripetal');
     sec.style.setProperty('--isl-k', reduced ? 1 : keys.length);
   }
@@ -412,6 +445,8 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now; t += reduced ? dt * 0.3 : dt;
     if (water) water.material.uniforms.t.value = t;
     for (const f of anim) f(t);
+    // 測試用：網址 ?islspeed=N 讓島上的人與車流以 N 倍速模擬（分成多個小步，不影響碰撞判斷）
+    for (let i = 1; i < SIM_X; i++) { t += dt; for (const f of anim) f(t); }
     prog += (target - prog) * (1 - Math.exp(-Math.min(raw, 0.5) * 4.5));
     const kmax = keys.length - 1;
     if (!Number.isFinite(prog)) prog = 0;
@@ -438,7 +473,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
       if (vis) pin.style.transform = `translate(${((tmp.x + 1) / 2 * W).toFixed(1)}px, ${((1 - tmp.y) / 2 * H).toFixed(1)}px) translate(-50%, -100%)`;
     };
     stations.forEach((s, i) => { if (s.pin) placePin(s.pin, v3.copy(s.pos).setY(3.25), cur !== i + 1 && cur !== kmax); });
-    if (shopPin) placePin(shopPin, v3.set(0, 3.9, SHOP_Z), cur !== kmax);
+    if (shopPin) placePin(shopPin, v3.set(0, VENUE.pinY, VENUE.pinZ), cur !== kmax);
     renderCard(Math.abs(prog - cur) < 0.3 ? cur : -1);
   }
   // 效能自動調整：連續偏慢（平均每格超過 45ms）就降低解析度、關閉陰影，避免低階裝置卡頓
@@ -482,7 +517,9 @@ export function createIsland({ shop, onOpen, onAdd }) {
     screenOf(pid) { const st = stations.find(x => x.pid === pid); if (!st) return null; const v = st.pos.clone().setY(1.95).project(camera); const r = cv.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height, onScreen: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 }; },
     setProducts() { products = pickProducts(); build(); renderTexts(); onScroll(); },
     // 測試用：目前的風景、島形與島上的人
-    info() { return { scene: sceneDef && sceneDef.id, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })) }; },
+    info() { return { scene: sceneDef && sceneDef.id, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null }; },
+    // 換場景（網站設計工作室即時預覽）：auto＝依業態
+    setScene(id) { const v = id || 'auto'; if (v === sceneOverride) return; sceneOverride = v; build(); renderTexts(); onScroll(); },
     destroy() { cancelAnimationFrame(raf); removeEventListener('scroll', onScroll); dispose(world); if (sky) dispose(sky); if (water) dispose(water); renderer.dispose(); sec.remove(); document.body.classList.remove('isl-on'); },
   };
   products = pickProducts();
