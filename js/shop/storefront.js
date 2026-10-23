@@ -9,6 +9,7 @@ import { THEMES, CORE_THEMES, FESTIVAL_THEMES, THEME_MAP, resolveTheme, themeVar
 import { CATS } from '../biz/index.js';
 import { promoInfo, activePromos, onPromos, FESTIVALS } from '../promo.js';
 import { merchantLogo } from '../merchant-art.js';
+import { SCENE_NAMES, SCENE_BY_CAT, SCENE_ICON, SCENE_EN, SCENE_SHORT } from './scene-names.js';
 import { $, $$, el, gsap, esc } from '../util.js';
 
 export const isAmei = TENANT_ID === 'amei';
@@ -143,11 +144,11 @@ const GEN = {
 };
 // 前台面板（展示切換）文案
 const PANEL = {
-  zh: { search: '搜尋 {n} 種業態…', none: '找不到符合的業主', own: '本店', title: '展示切換', sub: '給評審與老闆用：切換業主、風格與語言', merchant: '業主（同一套後台、各自的前台）', theme: '風格', auto: '自動', autoSub: '依節慶與時間', deco: '動態裝飾', lang: '語言', studio: '到網站設計工作室編輯', now: '目前風格：{t}', autoTag: '（自動）', reason_festival: '節慶期間', reason_night: '晚上 {a}:00–{b}:00 夜間模式', reason_default: '業主預設風格', reason_manual: '手動指定', sim: '模擬時間', demo: '所有業主皆為虛構示範', custom: 'AI 自訂' },
-  en: { search: 'Search {n} businesses…', none: 'No matching business', own: 'Own', title: 'Showcase', sub: 'For judges & owners: switch business, theme and language', merchant: 'Business (one back office, own storefront)', theme: 'Theme', auto: 'Auto', autoSub: 'By holiday & time', deco: 'Animated decor', lang: 'Language', studio: 'Edit in Site Studio', now: 'Theme: {t}', autoTag: ' (auto)', reason_festival: 'Holiday period', reason_night: 'Night mode {a}:00–{b}:00', reason_default: 'Business default', reason_manual: 'Set manually', sim: 'Simulated time', demo: 'All businesses are fictional demos', custom: 'AI custom' },
-  ja: { search: '{n} 業種を検索…', none: '該当する事業者がありません', own: '自店', title: 'デモ切替', sub: '審査員・オーナー向け：事業者・テーマ・言語を切り替え', merchant: '事業者（共通の管理画面・個別のストア）', theme: 'テーマ', auto: '自動', autoSub: '行事と時間帯で', deco: 'アニメ装飾', lang: '言語', studio: 'サイトスタジオで編集', now: 'テーマ：{t}', autoTag: '（自動）', reason_festival: '行事期間', reason_night: '夜間モード {a}:00〜{b}:00', reason_default: '事業者の既定', reason_manual: '手動設定', sim: '模擬時刻', demo: '事業者はすべて架空のデモです', custom: 'AI カスタム' },
-  vi: { search: 'Tìm trong {n} ngành…', none: 'Không tìm thấy', own: 'Của tiệm', title: 'Trình diễn', sub: 'Cho giám khảo & chủ tiệm: đổi doanh nghiệp, giao diện, ngôn ngữ', merchant: 'Doanh nghiệp (chung hệ thống quản lý)', theme: 'Giao diện', auto: 'Tự động', autoSub: 'Theo lễ & giờ', deco: 'Hiệu ứng trang trí', lang: 'Ngôn ngữ', studio: 'Chỉnh trong Site Studio', now: 'Giao diện: {t}', autoTag: ' (tự động)', reason_festival: 'Dịp lễ', reason_night: 'Chế độ đêm {a}:00–{b}:00', reason_default: 'Mặc định của tiệm', reason_manual: 'Chọn thủ công', sim: 'Giờ mô phỏng', demo: 'Tất cả doanh nghiệp đều là demo hư cấu', custom: 'AI tùy chỉnh' },
-  ms: { search: 'Cari {n} perniagaan…', none: 'Tiada padanan', own: 'Sendiri', title: 'Pertunjukan', sub: 'Untuk juri & pemilik: tukar perniagaan, tema dan bahasa', merchant: 'Perniagaan (satu konsol, kedai sendiri)', theme: 'Tema', auto: 'Auto', autoSub: 'Ikut perayaan & masa', deco: 'Hiasan animasi', lang: 'Bahasa', studio: 'Sunting di Site Studio', now: 'Tema: {t}', autoTag: ' (auto)', reason_festival: 'Musim perayaan', reason_night: 'Mod malam {a}:00–{b}:00', reason_default: 'Lalai perniagaan', reason_manual: 'Ditetapkan manual', sim: 'Masa simulasi', demo: 'Semua perniagaan ialah demo rekaan', custom: 'AI tersuai' },
+  zh: { scene: '3D 場景', sceneAuto: '自動', sceneAutoSub: '依業態', search: '搜尋 {n} 種業態…', none: '找不到符合的業主', own: '本店', title: '展示切換', sub: '給評審與老闆用：切換 3D 場景、業主、風格與語言', merchant: '業主（同一套後台、各自的前台）', theme: '風格', auto: '自動', autoSub: '依節慶與時間', deco: '動態裝飾', lang: '語言', studio: '到網站設計工作室編輯', now: '目前風格：{t}', autoTag: '（自動）', reason_festival: '節慶期間', reason_night: '晚上 {a}:00–{b}:00 夜間模式', reason_default: '業主預設風格', reason_manual: '手動指定', sim: '模擬時間', demo: '所有業主皆為虛構示範', custom: 'AI 自訂' },
+  en: { scene: '3D scene', sceneAuto: 'Auto', sceneAutoSub: 'By business', search: 'Search {n} businesses…', none: 'No matching business', own: 'Own', title: 'Showcase', sub: 'For judges & owners: switch business, theme and language', merchant: 'Business (one back office, own storefront)', theme: 'Theme', auto: 'Auto', autoSub: 'By holiday & time', deco: 'Animated decor', lang: 'Language', studio: 'Edit in Site Studio', now: 'Theme: {t}', autoTag: ' (auto)', reason_festival: 'Holiday period', reason_night: 'Night mode {a}:00–{b}:00', reason_default: 'Business default', reason_manual: 'Set manually', sim: 'Simulated time', demo: 'All businesses are fictional demos', custom: 'AI custom' },
+  ja: { scene: '3D シーン', sceneAuto: '自動', sceneAutoSub: '業種別', search: '{n} 業種を検索…', none: '該当する事業者がありません', own: '自店', title: 'デモ切替', sub: '審査員・オーナー向け：事業者・テーマ・言語を切り替え', merchant: '事業者（共通の管理画面・個別のストア）', theme: 'テーマ', auto: '自動', autoSub: '行事と時間帯で', deco: 'アニメ装飾', lang: '言語', studio: 'サイトスタジオで編集', now: 'テーマ：{t}', autoTag: '（自動）', reason_festival: '行事期間', reason_night: '夜間モード {a}:00〜{b}:00', reason_default: '事業者の既定', reason_manual: '手動設定', sim: '模擬時刻', demo: '事業者はすべて架空のデモです', custom: 'AI カスタム' },
+  vi: { scene: 'Cảnh 3D', sceneAuto: 'Tự động', sceneAutoSub: 'Theo ngành', search: 'Tìm trong {n} ngành…', none: 'Không tìm thấy', own: 'Của tiệm', title: 'Trình diễn', sub: 'Cho giám khảo & chủ tiệm: đổi doanh nghiệp, giao diện, ngôn ngữ', merchant: 'Doanh nghiệp (chung hệ thống quản lý)', theme: 'Giao diện', auto: 'Tự động', autoSub: 'Theo lễ & giờ', deco: 'Hiệu ứng trang trí', lang: 'Ngôn ngữ', studio: 'Chỉnh trong Site Studio', now: 'Giao diện: {t}', autoTag: ' (tự động)', reason_festival: 'Dịp lễ', reason_night: 'Chế độ đêm {a}:00–{b}:00', reason_default: 'Mặc định của tiệm', reason_manual: 'Chọn thủ công', sim: 'Giờ mô phỏng', demo: 'Tất cả doanh nghiệp đều là demo hư cấu', custom: 'AI tùy chỉnh' },
+  ms: { scene: 'Adegan 3D', sceneAuto: 'Auto', sceneAutoSub: 'Ikut perniagaan', search: 'Cari {n} perniagaan…', none: 'Tiada padanan', own: 'Sendiri', title: 'Pertunjukan', sub: 'Untuk juri & pemilik: tukar perniagaan, tema dan bahasa', merchant: 'Perniagaan (satu konsol, kedai sendiri)', theme: 'Tema', auto: 'Auto', autoSub: 'Ikut perayaan & masa', deco: 'Hiasan animasi', lang: 'Bahasa', studio: 'Sunting di Site Studio', now: 'Tema: {t}', autoTag: ' (auto)', reason_festival: 'Musim perayaan', reason_night: 'Mod malam {a}:00–{b}:00', reason_default: 'Lalai perniagaan', reason_manual: 'Ditetapkan manual', sim: 'Masa simulasi', demo: 'Semua perniagaan ialah demo rekaan', custom: 'AI tersuai' },
 };
 const fill = (s, v) => String(s).replace(/\{(\w+)\}/g, (_, k) => (v[k] ?? `{${k}}`));
 export const mName = (m, l) => (l === 'zh' ? m.name : m.en || m.name);
@@ -504,6 +505,7 @@ function renderPanel() {
   const sel = cfg.theme || 'auto';
   host.innerHTML = `${pill}<div class="sf-card" role="dialog" aria-label="${esc(P(l, 'title'))}">
     <div class="sf-card-h"><b>${esc(P(l, 'title'))}</b><small>${esc(P(l, 'sub'))}</small></div>
+    ${sceneSection(l)}
     <h5>${esc(P(l, 'merchant'))}</h5>
     <label class="sf-q"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="sfMerQ" type="search" placeholder="${esc(P(l, 'search', { n: TENANTS.length }))}" value="${esc(merQ)}" autocomplete="off"></label>
     <div class="sf-mers" id="sfMers">${merchantList(l)}</div>
@@ -517,6 +519,16 @@ function renderPanel() {
     <div class="sf-card-f"><a href="index.html?tenant=${TENANT_ID}#studio" target="greenup-admin">${esc(P(l, 'studio'))} ↗</a><small>${esc(P(l, 'demo'))}</small></div>
   </div>`;
   bindPanel(host);
+}
+// 3D 開場場景（只在有 3D 小島時顯示）：自動＝依業態，或指定城市百貨／各種島
+function sceneSection(l) {
+  if (!document.querySelector('#island')) return '';
+  const sel = new URLSearchParams(location.search).get('scene') || cfg.scene || 'auto';
+  const nm = (id, n) => (l === 'zh' ? SCENE_SHORT[id] || n : SCENE_EN[id] || n);
+  const autoId = SCENE_BY_CAT[TENANT.cat] || 'city';
+  return `<h5>${esc(P(l, 'scene'))}</h5><div class="sf-scenes">
+    <button class="sf-sc ${sel === 'auto' ? 'on' : ''}" data-sc="auto"><i>${SCENE_ICON[autoId]}</i><b>${esc(P(l, 'sceneAuto'))}</b><small>${esc(P(l, 'sceneAutoSub'))}</small></button>
+    ${SCENE_NAMES.map(([id, n]) => `<button class="sf-sc ${sel === id ? 'on' : ''}" data-sc="${id}"><i>${SCENE_ICON[id] || ''}</i><b>${esc(nm(id, n))}</b></button>`).join('')}</div>`;
 }
 let merQ = '';
 function merchantList(l) {
@@ -538,6 +550,13 @@ function bindPanel(host) {
   if (q) q.addEventListener('input', () => { merQ = q.value; $('#sfMers', host).innerHTML = merchantList(lang()); bindMers(host); });
   bindMers(host);
   $$('[data-t]', host).forEach(b => b.addEventListener('click', () => { setShopConfig({ theme: b.dataset.t }); }));
+  $$('[data-sc]', host).forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.sc;
+    // 網址有 ?scene= 時先拿掉，讓面板的選擇生效
+    const u = new URL(location.href); if (u.searchParams.has('scene')) { u.searchParams.delete('scene'); history.replaceState(null, '', u); }
+    setShopConfig({ scene: v === 'auto' ? null : v }); renderPanel();
+    if (window.__island) window.__island.setScene(v);
+  }));
   const db = $('#sfDecoBtn', host); if (db) db.addEventListener('click', () => setDeco(!decoOn()));
   $$('.sf-langs [data-l]', host).forEach(b => b.addEventListener('click', () => shopRef.setLang(b.dataset.l)));
 }
@@ -602,8 +621,9 @@ export function initStorefront(shop) {
 
   // 設定變更（後台工作室或本頁面板）
   onShopConfig((next) => {
-    const before = JSON.stringify([cfg.products, cfg.featured]);
+    const before = JSON.stringify([cfg.products, cfg.featured]), sc = cfg.scene;
     cfg = next;
+    if (sc !== cfg.scene && panelOpen) renderPanel();
     applyTheme(computeTheme(), true);
     if (JSON.stringify([cfg.products, cfg.featured]) !== before) emit('catalog');
   });

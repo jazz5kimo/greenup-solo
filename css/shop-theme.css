@@ -335,6 +335,13 @@ body.shop[data-sf-texture="grid"] { background-image: linear-gradient(color-mix(
 .sf-mer:hover { border-color: var(--gl); }
 .sf-mer.on { border-color: var(--gl); background: var(--soft); }
 .sf-none { color: var(--ink3); font-size: 12.5px; text-align: center; padding: 14px 0; }
+.sf-scenes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.sf-sc { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px 6px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink); font-size: 10.5px; min-width: 0; cursor: pointer; }
+.sf-sc i { font-style: normal; font-size: 18px; line-height: 1.2; }
+.sf-sc b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.sf-sc small { font-size: 9px; color: var(--ink3); }
+.sf-sc:hover { border-color: var(--gl); }
+.sf-sc.on { border-color: var(--gl); background: var(--soft); }
 .sf-themes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .sf-th { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px 7px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink); font-size: 11.5px; position: relative; min-width: 0; }
 .sf-th b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

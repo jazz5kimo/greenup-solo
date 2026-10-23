@@ -5,3 +5,7 @@ export const SCENE_NAMES = [
 ];
 export const SCENE_BY_CAT = { dessert: 'candy', food: 'market', drink: 'tea', retail: 'city', craft: 'forest', flower: 'garden', service: 'resort', farm: 'farm' };
 export const sceneName = (id) => (SCENE_NAMES.find(([k]) => k === id) || [id, id])[1];
+// 銷售網頁展示面板用：圖示與英文名稱
+export const SCENE_ICON = { city: '🏙️', candy: '🍭', market: '🏮', tea: '🍵', town: '🏘️', forest: '🌲', garden: '🌷', resort: '🏖️', farm: '🐄' };
+export const SCENE_SHORT = { city: '城市百貨', candy: '糖果島', market: '夜市', tea: '茶山咖啡', town: '小鎮市集', forest: '森林工坊', garden: '花田溫室', resort: '海灘度假', farm: '田園牧場' };
+export const SCENE_EN = { city: 'City mall', candy: 'Candy isle', market: 'Night market', tea: 'Tea hills', town: 'Market town', forest: 'Forest atelier', garden: 'Flower garden', resort: 'Beach resort', farm: 'Farm' };
