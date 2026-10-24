@@ -18,6 +18,8 @@ export const MER = TENANT;
 export const LAYOUT = TENANT.layout || 'classic';
 export const SHIP_MODE = (TENANT.ship && TENANT.ship.mode) || 'ship';
 const PREVIEW = new URLSearchParams(location.search).has('preview');
+// 正式站模式：業主設定 live，或網址加 ?live=1 預覽；不顯示展示切換面板、店主後台連結與示範競標
+export const LIVE = !!TENANT.live || new URLSearchParams(location.search).get('live') === '1';
 const REDUCED = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } })();
 const OWNER_EN = { amei: 'Amei', coffee: 'Lan', leather: 'Mubai', flower: 'Xiaori', nail: 'Xiaozhi', pho: 'Linh' };
 const OWNER_GENERIC = { en: 'the owner', ja: 'オーナー', vi: 'chủ tiệm', ms: 'pemilik' };
@@ -224,6 +226,8 @@ function override(l, key) {
     rShip: g['rShip_' + SHIP_MODE], rStorage: g.rAsk, rAllergen: g.rAsk, rAllergenOne: g.rAsk, rStorageOne: g.rAsk,
   };
   for (const k of ['announce', 'botName', 'botGreet', 'botStrip', 'botStripSub', 'footer', 'cartEmpty', 'okSync', 'rRecommend', 'rGift', 'rLess', 'rBudgetNone', 'rFallback', 'rPaid']) map[k] = g[k];
+  // 業主自己的公告列與頁尾（例如正式品牌不是虛構示範業主）
+  for (const k of ['announce', 'footer']) if (c[k]) map[k] = c[k];
   return map[key];
 }
 // 統一翻譯函式：業主覆寫 → GEN（非阿美專用鍵）→ i18n.js
@@ -593,6 +597,7 @@ export function bootStorefront(shop) {
   const b = document.body;
   b.classList.add('lay-' + LAYOUT, 'tenant-' + TENANT_ID);
   if (PREVIEW) b.classList.add('sf-preview');
+  if (LIVE) b.classList.add('sf-live');
   b.dataset.cat = TENANT.cat || '';
   for (const [k, v] of Object.entries(STYLE)) if (v) b.setAttribute('data-sf-' + k, v);
   renderBrand(shop.lang);
@@ -604,7 +609,7 @@ export function initStorefront(shop) {
   shopRef = shop;
   if (!document.body.classList.contains('lay-' + LAYOUT)) bootStorefront(shop);
   try { panelOpen = localStorage.getItem(LS_PANEL) === '1' && innerWidth > 700; } catch { panelOpen = false; }
-  if (!PREVIEW) { const p = el('<div class="sf-panel" id="sfPanel"></div>'); document.body.appendChild(p); renderPanel(); }
+  if (!PREVIEW && !LIVE) { const p = el('<div class="sf-panel" id="sfPanel"></div>'); document.body.appendChild(p); renderPanel(); }
   renderNow();
   shop.onLang((l) => { renderBrand(l); renderNow(); renderPanel(); if (current) renderFest(current.theme); });
 

@@ -1,5 +1,5 @@
-// 主題世界（七）：燕語海崖（精品燕窩・嬿窩）
-// 夕陽下的海岬花園：象牙白洋紅柱三重簷「燕屋樓閣」、海上石灰岩柱與燕洞、上百隻雨燕俯衝急轉捕食空中的飛蟲、飛回燕洞，
+// 主題世界（七）：芽莊燕島（精品燕窩・嬿窩；產品來自越南芽莊外海的燕島）
+// 夕陽下的海岬花園：象牙白洋紅柱三重簷「嬿窩樓閣」、芽莊外海的燕島與岩洞、越南竹籃船、上百隻雨燕俯衝急轉捕食空中的飛蟲、飛回燕洞，
 // 會反射夕陽金光的海面、月洞門、荷花池、觀海涼亭與白石欄杆。
 import * as THREE from 'three';
 import { tree, makeBoat } from './island-scenes.js';
@@ -24,7 +24,7 @@ function sea(k, world, hor) {
   const night = k.night;
   const mat = new THREE.ShaderMaterial({
     fog: false,
-    uniforms: { t: { value: 0 }, deep: { value: C(night ? '#0a2233' : '#1d5d78') }, shallow: { value: C(night ? '#16404c' : '#3aa3a6') }, hor: { value: C(hor) }, sunDir: { value: SUN_DIR.clone() }, sunCol: { value: C(night ? '#cfdcff' : '#ffcf8a') } },
+    uniforms: { t: { value: 0 }, deep: { value: C(night ? '#0a2233' : '#16708e') }, shallow: { value: C(night ? '#16404c' : '#35c2bd') }, hor: { value: C(hor) }, sunDir: { value: SUN_DIR.clone() }, sunCol: { value: C(night ? '#cfdcff' : '#ffcf8a') } },
     vertexShader: `uniform float t; varying vec3 vW; varying vec3 vN;
       float h(vec2 p){ return sin(p.x*0.21+t*0.7)*0.18 + cos(p.y*0.27+t*0.55)*0.15 + sin((p.x+p.y)*0.6+t*1.4)*0.05 + sin((p.x*0.9-p.y*1.3)+t*2.1)*0.025; }
       void main(){ vec3 p = position; vec4 w0 = modelMatrix*vec4(p,1.0); float e = 0.25; float y0 = h(w0.xz);
@@ -46,30 +46,52 @@ function sea(k, world, hor) {
   return m;
 }
 
-// 海上石灰岩柱（頂上長樹、側面有燕洞）
-function karst(k, world, x, z, h, r, { cave = false } = {}) {
+// 芽莊外海的燕島：花崗岩海崖（下半）＋長滿熱帶林的圓頂（上半）、岸邊巨石與浪花，崖壁上有燕洞
+function isle(k, world, x, z, h, r, { cave = false } = {}) {
   const g = grp(x, SEA_Y, z); world.add(g);
-  const geo = new THREE.CylinderGeometry(r * 0.72, r, h, 11, 9); const pos = geo.attributes.position, cols = [];
   let a = (x * 73 + z * 31) | 0; const rr = () => (a = (a * 16807 + 11) % 2147483647) / 2147483647;
-  const jit = Array.from({ length: 11 * 10 }, () => 0.82 + rr() * 0.36);
-  for (let i = 0; i < pos.count; i++) { const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i); const ang = Math.atan2(px, pz), row = Math.round((py / h + 0.5) * 9), col = Math.round(((ang / TAU) + 1) * 11) % 11; const f = jit[row * 11 + col] * (1 + Math.sin(py * 0.9 + x) * 0.05); pos.setXYZ(i, px * f, py, pz * f);
-    const u = py / h + 0.5, cc = C('#8f8676').lerp(C('#e3d9c6'), Math.min(1, u * 1.3)); if (u > 0.92) cc.lerp(C('#6f9a55'), 0.5); cols.push(cc.r, cc.g, cc.b); }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); geo.computeVertexNormals();
-  add(k, g, geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }), 0, h / 2, 0);
-  // 頂上的熱帶樹叢與垂藤
-  const top = r * 0.72;
-  for (let i = 0; i < 5; i++) { const ang = i / 5 * TAU + rr(), d = top * 0.5 * rr(); add(k, g, k.g('kbush', () => new THREE.IcosahedronGeometry(1, 0)), k.m(i % 2 ? '#5f8f4a' : '#4c7d3e', { flatShading: true }), Math.sin(ang) * d, h + 0.3, Math.cos(ang) * d).scale.setScalar(top * (0.35 + rr() * 0.25)); }
-  for (let i = 0; i < 6; i++) { const ang = rr() * TAU, len = 1 + rr() * h * 0.25; const v = add(k, g, k.g('kvine', () => cyl(0.05, 0.02, 1, 4)), '#4c7d3e', Math.sin(ang) * top * 0.98, h - len / 2, Math.cos(ang) * top * 0.98, false); v.scale.y = len; }
-  // 燕洞：朝向海岬那一面的深色洞口＋洞口上方的白色岩紋
+  const hc = h * 0.42, jit = Array.from({ length: 14 * 8 }, () => 0.86 + rr() * 0.28);
+  // 海崖：不規則的岩壁，越往下越深色（被海水打濕）
+  const cg = new THREE.CylinderGeometry(r * 0.9, r * 1.04, hc, 14, 7); const cp = cg.attributes.position, cc = [];
+  for (let i = 0; i < cp.count; i++) { const px = cp.getX(i), py = cp.getY(i), pz = cp.getZ(i), ang = Math.atan2(px, pz), row = Math.round((py / hc + 0.5) * 7), col = Math.round(((ang / TAU) + 1) * 14) % 14, f = jit[row * 14 + col]; cp.setXYZ(i, px * f, py, pz * f);
+    const u = py / hc + 0.5, c = C('#5e544a').lerp(C('#b7a993'), Math.min(1, u * 1.15)); if ((row + col) % 5 === 0) c.lerp(C('#d8cdb8'), 0.35); cc.push(c.r, c.g, c.b); }
+  cg.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3)); cg.computeVertexNormals();
+  add(k, g, cg, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }), 0, hc / 2, 0);
+  // 圓頂熱帶林：起伏的綠色山頭，深淺不一
+  const dg = new THREE.SphereGeometry(r * 0.92, 16, 8, 0, TAU, 0, Math.PI / 2); const dp = dg.attributes.position, dc = [];
+  for (let i = 0; i < dp.count; i++) { const px = dp.getX(i), py = dp.getY(i), pz = dp.getZ(i), n = 0.88 + rr() * 0.24; dp.setXYZ(i, px * n, py * (h - hc) / (r * 0.92) * (0.9 + rr() * 0.2), pz * n);
+    const c = C(k.night ? '#2c4a30' : '#5f9550').lerp(C(k.night ? '#1d3424' : '#3f7140'), rr() * 0.8); if (rr() < 0.12) c.lerp(C('#a7b06a'), 0.5); dc.push(c.r, c.g, c.b); }
+  dg.setAttribute('color', new THREE.Float32BufferAttribute(dc, 3)); dg.computeVertexNormals();
+  add(k, g, dg, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 }), 0, hc - 0.2, 0);
+  // 岸邊巨石與浪花
+  for (let i = 0; i < 7; i++) { const ang = rr() * TAU, d = r * (0.98 + rr() * 0.25); const b = add(k, g, k.g('iboul', () => new THREE.DodecahedronGeometry(1, 0)), k.m('#7d7062', { flatShading: true }), Math.sin(ang) * d, 0.1, Math.cos(ang) * d); b.scale.set(0.6 + rr() * 0.9, 0.4 + rr() * 0.7, 0.6 + rr() * 0.9); b.rotation.set(rr() * 3, rr() * 3, 0); }
+  const fm = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false });
+  const foam = new THREE.Mesh(k.g('ifoam', () => new THREE.TorusGeometry(1, 0.06, 4, 40)), fm); foam.rotation.x = Math.PI / 2; foam.scale.set(r * 1.08, r * 1.08, 1); foam.position.y = 0.08; g.add(foam);
+  const ph = rr() * TAU; k.anim.push((t) => { fm.opacity = 0.35 + Math.sin(t * 1.3 + ph) * 0.2; const sc = r * (1.08 + Math.sin(t * 1.3 + ph) * 0.03); foam.scale.set(sc, sc, 1); });
+  // 燕洞：朝向陸地那一面的崖壁上
   if (cave) {
-    const ang = Math.atan2(-x, -z), y = h * 0.55, rad = r * (1 - 0.28 * 0.55) * 1.14;
+    const ang = Math.atan2(-x, -z), y = hc * 0.48, rad = r * 0.97 * 1.12;
     const ct = k.g('caveTex', () => canvas(128, 128, (q) => { const gr = q.createRadialGradient(64, 74, 4, 64, 64, 64); gr.addColorStop(0, '#0d0a08'); gr.addColorStop(0.55, '#2a221b'); gr.addColorStop(0.85, '#5a4f42'); gr.addColorStop(1, 'rgba(110,98,84,0)'); q.fillStyle = gr; q.fillRect(0, 0, 128, 128); }));
     const mouth = new THREE.Mesh(k.g('cave', () => new THREE.CircleGeometry(1, 24)), new THREE.MeshBasicMaterial({ map: ct, transparent: true, depthWrite: false }));
-    mouth.scale.set(r * 0.3, h * 0.12, 1); mouth.position.set(Math.sin(ang) * rad, y, Math.cos(ang) * rad); mouth.rotation.y = ang; g.add(mouth);
-    const arch = new THREE.Mesh(k.g('cavearch', () => new THREE.TorusGeometry(1, 0.16, 6, 16, Math.PI)), k.m('#cfc4b0', { flatShading: true, roughness: 1 })); arch.scale.set(r * 0.27, h * 0.11, r * 0.3); arch.position.copy(mouth.position); arch.rotation.y = ang; g.add(arch);
+    mouth.scale.set(r * 0.24, hc * 0.3, 1); mouth.position.set(Math.sin(ang) * rad, y, Math.cos(ang) * rad); mouth.rotation.y = ang; g.add(mouth);
+    const arch = new THREE.Mesh(k.g('cavearch', () => new THREE.TorusGeometry(1, 0.16, 6, 16, Math.PI)), k.m('#a99a84', { flatShading: true, roughness: 1 })); arch.scale.set(r * 0.22, hc * 0.28, r * 0.3); arch.position.copy(mouth.position); arch.rotation.y = ang; g.add(arch);
     return { x: x + Math.sin(ang) * (rad + 0.6), y: SEA_Y + y, z: z + Math.cos(ang) * (rad + 0.6) };
   }
   return null;
+}
+
+// 越南竹籃船（圓形的 thuyền thúng）：漁夫坐在船裡划槳，船身慢慢打轉
+function basketBoat(k, world, x, z, ph) {
+  const g = grp(x, SEA_Y + 0.05, z); world.add(g);
+  const weave = k.g('weave', () => canvas(128, 64, (q, w, hh) => { q.fillStyle = '#8a6a3e'; q.fillRect(0, 0, w, hh); q.strokeStyle = 'rgba(40,25,10,.45)'; q.lineWidth = 2; for (let i = 0; i < w; i += 8) { q.beginPath(); q.moveTo(i, 0); q.lineTo(i + 8, hh); q.stroke(); q.beginPath(); q.moveTo(i + 8, 0); q.lineTo(i, hh); q.stroke(); } }));
+  const bowl = new THREE.Mesh(k.g('bbowl', () => new THREE.SphereGeometry(0.9, 18, 8, 0, TAU, Math.PI / 2, Math.PI / 2.6)), new THREE.MeshStandardMaterial({ map: weave, roughness: 0.9, side: THREE.DoubleSide })); bowl.scale.y = 0.55; bowl.position.y = 0.42; g.add(bowl);
+  add(k, g, new THREE.TorusGeometry(0.88, 0.05, 6, 28), '#5a3f22', 0, 0.42, 0).rotation.x = Math.PI / 2;
+  // 漁夫（斗笠）
+  const man = grp(0, 0.2, 0); g.add(man);
+  add(k, man, cyl(0.13, 0.16, 0.42, 8), '#3b6ea5', 0, 0.38, 0); add(k, man, sph(0.12, 10, 8), '#e0b38a', 0, 0.68, 0);
+  add(k, man, cone(0.3, 0.16, 16), '#e9d6a0', 0, 0.82, 0);
+  const oar = grp(0.2, 0.5, 0); man.add(oar); add(k, oar, cyl(0.02, 0.02, 1.4, 5), '#6b4a2a', 0, 0, 0.3).rotation.x = 1.1;
+  k.anim.push((t) => { g.rotation.y = t * 0.15 + ph; g.position.y = SEA_Y + 0.05 + Math.sin(t * 1.4 + ph) * 0.06; g.rotation.z = Math.sin(t * 1.1 + ph) * 0.05; oar.rotation.y = Math.sin(t * 1.8 + ph) * 0.6; });
 }
 
 // 金絲燕的零件（身體、左右鐮刀形翅膀、分叉尾）：上百隻用 InstancedMesh 一次畫完
@@ -92,7 +114,7 @@ function eave(k, parent, y, w, d, h, topScale, mat, tipMat) {
   return e;
 }
 
-// ================= 燕語海崖 =================
+// ================= 芽莊燕島 =================
 function swiftlet_world({ k, world, pal, clear, mobile, camPts }) {
   const night = k.night, hor = night ? '#26365e' : '#ffd8a8';
   // ---- 地形：海岬（石灰岩崖）＋草地，核心廣場是象牙白石板＋金色鑲嵌 ----
@@ -122,7 +144,7 @@ function swiftlet_world({ k, world, pal, clear, mobile, camPts }) {
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunT, fog: false, depthWrite: false, toneMapped: false, transparent: true })); sun.scale.setScalar(night ? 26 : 46); sun.position.copy(SUN_DIR).multiplyScalar(150); world.add(sun);
   k.anim.push((t) => { sun.material.opacity = 0.92 + Math.sin(t * 0.6) * 0.08; });
 
-  // ---- 主建築：燕屋樓閣（象牙白三層、金色重簷、頂層是燕子進出的燕口） ----
+  // ---- 主建築：嬿窩樓閣（象牙白三層、洋紅柱、金色重簷、暖光格窗） ----
   const h = grp(HX, 0.12, HZ - 0.2); world.add(h);
   const iv = k.m(IVORY, { roughness: 0.6 }), goldM = k.m(GOLD, { metalness: 0.65, roughness: 0.32 }), jadeM = k.m(JADE, { roughness: 0.5 });
   const warm = k.m('#ffe3a8', { emissive: C('#ffcf7a'), emissiveIntensity: night ? 1.3 : 0.35, roughness: 0.25 });
@@ -134,9 +156,9 @@ function swiftlet_world({ k, world, pal, clear, mobile, camPts }) {
   const sign = nameSign(k, 2.4, 0.46, '#4d0a2e', '#e9cf8f', '"Noto Serif TC", "Songti TC", serif'); sign.position.set(0, 2.88, 1.62); h.add(sign);
   eave(k, h, 3.12, 6.9, 4.2, 0.62, 0.62, goldM, goldM);
   add(k, h, box(4.2, 1.9, 2.3), iv, 0, 4.7, -0.1);
-  const slotM = k.m('#2a2622', { roughness: 0.9 });
-  for (let r = 0; r < 2; r++) for (let i = 0; i < 7; i++) add(k, h, box(0.3, 0.1, 0.04), slotM, -1.65 + i * 0.55, 4.35 + r * 0.6, 1.07);
-  for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) add(k, h, box(0.04, 0.1, 0.3), slotM, sx * 2.11, 4.5, -0.9 + i * 0.55);
+  // 二樓：五扇暖光格窗（金色窗框與格條）
+  for (let i = 0; i < 5; i++) { const x = -1.6 + i * 0.8; add(k, h, box(0.52, 0.9, 0.04), warm, x, 4.7, 1.07); add(k, h, box(0.6, 0.06, 0.06), goldM, x, 5.18, 1.09); add(k, h, box(0.6, 0.06, 0.06), goldM, x, 4.22, 1.09); add(k, h, box(0.04, 0.9, 0.05), goldM, x, 4.7, 1.1); add(k, h, box(0.52, 0.04, 0.05), goldM, x, 4.7, 1.1); }
+  for (const sx of [-1, 1]) for (let i = 0; i < 2; i++) add(k, h, box(0.04, 0.8, 0.5), warm, sx * 2.11, 4.7, -0.6 + i * 1.0);
   eave(k, h, 5.66, 5.3, 3.3, 0.55, 0.6, goldM, goldM);
   add(k, h, box(2.9, 1.45, 1.7), iv, 0, 6.95, -0.1);
   const emb = canvas(256, 256, (g) => { g.fillStyle = '#b8146a'; g.beginPath(); g.arc(128, 128, 124, 0, TAU); g.fill(); g.strokeStyle = '#e9cf8f'; g.lineWidth = 8; g.beginPath(); g.arc(128, 128, 110, 0, TAU); g.stroke(); g.fillStyle = '#e9cf8f'; g.save(); g.translate(56, 92); g.scale(6.4, 6.4); g.fill(new Path2D('M0 8 C4 4.5 8 3.6 11.5 4.6 L21 0 L15.6 6.2 C17.6 7 18.8 8.6 18.2 9.8 C15.6 9 13.4 9.2 11.6 10.2 L3 16 L6.6 10.2 C4 10.4 1.6 9.6 0 8 Z')); g.restore(); });
@@ -149,10 +171,11 @@ function swiftlet_world({ k, world, pal, clear, mobile, camPts }) {
   for (const [y, w, d] of [[3.12, 6.9, 4.2], [5.66, 5.3, 3.3]]) for (const sx of [-1, 1]) { const lg2 = grp(sx * w / 2 * 0.94, y - 0.05, d / 2 * 0.94); h.add(lg2); add(k, lg2, cyl(0.008, 0.008, 0.4, 3), '#5a4a2a', 0, -0.2, 0, false); const b = add(k, lg2, k.g('lant', () => { const s = sph(0.17, 12, 10); s.scale(1, 1.25, 1); return s; }), k.m('#ffcf7a', { emissive: C('#ffb84a'), emissiveIntensity: night ? 2.2 : 0.7, roughness: 0.4 }), 0, -0.55, 0, false); add(k, lg2, cyl(0.1, 0.1, 0.05, 10), goldM, 0, -0.33, 0, false); lanterns.push(lg2); }
   k.anim.push((t) => lanterns.forEach((l, i) => { l.rotation.z = Math.sin(t * 1.4 + i) * 0.08; }));
 
-  // ---- 海上石灰岩柱與燕洞 ----
-  const KS = [[-6, -31, 9, 3.2], [9, -40, 13, 3.6, true], [25, -27, 11, 3.4, true], [-21, -45, 12, 3.8], [37, -53, 15, 4.2], [-39, -62, 14, 4.6, true], [15, -70, 17, 5], [51, -31, 8, 3], [31, 4, 7, 2.6], [43, 22, 9, 3.2], [-60, -48, 10, 4]];
+  // ---- 芽莊外海的燕島與燕洞＋竹籃船 ----
+  const KS = [[-7, -33, 8, 4.6], [9, -42, 11, 6, true], [26, -28, 10, 5.4, true], [-22, -47, 10, 6.4], [38, -55, 13, 7.5], [-40, -64, 12, 7.8, true], [14, -72, 15, 9], [52, -33, 7, 4.6], [32, 4, 6, 3.8], [44, 22, 8, 4.8], [-62, -50, 9, 6.5]];
+  for (const [x, z] of [[19.5, 9], [23, -6], [27, 14], [21, -16], [33, -12]].slice(0, mobile ? 3 : 5)) basketBoat(k, world, x, z, x * 0.7);
   const caves = [];
-  for (const [x, z, hh, r, cv] of (mobile ? KS.filter((_, i) => i % 3 !== 2) : KS)) { const c = karst(k, world, x, z, hh, r, { cave: !!cv }); if (c) caves.push(c); }
+  for (const [x, z, hh, r, cv] of (mobile ? KS.filter((_, i) => i % 3 !== 2) : KS)) { const c = isle(k, world, x, z, hh, r, { cave: !!cv }); if (c) caves.push(c); }
 
   // ---- 雨燕捕食：空中一團團小飛蟲（夕陽下閃金光），上百隻金絲燕俯衝、急轉、一口咬住飛蟲，吃飽了飛回燕洞 ----
   // 前幾團在廣場上方低空（展台特寫鏡頭也看得到雨燕貼地掠過）
@@ -276,9 +299,9 @@ function swiftlet_world({ k, world, pal, clear, mobile, camPts }) {
     { x: -5.5, z: -12.6, face: [-6, -24], pose: 'stand', prop: 'bag' }, { x: 6.4, z: -12.8, face: [9, -30], pose: 'stand' },
     { x: -10.0, z: -0.2, face: [-12.6, -3.2], pose: 'sit' }, { x: 9.4, z: 6.2, face: [11.6, 3.4], pose: 'sit' },
   ];
-  return { features: ['燕屋樓閣', '海上石灰岩燕洞', '雨燕群飛', '雨燕捕食飛蟲', '夕陽海面金光', '月洞門與荷花池', '觀海涼亭'], heroH: 9.9, spots, fog: [44, 170] };
+  return { features: ['嬿窩樓閣', '芽莊外海燕島與岩洞', '雨燕群飛', '雨燕捕食飛蟲', '夕陽海面金光', '越南竹籃船', '月洞門與荷花池', '觀海涼亭'], heroH: 9.9, spots, fog: [44, 170] };
 }
 
 export const WORLDS_G = {
-  swiftlet: { id: 'swiftlet', kind: 'world', name: '燕語海崖', sky: { top: '#86aad6', bot: '#ffd8a8' }, sunDir: SUN_DIR.toArray(), hat: 'sun', cloud: '#fff1df', build: swiftlet_world },
+  swiftlet: { id: 'swiftlet', kind: 'world', name: '芽莊燕島', sky: { top: '#86aad6', bot: '#ffd8a8' }, sunDir: SUN_DIR.toArray(), hat: 'sun', cloud: '#fff1df', build: swiftlet_world },
 };

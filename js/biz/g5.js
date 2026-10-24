@@ -1,4 +1,4 @@
-// 第 5 組：精品燕窩 1 家（嬿窩・虛構示範業主）
+// 第 5 組：精品燕窩 1 家（嬿窩：使用者自己的品牌，第一個正式站；商品、價格、規格仍為示範，等店主提供實際資料）
 // BIZ：{ merchant, theme, profile }；ART：本組新增的商品插圖（kind 皆以 g5_ 開頭）
 // merchant.layout = 'luxe'（精品版面）；merchant.story 是前台的品牌故事區塊（shop/story.js 繪製，五語）。
 // 燕窩是一般食品：文案只談口感、產地、工序與保存，不寫任何療效或保健功效（食品安全衛生管理法）。
@@ -116,7 +116,7 @@ export const BIZ = [
   {
     merchant: {
       id: 'birdnest', name: '嬿窩', en: 'YAN NEST', type: 'birdnest', cat: 'food',
-      typeName: '精品燕窩', kw: '燕窩 燕盞 燕條 鮮燉燕窩 bird nest swiftlet 燕の巣 yến sào sarang burung', owner: '小嬿', ownerEn: 'Yan', theme: 'birdnest', brand: '#B8146A', tagline: '一盞好燕，慢火細燉',
+      typeName: '精品燕窩', kw: '燕窩 燕盞 燕條 鮮燉燕窩 bird nest swiftlet 燕の巣 yến sào sarang burung', owner: '店主', ownerEn: 'the owner', theme: 'birdnest', brand: '#B8146A', tagline: '一盞好燕，慢火細燉',
       layout: 'luxe', ship: { mode: 'ship', fee: 150, free: 1500, cold: true },
       products: [
         P('bn-fresh', '冰糖鮮燉燕窩', '150ml × 6 瓶', 1680, 690, 36, '每週二、五現燉，冰糖清甜、燕絲完整，冷藏宅配到府。（示範規格：每瓶以約 3g 乾燕盞燉製）', 'g5_jar', '#F3E3C0', '#B8146A',
@@ -145,24 +145,30 @@ export const BIZ = [
             i18n: { en: ['Fresh Subscription (4 weeks)', '3 jars a week × 4 weeks', 'Three jars delivered every week. Pause or reschedule anytime; mix rock-sugar and unsweetened.'], ja: ['生燕の巣 定期便（4週）', '毎週3本 × 4週', '毎週3本をお届け。いつでも一時停止・日程変更でき、氷砂糖と無糖を組み合わせられます。'], vi: ['Gói định kỳ yến tươi (4 tuần)', '3 hũ/tuần × 4 tuần', 'Mỗi tuần giao 3 hũ. Tạm dừng hoặc đổi ngày bất cứ lúc nào; kết hợp có đường và không đường.'], ms: ['Langganan Segar (4 minggu)', '3 balang seminggu × 4 minggu', 'Tiga balang dihantar setiap minggu. Boleh jeda atau tukar tarikh; campur gula batu dan tanpa gula.'] } }),
       ],
       copy: {
-        zh: { type: '精品燕窩', tagline: '一盞好燕，慢火細燉', kicker: '每週二・五 現燉・冷鏈到府', title: '一盞好燕，<br>慢火細燉。', sub: '小嬿一個人經營「嬿窩」：挑盞、浸泡、挑毛、燉煮都自己來，每一瓶都在出貨前一天才燉好。不知道怎麼選？右下角的 AI 導購小燕會用你的語言幫你挑。', prodTitle: '本季燕窩', prodSub: '鮮燉、乾燕盞到禮盒，每一批都附檢驗紀錄（示範）', about: '品牌故事', f: [['出貨前一天現燉', '冷藏 0–7°C 宅配'], ['手工挑毛', '不加防腐劑、不加色素'], ['多語言 AI 導購', '中・英・日・越・馬來文']], chips: ['第一次吃選哪個？', '送長輩的禮盒', '預算 2,000 元', '怎麼保存？', '燕盞怎麼燉？', '結帳'] },
-        en: { type: 'Fine bird’s nest', tagline: 'A fine nest, slowly stewed', kicker: 'Stewed every Tue & Fri · chilled delivery', title: 'A fine nest,<br>slowly stewed.', sub: 'Yan runs YAN NEST single-handed: choosing, soaking, hand-cleaning and stewing every nest herself, and each jar is stewed the day before it ships. Not sure what to pick? Our AI concierge (bottom right) will help in your language.', prodTitle: 'This season’s nests', prodSub: 'From fresh-stewed jars to dried cups and gift boxes, every batch comes with a test record (demo)', about: 'Our story', f: [['Stewed the day before shipping', 'Chilled 0–7°C delivery'], ['Hand-cleaned', 'No preservatives or colouring'], ['Multilingual AI help', '中 · EN · 日 · VI · MS']], chips: ['First time, which one?', 'Gift for parents', 'Budget NT$2,000', 'How to store it?', 'How do I stew nest cups?', 'Checkout'] },
-        ja: { type: '高級燕の巣', tagline: '上質な燕の巣を、ことこと丁寧に', kicker: '毎週火・金に炊き上げ・クール便でお届け', title: '上質な燕の巣を、<br>ことこと丁寧に。', sub: '「嬿窩」は小嬿がひとりで営むお店。選別・浸水・毛取り・炊き上げまで自分の手で行い、出荷の前日に仕上げます。迷ったら右下のAIスタッフが日本語でご案内します。', prodTitle: '今季の燕の巣', prodSub: '生の燕の巣から乾燥の盞、ギフトまで。各ロットに検査記録付き（デモ）', about: 'ブランドストーリー', f: [['出荷前日に炊き上げ', '0〜7°Cのクール便'], ['手作業の毛取り', '保存料・着色料不使用'], ['多言語AIスタッフ', '中・英・日・越・マレー語']], chips: ['初めてならどれ？', '両親へのギフト', '予算2,000元', '保存方法は？', '盞の炊き方は？', 'お会計'] },
-        vi: { type: 'Yến sào cao cấp', tagline: 'Tổ yến ngon, chưng lửa nhỏ', kicker: 'Chưng mỗi thứ Ba & thứ Sáu · giao lạnh', title: 'Tổ yến ngon,<br>chưng lửa nhỏ.', sub: 'Yan tự mình vận hành YAN NEST: chọn tổ, ngâm, nhặt lông và chưng đều do cô làm, mỗi hũ được chưng một ngày trước khi giao. Chưa biết chọn gì? Trợ lý AI (góc phải) sẽ giúp bạn bằng tiếng Việt.', prodTitle: 'Yến mùa này', prodSub: 'Từ yến chưng tươi, tổ yến khô đến hộp quà, mỗi lô đều có hồ sơ kiểm nghiệm (demo)', about: 'Câu chuyện', f: [['Chưng trước ngày giao', 'Giao lạnh 0–7°C'], ['Nhặt lông thủ công', 'Không chất bảo quản, không phẩm màu'], ['Trợ lý AI đa ngôn ngữ', 'Trung · Anh · Nhật · Việt · Mã Lai']], chips: ['Lần đầu nên chọn gì?', 'Quà biếu bố mẹ', 'Ngân sách 2.000', 'Bảo quản thế nào?', 'Chưng tổ yến ra sao?', 'Thanh toán'] },
-        ms: { type: 'Sarang burung premium', tagline: 'Sarang terbaik, ditanak perlahan', kicker: 'Ditanak setiap Selasa & Jumaat · penghantaran sejuk', title: 'Sarang terbaik,<br>ditanak perlahan.', sub: 'Yan mengurus YAN NEST seorang diri: memilih, merendam, membersih dan menanak setiap sarang sendiri, dan setiap balang ditanak sehari sebelum dihantar. Tidak pasti? Pembantu AI (bawah kanan) sedia membantu dalam bahasa anda.', prodTitle: 'Sarang musim ini', prodSub: 'Dari balang segar ke mangkuk kering dan kotak hadiah, setiap kelompok ada rekod ujian (demo)', about: 'Kisah kami', f: [['Ditanak sehari sebelum hantar', 'Penghantaran sejuk 0–7°C'], ['Dibersihkan dengan tangan', 'Tanpa pengawet atau pewarna'], ['Pembantu AI pelbagai bahasa', 'Cina · EN · Jepun · VI · MS']], chips: ['Kali pertama, yang mana?', 'Hadiah untuk ibu bapa', 'Bajet NT$2,000', 'Cara simpan?', 'Cara tanak mangkuk sarang?', 'Bayar'] },
+        zh: { type: '精品燕窩', tagline: '芽莊燕島，一盞好燕', kicker: '越南芽莊燕島・每週現燉・冷鏈到府', title: '一盞好燕，<br>來自芽莊燕島。', sub: '嬿窩的燕窩來自越南芽莊外海的燕島。我們把每一盞細心挑毛、慢火燉好，出貨前一天才燉、冷藏送到你家。不知道怎麼選？右下角的 AI 導購小燕會用你的語言幫你挑。', prodTitle: '本季燕窩', prodSub: '鮮燉、乾燕盞到禮盒（商品、規格與價格為示範，正式上架以實際為準）', about: '品牌故事', f: [['芽莊燕島', '越南慶和省外海'], ['出貨前一天現燉', '冷藏 0–7°C 宅配'], ['手工挑毛', '一盞一盞細心整理']], chips: ['第一次吃選哪個？', '送長輩的禮盒', '預算 2,000 元', '怎麼保存？', '燕盞怎麼燉？', '結帳'],
+          announce: '嬿窩・芽莊燕島，一盞好燕・支援 5 種語言 AI 客服', footer: '嬿窩・品牌籌備中。本頁商品、規格、價格與檢驗資訊為示範內容，正式上架以實際標示為準。' },
+        en: { type: 'Fine bird’s nest', tagline: 'From the nest islands of Nha Trang', kicker: 'Nha Trang nest islands · stewed weekly · chilled delivery', title: 'A fine nest,<br>from the islands of Nha Trang.', sub: 'YAN NEST bird’s nest comes from the swiftlet islands off Nha Trang, Vietnam. We clean every nest by hand and stew it slowly the day before it ships, then deliver it chilled. Not sure what to pick? Our AI concierge (bottom right) will help in your language.', prodTitle: 'This season’s nests', prodSub: 'Fresh-stewed jars, dried cups and gift boxes (products, specs and prices are samples; final listings may differ)', about: 'Our story', f: [['Nha Trang nest islands', 'Off the coast of Khánh Hòa, Vietnam'], ['Stewed the day before shipping', 'Chilled 0–7°C delivery'], ['Hand-cleaned', 'Every nest, one by one']], chips: ['First time, which one?', 'Gift for parents', 'Budget NT$2,000', 'How to store it?', 'How do I stew nest cups?', 'Checkout'],
+          announce: 'YAN NEST · From the nest islands of Nha Trang · AI concierge in 5 languages', footer: 'YAN NEST · Brand in preparation. Products, specs, prices and test information on this page are samples; final listings follow the actual labels.' },
+        ja: { type: '高級燕の巣', tagline: 'ニャチャンの燕の島から', kicker: 'ベトナム・ニャチャンの燕の島・毎週炊き上げ・クール便', title: '上質な燕の巣を、<br>ニャチャンの島から。', sub: '嬿窩の燕の巣は、ベトナム・ニャチャン沖に浮かぶ燕の島から届きます。ひとつずつ丁寧に毛を取り、出荷の前日にことこと炊き上げ、クール便でお届けします。迷ったら右下のAIスタッフが日本語でご案内します。', prodTitle: '今季の燕の巣', prodSub: '生の燕の巣から乾燥の盞、ギフトまで（商品・規格・価格はサンプルです。正式な掲載内容は実物の表示に従います）', about: 'ブランドストーリー', f: [['ニャチャンの燕の島', 'ベトナム・カインホア省の沖合'], ['出荷前日に炊き上げ', '0〜7°Cのクール便'], ['手作業の毛取り', 'ひとつずつ丁寧に']], chips: ['初めてならどれ？', '両親へのギフト', '予算2,000元', '保存方法は？', '盞の炊き方は？', 'お会計'],
+          announce: '嬿窩・ニャチャンの燕の島から・5言語のAIスタッフ対応', footer: '嬿窩・ブランド準備中。本ページの商品・規格・価格・検査情報はサンプルです。正式な販売時は実物の表示に従います。' },
+        vi: { type: 'Yến sào cao cấp', tagline: 'Yến đảo Nha Trang', kicker: 'Yến đảo Nha Trang · chưng mỗi tuần · giao lạnh', title: 'Tổ yến ngon,<br>từ đảo yến Nha Trang.', sub: 'Yến của YAN NEST đến từ các đảo yến ngoài khơi Nha Trang, Việt Nam. Chúng tôi nhặt lông từng tổ và chưng chậm một ngày trước khi giao, rồi giao lạnh tận nhà. Chưa biết chọn gì? Trợ lý AI (góc phải) sẽ giúp bạn bằng tiếng Việt.', prodTitle: 'Yến mùa này', prodSub: 'Yến chưng tươi, tổ yến khô và hộp quà (sản phẩm, quy cách và giá là mẫu; thông tin chính thức theo nhãn thực tế)', about: 'Câu chuyện', f: [['Yến đảo Nha Trang', 'Ngoài khơi Khánh Hòa, Việt Nam'], ['Chưng trước ngày giao', 'Giao lạnh 0–7°C'], ['Nhặt lông thủ công', 'Từng tổ, cẩn thận']], chips: ['Lần đầu nên chọn gì?', 'Quà biếu bố mẹ', 'Ngân sách 2.000', 'Bảo quản thế nào?', 'Chưng tổ yến ra sao?', 'Thanh toán'],
+          announce: 'YAN NEST · Yến đảo Nha Trang · Trợ lý AI 5 ngôn ngữ', footer: 'YAN NEST · Thương hiệu đang chuẩn bị. Sản phẩm, quy cách, giá và thông tin kiểm nghiệm trên trang là mẫu; khi bán chính thức sẽ theo nhãn thực tế.' },
+        ms: { type: 'Sarang burung premium', tagline: 'Dari pulau walit Nha Trang', kicker: 'Pulau walit Nha Trang · ditanak setiap minggu · penghantaran sejuk', title: 'Sarang terbaik,<br>dari pulau Nha Trang.', sub: 'Sarang burung YAN NEST datang dari pulau-pulau walit di luar pantai Nha Trang, Vietnam. Kami membersihkan setiap sarang dengan tangan dan menanaknya perlahan sehari sebelum dihantar, lalu dihantar sejuk. Tidak pasti? Pembantu AI (bawah kanan) sedia membantu dalam bahasa anda.', prodTitle: 'Sarang musim ini', prodSub: 'Balang segar, mangkuk kering dan kotak hadiah (produk, spesifikasi dan harga ialah contoh; jualan rasmi ikut label sebenar)', about: 'Kisah kami', f: [['Pulau walit Nha Trang', 'Luar pantai Khánh Hòa, Vietnam'], ['Ditanak sehari sebelum hantar', 'Penghantaran sejuk 0–7°C'], ['Dibersihkan dengan tangan', 'Satu demi satu']], chips: ['Kali pertama, yang mana?', 'Hadiah untuk ibu bapa', 'Bajet NT$2,000', 'Cara simpan?', 'Cara tanak mangkuk sarang?', 'Bayar'],
+          announce: 'YAN NEST · Dari pulau walit Nha Trang · Pembantu AI 5 bahasa', footer: 'YAN NEST · Jenama dalam persediaan. Produk, spesifikasi, harga dan maklumat ujian di halaman ini ialah contoh; jualan rasmi ikut label sebenar.' },
       },
       // 前台品牌故事區塊（精品版面）：故事、四種燕窩、工序、燉煮計算、品質承諾、常見問題、聲明
       story: {
         zh: {
           badges: ['出貨前一天現燉', '冷鏈 0–7°C', '每批附檢驗紀錄（示範）'],
-          story: { k: 'OUR STORY', h: '燕子用一季築的巢，<br>我們用一整天慢慢對待。', p: ['金絲燕用唾液一圈一圈築巢，一盞燕窩要花上好幾週。嬿窩只選雛鳥離巢後才採收的屋燕巢，讓燕子年年回家。', '每一盞都由小嬿親手浸泡、用鑷子挑去細毛，再以隔水燉的方式慢慢燉好。不追求快，只想讓你吃到燕窩本來的樣子。'], sign: '嬿窩 小嬿' },
+          story: { k: 'OUR STORY', h: '海風裡的燕島，<br>一盞一盞慢慢來。', p: ['越南芽莊外海散落著幾座燕島，金絲燕在島上的岩洞與崖壁間，用唾液一圈一圈築巢，一盞燕窩要花上好幾週。', '嬿窩把這份來自燕島的禮物帶回台灣：一盞一盞浸泡、用鑷子挑去細毛，再以隔水燉的方式慢慢燉好。不追求快，只想讓你吃到燕窩本來的樣子。'], sign: '嬿窩' },
+          origin: { k: 'ORIGIN', h: '產地：越南芽莊燕島', sub: '芽莊位於越南中南部的慶和省，外海的島嶼岩壁是金絲燕築巢的地方。', coord: '12.2°N  109.2°E', map: ['芽莊', '慶和省・越南', '燕島'], facts: [['產地', '越南慶和省芽莊外海燕島'], ['燕窩種類', '島燕（岩洞燕窩）'], ['採收', '依燕子築巢季節進行'], ['來台', '輸入檢疫與查驗文件（準備中）']], note: '地圖為示意；產地資訊以實際包裝標示為準。' },
           grades: { k: 'HOW TO CHOOSE', h: '四種燕窩，怎麼挑', sub: '差別在形狀，不在產地；形狀越完整，價格越高。', list: [
             { id: 'cup', n: '燕盞', d: '完整的半月形，最適合送禮與慢燉。', soak: '浸泡 4–6 小時', fit: '送禮・自己燉' },
             { id: 'strip', n: '燕條', d: '盞型不整的條狀，品質同源、價格親切。', soak: '浸泡 2–3 小時', fit: '日常自己燉' },
             { id: 'corner', n: '燕角', d: '燕盞兩端黏在牆上的部分，口感較紮實。', soak: '浸泡 6–8 小時', fit: '喜歡咬勁的人' },
             { id: 'bits', n: '燕碎', d: '整理時留下的碎片，最省時。', soak: '浸泡 1 小時', fit: '甜湯・入菜' } ] },
-          steps: { k: 'FROM NEST TO TABLE', h: '從燕屋到你的餐桌', list: [
-            ['採收', '雛鳥離巢後才採收屋燕巢'], ['浸泡', '清水浸泡，燕絲慢慢舒展'], ['挑毛', '人工以鑷子挑除細毛與雜質'], ['定型', '低溫烘乾，保留完整盞型'], ['檢驗', '每批送驗並留存紀錄（示範）'], ['現燉冷鏈', '出貨前一天燉好，0–7°C 宅配'] ] },
+          steps: { k: 'FROM NEST TO TABLE', h: '從芽莊燕島到你的餐桌', list: [
+            ['燕島採收', '依燕子築巢季節，從島上岩洞採收'], ['浸泡', '清水浸泡，燕絲慢慢舒展'], ['挑毛', '人工以鑷子挑除細毛與雜質'], ['定型', '低溫烘乾，保留完整盞型'], ['檢驗', '每批送驗並留存紀錄（示範）'], ['現燉冷鏈', '出貨前一天燉好，0–7°C 宅配'] ] },
           calc: { k: 'STEW AT HOME', h: '在家燉一盞', sub: '選人數和口感，算給你看。以下為一般參考，可依喜好調整。', people: '人份', texture: '口感', light: '清爽', rich: '濃郁', dry: '乾燕', water: '清水', soak: '浸泡', stew: '隔水燉', g: 'g', ml: 'ml', hr: '小時', min: '分鐘', tips: ['乾燕盞先用冷水浸泡，泡到燕絲柔軟舒展', '挑掉殘留細毛，用濾網輕輕沖洗', '加水隔水燉 30–40 分鐘，起鍋前再加冰糖'] },
           promise: { k: 'OUR PROMISE', h: '品質承諾', list: [['不加防腐劑、色素', '只用燕窩、清水與冰糖'], ['每批檢驗（示範）', '亞硝酸鹽、二氧化硫等項目留存紀錄'], ['合法輸入（示範）', '附輸入檢疫文件，產地可追溯'], ['冷鏈配送', '鮮燉品全程 0–7°C，收到請立即冷藏']] },
           faq: { k: 'FAQ', h: '常見問題', list: [
@@ -172,18 +178,19 @@ export const BIZ = [
             ['燕窩有什麼功效？', '燕窩是一般食品，我們不宣稱任何療效。大家喜歡它，是因為細緻的口感和送禮的心意。'],
             ['孕期、小朋友或過敏體質可以吃嗎？', '每個人的狀況不同，請先詢問醫師或營養師；對蛋白質類食物容易過敏的人請先少量嘗試。'],
             ['可以指定到貨日或寄送禮盒給別人嗎？', '可以，結帳時填寫收件人與希望到貨日，卡片內容也可以請 AI 導購幫你寫。'] ] },
-          note: '本頁為 GreenUP 原型示範，嬿窩為虛構示範業主；商品、價格、規格與檢驗資訊皆為示範。燕窩為一般食品，不具醫療效能；食用與標示規範以主管機關公告為準，特殊體質請諮詢醫師或營養師。',
+          note: '嬿窩品牌籌備中：本頁商品、價格、規格與檢驗資訊為示範內容，正式上架以實際標示為準。燕窩為一般食品，不具醫療效能；食用與標示規範以主管機關公告為準，特殊體質請諮詢醫師或營養師。',
         },
         en: {
           badges: ['Stewed the day before shipping', 'Chilled 0–7°C', 'Test record for every batch (demo)'],
-          story: { k: 'OUR STORY', h: 'Swiftlets spend a season building a nest.<br>We spend a whole day caring for it.', p: ['Swiftlets weave their nests strand by strand over several weeks. We only use house nests collected after the chicks have flown, so the birds come home every year.', 'Yan soaks every nest, cleans it by hand with tweezers and double-boils it slowly. We’re not in a hurry; we just want you to taste bird’s nest the way it should be.'], sign: 'Yan, YAN NEST' },
+          story: { k: 'OUR STORY', h: 'Islands in the sea breeze,<br>one nest at a time.', p: ['A handful of swiftlet islands lie off the coast of Nha Trang, Vietnam. In their rock caves and cliffs, swiftlets weave their nests strand by strand over several weeks.', 'YAN NEST brings this gift from the islands to Taiwan: every nest is soaked, cleaned by hand with tweezers and slowly double-boiled. We’re not in a hurry; we just want you to taste bird’s nest the way it should be.'], sign: 'YAN NEST' },
+          origin: { k: 'ORIGIN', h: 'Origin: the nest islands of Nha Trang', sub: 'Nha Trang is in Khánh Hòa province, south-central Vietnam. The cliffs of its offshore islands are where swiftlets build their nests.', coord: '12.2°N  109.2°E', map: ['Nha Trang', 'Khánh Hòa · Vietnam', 'Nest islands'], facts: [['Origin', 'Nest islands off Nha Trang, Khánh Hòa, Vietnam'], ['Type', 'Island cave nest'], ['Harvest', 'Following the swiftlets’ nesting seasons'], ['Import', 'Quarantine and inspection papers (in preparation)']], note: 'Map is illustrative; origin details follow the actual package label.' },
           grades: { k: 'HOW TO CHOOSE', h: 'Four kinds of nest', sub: 'The difference is the shape, not the origin; the more complete the shape, the higher the price.', list: [
             { id: 'cup', n: 'Cup', d: 'A whole half-moon cup, ideal for gifts and slow stewing.', soak: 'Soak 4–6 hours', fit: 'Gifts · home stewing' },
             { id: 'strip', n: 'Strip', d: 'Irregular strips from the same nests, friendlier price.', soak: 'Soak 2–3 hours', fit: 'Everyday stewing' },
             { id: 'corner', n: 'Corner', d: 'The ends where the cup meets the wall, a firmer bite.', soak: 'Soak 6–8 hours', fit: 'If you like texture' },
             { id: 'bits', n: 'Bits', d: 'Small pieces left from cleaning, the quickest to cook.', soak: 'Soak 1 hour', fit: 'Sweet soups · cooking' } ] },
-          steps: { k: 'FROM NEST TO TABLE', h: 'From swiftlet house to your table', list: [
-            ['Harvest', 'Collected only after the chicks have flown'], ['Soak', 'Soaked in clean water until the strands relax'], ['Clean', 'Fine feathers removed by hand with tweezers'], ['Shape', 'Dried at low heat to keep the cup shape'], ['Test', 'Each batch tested, records kept (demo)'], ['Stew & chill', 'Stewed the day before, delivered at 0–7°C'] ] },
+          steps: { k: 'FROM NEST TO TABLE', h: 'From the islands of Nha Trang to your table', list: [
+            ['Island harvest', 'Collected from island caves, following the nesting seasons'], ['Soak', 'Soaked in clean water until the strands relax'], ['Clean', 'Fine feathers removed by hand with tweezers'], ['Shape', 'Dried at low heat to keep the cup shape'], ['Test', 'Each batch tested, records kept (demo)'], ['Stew & chill', 'Stewed the day before, delivered at 0–7°C'] ] },
           calc: { k: 'STEW AT HOME', h: 'Stew a cup at home', sub: 'Pick servings and texture and we’ll do the maths. A general guide only; adjust to taste.', people: 'servings', texture: 'Texture', light: 'Light', rich: 'Rich', dry: 'Dry nest', water: 'Water', soak: 'Soak', stew: 'Double-boil', g: 'g', ml: 'ml', hr: 'hr', min: 'min', tips: ['Soak dried cups in cold water until the strands are soft', 'Pick out any remaining feathers and rinse gently in a sieve', 'Double-boil for 30–40 minutes; add rock sugar at the end'] },
           promise: { k: 'OUR PROMISE', h: 'Our promise', list: [['No preservatives or colouring', 'Just nest, water and rock sugar'], ['Every batch tested (demo)', 'Records kept for nitrite, sulphur dioxide and more'], ['Legally imported (demo)', 'Import quarantine papers, traceable origin'], ['Cold-chain delivery', 'Fresh jars kept at 0–7°C; refrigerate on arrival']] },
           faq: { k: 'FAQ', h: 'Questions', list: [
@@ -193,18 +200,19 @@ export const BIZ = [
             ['What are the health benefits?', 'Bird’s nest is a regular food and we make no health claims. People love it for its delicate texture and as a thoughtful gift.'],
             ['Is it OK during pregnancy, for kids or with allergies?', 'Everyone is different, so please ask your doctor or dietitian first. If you react easily to protein foods, try a small amount first.'],
             ['Can I choose a delivery date or send a gift?', 'Yes. Enter the recipient and preferred date at checkout, and our AI concierge can help write the card.'] ] },
-          note: 'This page is a GreenUP prototype demo; YAN NEST is a fictional demo business, and all products, prices, specs and test information are for demonstration. Bird’s nest is a regular food with no medical effect; labelling and consumption rules follow the competent authorities. Please consult a doctor or dietitian if you have special health conditions.',
+          note: 'YAN NEST is a brand in preparation: products, prices, specs and test information on this page are samples, and final listings follow the actual labels. Bird’s nest is a regular food with no medical effect; labelling and consumption rules follow the competent authorities. Please consult a doctor or dietitian if you have special health conditions.',
         },
         ja: {
           badges: ['出荷前日に炊き上げ', 'クール便 0〜7°C', 'ロットごとに検査記録（デモ）'],
-          story: { k: 'OUR STORY', h: 'ツバメがひと季節かけて編んだ巣を、<br>わたしたちは丸一日かけて大切に。', p: ['アナツバメは何週間もかけて少しずつ巣を作ります。嬿窩はヒナが巣立った後に採取した「屋燕」の巣だけを使い、ツバメが毎年戻ってこられるようにしています。', '小嬿がひとつずつ浸水し、ピンセットで毛を取り、湯せんでゆっくり炊き上げます。急がず、燕の巣本来の味を届けたいと思っています。'], sign: '嬿窩 小嬿' },
+          story: { k: 'OUR STORY', h: '海風の吹く燕の島から、<br>ひとつずつ丁寧に。', p: ['ベトナム・ニャチャンの沖合には燕の島が点在し、アナツバメは島の岩洞や崖で、何週間もかけて少しずつ巣を作ります。', '嬿窩は島からの贈り物を台湾へ。ひとつずつ浸水し、ピンセットで毛を取り、湯せんでゆっくり炊き上げます。急がず、燕の巣本来の味を届けたいと思っています。'], sign: '嬿窩' },
+          origin: { k: 'ORIGIN', h: '産地：ベトナム・ニャチャンの燕の島', sub: 'ニャチャンはベトナム中南部のカインホア省。沖合の島の岩壁がアナツバメの巣作りの場所です。', coord: '12.2°N  109.2°E', map: ['ニャチャン', 'カインホア省・ベトナム', '燕の島'], facts: [['産地', 'ベトナム・カインホア省ニャチャン沖の燕の島'], ['種類', '島の岩洞の燕の巣'], ['採取', 'ツバメの営巣シーズンに合わせて'], ['輸入', '輸入検疫・検査書類（準備中）']], note: '地図はイメージです。産地情報は実際の包装表示に従います。' },
           grades: { k: 'HOW TO CHOOSE', h: '燕の巣の4つの形', sub: '違いは産地ではなく形。形が整っているほど価格が上がります。', list: [
             { id: 'cup', n: '盞（さん）', d: '半月形の完全な形。ギフトやじっくり炊くのに。', soak: '浸水 4〜6時間', fit: 'ギフト・ご自宅で' },
             { id: 'strip', n: '条', d: '形が不揃いな細長いもの。品質は同じでお手頃。', soak: '浸水 2〜3時間', fit: '普段使いに' },
             { id: 'corner', n: '角', d: '盞の両端、壁に付いていた部分。しっかりした食感。', soak: '浸水 6〜8時間', fit: '歯ごたえ好きに' },
             { id: 'bits', n: '砕', d: '選別で出た小さなかけら。いちばん手軽。', soak: '浸水 1時間', fit: 'デザート・料理に' } ] },
-          steps: { k: 'FROM NEST TO TABLE', h: 'ツバメの家から食卓まで', list: [
-            ['採取', 'ヒナが巣立ってから採取'], ['浸水', 'きれいな水でゆっくり戻す'], ['毛取り', 'ピンセットで一本ずつ手作業'], ['成形', '低温で乾燥し形を保つ'], ['検査', 'ロットごとに検査・記録（デモ）'], ['炊き上げ・クール便', '前日に炊いて0〜7°Cでお届け'] ] },
+          steps: { k: 'FROM NEST TO TABLE', h: 'ニャチャンの燕の島から食卓まで', list: [
+            ['島での採取', '営巣シーズンに合わせて島の岩洞から'], ['浸水', 'きれいな水でゆっくり戻す'], ['毛取り', 'ピンセットで一本ずつ手作業'], ['成形', '低温で乾燥し形を保つ'], ['検査', 'ロットごとに検査・記録（デモ）'], ['炊き上げ・クール便', '前日に炊いて0〜7°Cでお届け'] ] },
           calc: { k: 'STEW AT HOME', h: 'ご自宅で炊く', sub: '人数と食感を選ぶと分量を計算します。一般的な目安です。お好みで調整してください。', people: '人分', texture: '食感', light: 'あっさり', rich: 'こってり', dry: '乾燥燕の巣', water: '水', soak: '浸水', stew: '湯せん', g: 'g', ml: 'ml', hr: '時間', min: '分', tips: ['乾燥の盞は冷水に浸し、やわらかくなるまで戻す', '残った毛を取り、ざるでやさしくすすぐ', '水を加えて湯せんで30〜40分、仕上げに氷砂糖を'] },
           promise: { k: 'OUR PROMISE', h: '品質へのお約束', list: [['保存料・着色料不使用', '燕の巣・水・氷砂糖だけ'], ['ロットごとの検査（デモ）', '亜硝酸塩・二酸化硫黄などを記録'], ['正規輸入（デモ）', '輸入検疫書類付き、産地を追跡可能'], ['クール便', '生の商品は0〜7°Cで。届いたらすぐ冷蔵庫へ']] },
           faq: { k: 'FAQ', h: 'よくあるご質問', list: [
@@ -214,18 +222,19 @@ export const BIZ = [
             ['燕の巣の効能は？', '燕の巣は一般食品で、効能をうたうことはしていません。繊細な食感と贈り物としての気持ちが人気の理由です。'],
             ['妊娠中・子ども・アレルギー体質でも大丈夫？', '体質は人それぞれなので、まず医師や栄養士にご相談ください。たんぱく質の食品でアレルギーが出やすい方は少量からお試しを。'],
             ['配達日の指定やギフト配送はできる？', 'できます。お会計で送り先と希望日を入力してください。カードの文面はAIスタッフもお手伝いします。'] ] },
-          note: '本ページはGreenUPのプロトタイプで、嬿窩は架空のデモ事業者です。商品・価格・規格・検査情報はすべてデモです。燕の巣は一般食品であり医療効果はありません。表示や摂取については所管官庁の定めに従い、持病のある方は医師・栄養士にご相談ください。',
+          note: '嬿窩はブランド準備中です。本ページの商品・価格・規格・検査情報はサンプルで、正式な販売時は実物の表示に従います。燕の巣は一般食品であり医療効果はありません。表示や摂取については所管官庁の定めに従い、持病のある方は医師・栄養士にご相談ください。',
         },
         vi: {
           badges: ['Chưng trước ngày giao', 'Giao lạnh 0–7°C', 'Mỗi lô có hồ sơ kiểm nghiệm (demo)'],
-          story: { k: 'OUR STORY', h: 'Chim yến mất cả mùa để làm tổ,<br>chúng tôi dành cả ngày để chăm chút.', p: ['Chim yến kết tổ từng sợi trong nhiều tuần. YAN NEST chỉ dùng tổ yến nhà được thu hoạch sau khi chim non đã rời tổ, để chim yến năm nào cũng trở về.', 'Yan tự ngâm, nhặt lông bằng nhíp và chưng cách thủy từng tổ thật chậm. Không vội vàng, chỉ muốn bạn thưởng thức yến đúng vị nguyên bản.'], sign: 'Yan, YAN NEST' },
+          story: { k: 'OUR STORY', h: 'Đảo yến trong gió biển,<br>từng tổ một, thật chậm.', p: ['Ngoài khơi Nha Trang, Việt Nam có những đảo yến, nơi chim yến kết tổ từng sợi trong hang đá và vách núi suốt nhiều tuần.', 'YAN NEST mang món quà từ đảo yến về Đài Loan: ngâm từng tổ, nhặt lông bằng nhíp và chưng cách thủy thật chậm. Không vội vàng, chỉ muốn bạn thưởng thức yến đúng vị nguyên bản.'], sign: 'YAN NEST' },
+          origin: { k: 'ORIGIN', h: 'Xuất xứ: đảo yến Nha Trang', sub: 'Nha Trang thuộc tỉnh Khánh Hòa, Nam Trung Bộ Việt Nam. Vách đá trên các đảo ngoài khơi là nơi chim yến làm tổ.', coord: '12.2°N  109.2°E', map: ['Nha Trang', 'Khánh Hòa · Việt Nam', 'Đảo yến'], facts: [['Xuất xứ', 'Đảo yến ngoài khơi Nha Trang, Khánh Hòa'], ['Loại', 'Yến đảo (yến hang)'], ['Thu hoạch', 'Theo mùa làm tổ của chim yến'], ['Nhập khẩu', 'Giấy kiểm dịch và kiểm tra (đang chuẩn bị)']], note: 'Bản đồ mang tính minh họa; thông tin xuất xứ theo nhãn bao bì thực tế.' },
           grades: { k: 'HOW TO CHOOSE', h: 'Bốn loại yến', sub: 'Khác nhau ở hình dáng chứ không ở nguồn gốc; tổ càng nguyên vẹn, giá càng cao.', list: [
             { id: 'cup', n: 'Tổ nguyên', d: 'Hình bán nguyệt nguyên vẹn, hợp làm quà và chưng chậm.', soak: 'Ngâm 4–6 giờ', fit: 'Làm quà · tự chưng' },
             { id: 'strip', n: 'Yến sợi', d: 'Sợi không thành tổ, cùng nguồn, giá dễ chịu.', soak: 'Ngâm 2–3 giờ', fit: 'Dùng hằng ngày' },
             { id: 'corner', n: 'Chân yến', d: 'Phần hai đầu tổ bám vào tường, giòn dai hơn.', soak: 'Ngâm 6–8 giờ', fit: 'Thích độ dai' },
             { id: 'bits', n: 'Yến vụn', d: 'Mảnh nhỏ còn lại khi làm sạch, nhanh nhất.', soak: 'Ngâm 1 giờ', fit: 'Chè · nấu món' } ] },
-          steps: { k: 'FROM NEST TO TABLE', h: 'Từ nhà yến đến bàn ăn', list: [
-            ['Thu hoạch', 'Chỉ lấy tổ sau khi chim non rời tổ'], ['Ngâm', 'Ngâm nước sạch cho sợi yến nở'], ['Nhặt lông', 'Nhặt lông tơ thủ công bằng nhíp'], ['Định hình', 'Sấy nhiệt thấp, giữ dáng tổ'], ['Kiểm nghiệm', 'Mỗi lô đều kiểm và lưu hồ sơ (demo)'], ['Chưng & giao lạnh', 'Chưng hôm trước, giao 0–7°C'] ] },
+          steps: { k: 'FROM NEST TO TABLE', h: 'Từ đảo yến Nha Trang đến bàn ăn', list: [
+            ['Thu hoạch trên đảo', 'Lấy từ hang đá trên đảo, theo mùa làm tổ'], ['Ngâm', 'Ngâm nước sạch cho sợi yến nở'], ['Nhặt lông', 'Nhặt lông tơ thủ công bằng nhíp'], ['Định hình', 'Sấy nhiệt thấp, giữ dáng tổ'], ['Kiểm nghiệm', 'Mỗi lô đều kiểm và lưu hồ sơ (demo)'], ['Chưng & giao lạnh', 'Chưng hôm trước, giao 0–7°C'] ] },
           calc: { k: 'STEW AT HOME', h: 'Tự chưng tại nhà', sub: 'Chọn số người và độ đậm, chúng tôi tính giúp. Chỉ để tham khảo, điều chỉnh theo khẩu vị.', people: 'người', texture: 'Độ đậm', light: 'Thanh', rich: 'Đậm', dry: 'Yến khô', water: 'Nước', soak: 'Ngâm', stew: 'Chưng cách thủy', g: 'g', ml: 'ml', hr: 'giờ', min: 'phút', tips: ['Ngâm tổ yến khô trong nước lạnh đến khi sợi mềm', 'Nhặt sạch lông còn sót, rửa nhẹ qua rây', 'Thêm nước, chưng cách thủy 30–40 phút, cho đường phèn lúc cuối'] },
           promise: { k: 'OUR PROMISE', h: 'Cam kết chất lượng', list: [['Không chất bảo quản, phẩm màu', 'Chỉ có yến, nước và đường phèn'], ['Kiểm nghiệm từng lô (demo)', 'Lưu hồ sơ nitrit, SO₂ và các chỉ tiêu khác'], ['Nhập khẩu hợp pháp (demo)', 'Có giấy kiểm dịch, truy xuất được nguồn gốc'], ['Giao lạnh', 'Yến tươi giữ 0–7°C; nhận hàng hãy cho vào tủ lạnh']] },
           faq: { k: 'FAQ', h: 'Câu hỏi thường gặp', list: [
@@ -235,18 +244,19 @@ export const BIZ = [
             ['Yến có công dụng gì?', 'Yến là thực phẩm thông thường, chúng tôi không quảng cáo công dụng chữa bệnh. Mọi người yêu thích yến vì vị thanh mịn và tấm lòng khi làm quà.'],
             ['Phụ nữ mang thai, trẻ nhỏ hoặc người dị ứng có dùng được không?', 'Cơ địa mỗi người khác nhau, hãy hỏi bác sĩ hoặc chuyên gia dinh dưỡng trước. Người dễ dị ứng thực phẩm giàu đạm nên thử lượng nhỏ.'],
             ['Có chọn ngày giao hoặc gửi quà cho người khác được không?', 'Được. Nhập người nhận và ngày mong muốn khi thanh toán; trợ lý AI có thể giúp viết thiệp.'] ] },
-          note: 'Trang này là bản demo GreenUP; YAN NEST là doanh nghiệp demo hư cấu, mọi sản phẩm, giá, quy cách và thông tin kiểm nghiệm đều là minh họa. Yến là thực phẩm thông thường, không có tác dụng chữa bệnh; quy định ghi nhãn và sử dụng theo cơ quan có thẩm quyền. Người có tình trạng sức khỏe đặc biệt nên hỏi ý kiến bác sĩ hoặc chuyên gia dinh dưỡng.',
+          note: 'YAN NEST là thương hiệu đang chuẩn bị: sản phẩm, giá, quy cách và thông tin kiểm nghiệm trên trang là mẫu; khi bán chính thức sẽ theo nhãn thực tế. Yến là thực phẩm thông thường, không có tác dụng chữa bệnh; quy định ghi nhãn và sử dụng theo cơ quan có thẩm quyền. Người có tình trạng sức khỏe đặc biệt nên hỏi ý kiến bác sĩ hoặc chuyên gia dinh dưỡng.',
         },
         ms: {
           badges: ['Ditanak sehari sebelum hantar', 'Sejuk 0–7°C', 'Rekod ujian setiap kelompok (demo)'],
-          story: { k: 'OUR STORY', h: 'Burung walit membina sarang semusim,<br>kami menjaganya sehari suntuk.', p: ['Burung walit menganyam sarang helai demi helai selama beberapa minggu. Kami hanya menggunakan sarang rumah yang dikutip selepas anak burung terbang, supaya burung pulang setiap tahun.', 'Yan merendam, membersihkan dengan penyepit dan menanak setiap sarang secara double-boil perlahan-lahan. Tidak tergesa-gesa, cuma mahu anda merasa sarang burung yang sebenar.'], sign: 'Yan, YAN NEST' },
+          story: { k: 'OUR STORY', h: 'Pulau dalam bayu laut,<br>satu sarang demi satu.', p: ['Di luar pantai Nha Trang, Vietnam terdapat beberapa pulau walit. Di gua batu dan tebingnya, burung walit menganyam sarang helai demi helai selama beberapa minggu.', 'YAN NEST membawa hadiah dari pulau ini ke Taiwan: setiap sarang direndam, dibersihkan dengan penyepit dan ditanak secara double-boil perlahan-lahan. Tidak tergesa-gesa, cuma mahu anda merasa sarang burung yang sebenar.'], sign: 'YAN NEST' },
+          origin: { k: 'ORIGIN', h: 'Asal: pulau walit Nha Trang', sub: 'Nha Trang terletak di wilayah Khánh Hòa, tengah selatan Vietnam. Tebing pulau-pulau di luar pantainya ialah tempat burung walit bersarang.', coord: '12.2°N  109.2°E', map: ['Nha Trang', 'Khánh Hòa · Vietnam', 'Pulau walit'], facts: [['Asal', 'Pulau walit di luar Nha Trang, Khánh Hòa, Vietnam'], ['Jenis', 'Sarang gua pulau'], ['Kutipan', 'Mengikut musim bersarang burung walit'], ['Import', 'Dokumen kuarantin dan pemeriksaan (dalam persediaan)']], note: 'Peta ialah ilustrasi; maklumat asal ikut label pada bungkusan sebenar.' },
           grades: { k: 'HOW TO CHOOSE', h: 'Empat jenis sarang', sub: 'Bezanya pada bentuk, bukan asal; makin utuh bentuknya, makin tinggi harganya.', list: [
             { id: 'cup', n: 'Mangkuk', d: 'Bentuk separuh bulan yang utuh, sesuai untuk hadiah.', soak: 'Rendam 4–6 jam', fit: 'Hadiah · tanak sendiri' },
             { id: 'strip', n: 'Jalur', d: 'Jalur tidak sekata dari sarang sama, lebih berpatutan.', soak: 'Rendam 2–3 jam', fit: 'Harian' },
             { id: 'corner', n: 'Bucu', d: 'Hujung sarang yang melekat di dinding, lebih kenyal.', soak: 'Rendam 6–8 jam', fit: 'Suka tekstur' },
             { id: 'bits', n: 'Serpihan', d: 'Kepingan kecil selepas dibersihkan, paling cepat.', soak: 'Rendam 1 jam', fit: 'Pencuci mulut · masakan' } ] },
-          steps: { k: 'FROM NEST TO TABLE', h: 'Dari rumah walit ke meja anda', list: [
-            ['Kutip', 'Hanya selepas anak burung terbang'], ['Rendam', 'Direndam dalam air bersih'], ['Bersih', 'Bulu halus dibuang dengan penyepit'], ['Bentuk', 'Dikeringkan pada suhu rendah'], ['Uji', 'Setiap kelompok diuji, rekod disimpan (demo)'], ['Tanak & sejuk', 'Ditanak sehari sebelum, dihantar 0–7°C'] ] },
+          steps: { k: 'FROM NEST TO TABLE', h: 'Dari pulau walit Nha Trang ke meja anda', list: [
+            ['Kutipan di pulau', 'Dari gua pulau, ikut musim bersarang'], ['Rendam', 'Direndam dalam air bersih'], ['Bersih', 'Bulu halus dibuang dengan penyepit'], ['Bentuk', 'Dikeringkan pada suhu rendah'], ['Uji', 'Setiap kelompok diuji, rekod disimpan (demo)'], ['Tanak & sejuk', 'Ditanak sehari sebelum, dihantar 0–7°C'] ] },
           calc: { k: 'STEW AT HOME', h: 'Tanak sendiri di rumah', sub: 'Pilih bilangan hidangan dan tekstur, kami kirakan. Panduan umum sahaja; laraskan ikut citarasa.', people: 'hidangan', texture: 'Tekstur', light: 'Ringan', rich: 'Pekat', dry: 'Sarang kering', water: 'Air', soak: 'Rendam', stew: 'Double-boil', g: 'g', ml: 'ml', hr: 'jam', min: 'minit', tips: ['Rendam mangkuk sarang kering dalam air sejuk hingga lembut', 'Buang bulu yang tinggal, bilas perlahan dalam penapis', 'Tambah air, double-boil 30–40 minit; masukkan gula batu di akhir'] },
           promise: { k: 'OUR PROMISE', h: 'Janji kualiti', list: [['Tanpa pengawet atau pewarna', 'Hanya sarang, air dan gula batu'], ['Setiap kelompok diuji (demo)', 'Rekod nitrit, sulfur dioksida dan lain-lain'], ['Diimport secara sah (demo)', 'Dokumen kuarantin, asal boleh dijejak'], ['Penghantaran sejuk', 'Balang segar pada 0–7°C; simpan dalam peti sejuk']] },
           faq: { k: 'FAQ', h: 'Soalan lazim', list: [
@@ -256,7 +266,7 @@ export const BIZ = [
             ['Apakah khasiatnya?', 'Sarang burung ialah makanan biasa dan kami tidak membuat dakwaan kesihatan. Ramai suka kerana teksturnya yang halus dan sebagai hadiah bermakna.'],
             ['Sesuai untuk ibu mengandung, kanak-kanak atau yang alah?', 'Setiap orang berbeza, sila tanya doktor atau pakar diet dahulu. Jika mudah alah pada makanan berprotein, cuba sedikit dahulu.'],
             ['Boleh pilih tarikh hantar atau hantar hadiah?', 'Boleh. Masukkan penerima dan tarikh pilihan semasa bayar; pembantu AI boleh bantu tulis kad.'] ] },
-          note: 'Halaman ini ialah prototaip GreenUP; YAN NEST ialah perniagaan demo rekaan, dan semua produk, harga, spesifikasi dan maklumat ujian adalah demo. Sarang burung ialah makanan biasa tanpa kesan perubatan; pelabelan dan pengambilan tertakluk kepada pihak berkuasa. Sila rujuk doktor atau pakar diet jika ada keadaan kesihatan khas.',
+          note: 'YAN NEST ialah jenama dalam persediaan: produk, harga, spesifikasi dan maklumat ujian di halaman ini ialah contoh; jualan rasmi ikut label sebenar. Sarang burung ialah makanan biasa tanpa kesan perubatan; pelabelan dan pengambilan tertakluk kepada pihak berkuasa. Sila rujuk doktor atau pakar diet jika ada keadaan kesihatan khas.',
         },
       },
     },
@@ -267,19 +277,19 @@ export const BIZ = [
       style: { font: 'serif', radius: 'soft', hero: 'split', grid: 'magazine', button: 'solid', texture: 'none' },
     },
     profile: {
-      avatar: '嬿', volume: 8, aiName: '小燕', region: '臺北市大安區',
+      avatar: '嬿', volume: 8, aiName: '小燕', region: '台灣（待填寫）',
       staff: [
-        { name: '小嬿', title: '負責人・燉煮與挑毛（董事酬勞）', kind: 'owner', pay: 52000 },
-        { name: '阿芳', title: '挑毛與包裝・兼職', kind: 'part', pay: 16000, level: 16500, hours: 80, hourly: 200 },
+        { name: '店主（待填寫）', title: '負責人・燉煮與挑毛（示範薪資）', kind: 'owner', pay: 52000 },
+        { name: '兼職人員（示範）', title: '挑毛與包裝・兼職', kind: 'part', pay: 16000, level: 16500, hours: 80, hourly: 200 },
       ],
       suppliers: [
-        { item: '乾燕盞與燕條（進口）', vendor: '南洋燕屋貿易（虛構）', base: 42000 },
-        { item: '玻璃瓶、金蓋與標籤', vendor: '晶亮玻璃（虛構）', base: 6200 },
-        { item: '燙金禮盒與提袋', vendor: '好包裝材料行（虛構）', base: 5400 },
-        { item: '冷藏宅配運費', vendor: '綠野物流（虛構）', base: 7800 },
+        { item: '乾燕盞與燕條（越南芽莊進口）', vendor: '芽莊燕島供應商（待填寫）', base: 42000 },
+        { item: '玻璃瓶、金蓋與標籤', vendor: '晶亮玻璃（示範，待填寫）', base: 6200 },
+        { item: '燙金禮盒與提袋', vendor: '好包裝材料行（示範，待填寫）', base: 5400 },
+        { item: '冷藏宅配運費', vendor: '綠野物流（示範，待填寫）', base: 7800 },
       ],
       fixed: { rent: 16000, utility: 4200, ads: 9000, depreciation: 3800, equip: '燉鍋、冷藏櫃與真空封口機' },
-      rd: [['檢驗費', '每批燕窩送驗亞硝酸鹽、二氧化硫等項目', '食品檢驗所（虛構）', 6800, '收據', 12]],
+      rd: [['檢驗費', '每批燕窩送驗亞硝酸鹽、二氧化硫等項目', '食品檢驗所（示範，待填寫）', 6800, '收據', 12]],
       channels: { web: 0.40, line: 0.30, pos: 0.04, phone: 0.08, whatsapp: 0.08, zalo: 0.04, messenger: 0.06 },
       langs: { zh: 0.78, en: 0.06, ja: 0.04, vi: 0.06, ms: 0.06 },
     },

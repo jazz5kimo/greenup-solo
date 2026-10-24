@@ -1,5 +1,5 @@
 // 銷售網頁：精品版面（lay-luxe）的品牌故事區塊
-// 故事、四種燕窩怎麼挑、從燕屋到餐桌、在家燉一盞（份量計算）、品質承諾、常見問題、示範聲明。
+// 故事、產地（芽莊燕島示意地圖）、四種燕窩怎麼挑、從燕島到餐桌、在家燉一盞（份量計算）、品質承諾、常見問題、示範聲明。
 // 內容放在業主的 merchant.story（五語，見 biz/g5.js）；沒有 story 的業主不顯示這一區。
 import { TENANT } from '../tenant.js';
 import { $, $$, el, esc } from '../util.js';
@@ -48,6 +48,32 @@ const PROMISE_ICON = [
 const icon = (d, cls = 'lx-ic', vb = '0 0 40 40') => `<svg class="${cls}" viewBox="${vb}" aria-hidden="true">${d}</svg>`;
 const GVB = '4 8 72 58'; // 四種燕窩插圖的範圍
 
+// ---------- 產地：芽莊海岸與外海燕島（示意地圖） ----------
+const ORIGIN_MAP = (m) => `<svg class="lx-map" viewBox="0 0 520 420" aria-hidden="true">
+  <defs><linearGradient id="lxSea" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--card)" stop-opacity="0"/><stop offset="1" stop-color="var(--gl)" stop-opacity=".16"/></linearGradient></defs>
+  <rect x="0" y="0" width="520" height="420" fill="url(#lxSea)"/>
+  ${[70, 150, 230, 310, 390].map(y => `<path class="lx-grid" d="M0 ${y} H520"/>`).join('')}${[90, 190, 290, 390, 490].map(x => `<path class="lx-grid" d="M${x} 0 V420"/>`).join('')}
+  <path class="lx-land" d="M0 0 H178 C172 40 188 62 176 92 C166 118 196 132 204 156 C212 182 186 196 196 222 C206 248 236 252 230 282 C224 312 196 322 204 352 C210 376 232 392 226 420 H0 Z"/>
+  <path class="lx-coast" d="M178 0 C172 40 188 62 176 92 C166 118 196 132 204 156 C212 182 186 196 196 222 C206 248 236 252 230 282 C224 312 196 322 204 352 C210 376 232 392 226 420"/>
+  <path class="lx-coast thin" d="M188 0 C182 40 198 62 186 92 C176 118 206 132 214 156 C222 182 196 196 206 222 C216 248 246 252 240 282 C234 312 206 322 214 352 C220 376 242 392 236 420"/>
+  ${[[262, 196, 26, 15, -18], [300, 238, 12, 8, 10], [326, 170, 15, 9, -30], [352, 214, 9, 6, 20], [372, 256, 18, 10, 6], [404, 190, 11, 7, -12], [286, 288, 9, 6, 0]].map(([x, y, rx, ry, r]) => `<ellipse class="lx-isle" cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})"/>`).join('')}
+  <path class="lx-route" d="M206 214 C250 206 300 200 336 210"/>
+  <circle class="lx-pin" cx="204" cy="216" r="6"/><circle class="lx-pin-ring" cx="204" cy="216" r="13"/>
+  <text class="lx-t big" x="186" y="248" text-anchor="end">${esc(m.map[0])}</text><text class="lx-t" x="186" y="268" text-anchor="end">${esc(m.map[1])}</text>
+  <text class="lx-t gold" x="340" y="150" text-anchor="middle">${esc(m.map[2])}</text>
+  ${[[300, 96, 1.1, -8], [338, 80, 0.8, 10], [370, 102, 0.9, -4]].map(([x, y, s2, r]) => sw(x, y, s2, r, 'lx-mb')).join('')}
+  <g class="lx-compass" transform="translate(460 70)"><circle r="26"/><path d="M0 -34 L5 0 L0 34 L-5 0 Z"/><path d="M-34 0 L0 5 L34 0 L0 -5 Z" opacity=".5"/><text y="-40" text-anchor="middle">N</text></g>
+  <text class="lx-t coord" x="500" y="402" text-anchor="end">${esc(m.coord)}</text>
+</svg>`;
+function originHTML(o) {
+  return `<div class="lx-sec lx-origin lx-rv" id="origin">
+    <div class="lx-origin-a">${ORIGIN_MAP(o)}</div>
+    <div class="lx-origin-t"><span class="lx-k">${esc(o.k)}</span><h2>${esc(o.h)}</h2><p>${esc(o.sub)}</p>
+      <dl class="lx-facts">${o.facts.map(([a, b], i) => `<div style="--i:${i}"><dt>${esc(a)}</dt><dd>${esc(b)}</dd></div>`).join('')}</dl>
+      <small class="lx-fnote">${esc(o.note)}</small></div>
+  </div>`;
+}
+
 // ---------- 份量計算 ----------
 const CALC = { n: 2, tex: 'light', grade: 'cup' };
 function calcOut(s) {
@@ -73,6 +99,7 @@ export function renderStory(lang) {
     <div class="lx-intro-t"><span class="lx-k">${esc(st.k)}</span><h2>${st.h}</h2>${st.p.map(p => `<p>${esc(p)}</p>`).join('')}<span class="lx-sign">— ${esc(st.sign)}</span></div>
     <div class="lx-intro-a">${STORY_ART}</div>
   </div>
+  ${s.origin ? originHTML(s.origin) : ''}
   <div class="lx-sec lx-rv"><div class="lx-h"><span class="lx-k">${esc(gr.k)}</span><h2>${esc(gr.h)}</h2><p>${esc(gr.sub)}</p></div>
     <div class="lx-grades">${gr.list.map((g, i) => `<button class="lx-grade ${g.id === CALC.grade ? 'on' : ''}" data-grade="${g.id}" style="--i:${i}">
       ${icon(GRADE_ART[g.id] || '', 'lx-gi', GVB)}<b>${esc(g.n)}</b><p>${esc(g.d)}</p><dl><div><dt>⏱</dt><dd>${esc(g.soak)}</dd></div><div><dt>✦</dt><dd>${esc(g.fit)}</dd></div></dl></button>`).join('')}</div></div>
