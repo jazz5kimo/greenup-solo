@@ -11,7 +11,7 @@ import { getShopConfig } from '../shop-config.js';
 import { resolveTheme, themeVars, styleOf } from './themes.js';
 import { merchantLogo } from '../merchant-art.js';
 import { $, $$, esc, money, gsap } from '../util.js';
-import { isLive, getPayConfig, pollStatus, getPayRecord, errorText, methodLabel, PROVIDER_NAME, fmtExpire, POLL_MAX, POLL_INTERVAL, PAY_NOTE } from '../payments.js';
+import { isLive, getPayConfig, pollStatus, getPayRecord, errorText, methodLabel, PROVIDER_NAME, fmtExpire, POLL_MAX, POLL_INTERVAL, PAY_NOTE, markAuctionPaid } from '../payments.js';
 
 const L = {
   zh: {
@@ -217,5 +217,5 @@ $('#prLang').addEventListener('change', (e) => { lang = e.target.value; try { lo
 start();
 if (gsap) gsap.from('#prCard', { opacity: 0, y: 24, duration: 0.6, ease: 'power3.out' });
 // 另一個分頁（後台輪詢）先入帳時，本頁跟著顯示成功
-store.on('order-updated', ({ order }) => { if (order && order.id === orderId && order.status === 'paid' && state.kind !== 'ok') { state = { kind: 'ok', data: state.data }; render(); setErr(''); if (poller) poller.stop(); } });
+store.on('order-updated', ({ order }) => { if (order && order.id === orderId && order.status === 'paid' && state.kind !== 'ok') { markAuctionPaid(orderId); state = { kind: 'ok', data: state.data }; render(); setErr(''); if (poller) poller.stop(); } });
 window.__payReturn = { get state() { return state; }, restart: start, lang: () => lang, config: getPayConfig, POLL_MAX };

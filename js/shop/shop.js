@@ -366,3 +366,5 @@ if (urlTrack) setTimeout(() => track.open(urlTrack), 600);
 onPayConfig(() => { const c = $('#sModalCard'); if (!$('#sModal').hidden && c.classList.contains('checkout')) openCheckout(); });
 window.__shop = shop;
 export { toast };
+// 離線快取與「部署新版時自動取得最新檔案」（與後台共用 sw.js）
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* ignore */ });

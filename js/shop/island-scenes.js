@@ -1,5 +1,4 @@
-// 銷售網頁 3D 小島的「業態風景」：每種業態一套造景（糖果島、夜市、茶山咖啡、小鎮市集、森林工坊、花田溫室、海灘度假、田園牧場），
-// 再依業主代號決定島的形狀、擺設位置與細節，讓每家店的小島都不一樣。
+// 銷售網頁 3D 開場的共用工具：經典小島的造景（島形與擺設依業主代號變化）、空地規劃、樹木與小物件、店舖屋頂、帆船。
 // 這裡也負責島上的空地規劃（避開步道、店舖、展台、人物走的路線與鏡頭視線），人物（island-people.js）共用同一份規劃。
 import * as THREE from 'three';
 import { SCENE_BY_CAT, SCENE_BY_TENANT } from './scene-names.js';
@@ -27,28 +26,21 @@ export function shapeOf(seed) {
 }
 
 // ---------- 業態 → 風景 ----------
-// sand／grass：沙灘與草地顏色；roof：店舖屋頂（pyramid 四角、gable 人字、flat 平頂、barn 穀倉）；
-// beach：海灘散步的人走的角度範圍（其餘沙灘可以擺設）；hat：路人常見的帽子
+// 經典小島（島形依業主代號變化）與城市百貨；其他主題世界由 island-worlds-a.js／-b.js 以 registerScenes 加入
+// sand／grass：沙灘與草地顏色；roof：店舖屋頂（pyramid 四角、gable 人字、flat 平頂、barn 穀倉）；hat：路人常見的帽子
 export const SCENES = {
-  dessert: { id: 'candy', name: '糖果甜點島', sand: '#f9e1d3', grass: '#9edcb0', roof: 'pyramid', build: candy },
-  food: { id: 'market', name: '夜市小吃島', sand: '#f1d9aa', grass: '#86c063', roof: 'flat', build: market },
-  drink: { id: 'tea', name: '茶山咖啡島', sand: '#efdcb4', grass: '#78bd62', roof: 'gable', build: tea },
-  retail: { id: 'town', name: '小鎮市集島', sand: '#f2deb6', grass: '#84c56c', roof: 'gable', build: town },
-  craft: { id: 'forest', name: '森林工坊島', sand: '#e6d1a6', grass: '#62a453', roof: 'gable', build: forest },
-  flower: { id: 'garden', name: '花田溫室島', sand: '#f4e2bd', grass: '#88cb6d', roof: 'pyramid', build: garden },
-  service: { id: 'resort', name: '海灘度假島', sand: '#f7e6bd', grass: '#8ed27a', roof: 'flat', beach: [[0.55, 2.2]], hat: 'sun', water: { shallow: '#58e3d6', deep: '#1aa0d0' }, build: resort },
+  isle: { id: 'isle', name: '經典小島', sand: '#f2deb6', grass: '#84c56c', roof: 'gable', build: town },
   city: { id: 'city', kind: 'city', name: '城市百貨商圈', sand: '#d9d4c8', grass: '#cfc8b8', roof: 'flat' },
-  farm: { id: 'farm', name: '田園牧場島', sand: '#efdbb0', grass: '#97c967', roof: 'barn', hat: 'straw', build: farm },
 };
-// 加入更多場景（island-scenes-more.js）
-export function registerScenes(more) { Object.assign(SCENES, more); }
+// 加入主題世界（island-worlds-a.js／-b.js）；同代號的會取代
+export function registerScenes(more) { for (const m of Object.values(more)) { for (const [key, v] of Object.entries(SCENES)) if (v.id === m.id) delete SCENES[key]; SCENES[m.id] = m; } }
 export const sceneList = () => Object.values(SCENES).filter((v, i, a) => a.indexOf(v) === i);
 // 預設場景：每個業主專屬（scene-names.js 的 SCENE_BY_TENANT），沒有時依業態；override 可指定場景代號（candy、market…、city）
 export function sceneFor(t, override) {
   const byId = (id) => sceneList().find(s => s.id === id);
   if (override && override !== 'auto' && byId(override)) return byId(override);
   const cat = (t && t.cat) || 'retail';
-  return byId(SCENE_BY_TENANT[t && t.id]) || byId(SCENE_BY_CAT[cat]) || SCENES[cat] || SCENES.retail;
+  return byId(SCENE_BY_TENANT[t && t.id]) || byId(SCENE_BY_CAT[cat]) || SCENES.city;
 }
 
 // ---------- 空地規劃 ----------
@@ -310,108 +302,6 @@ export function shopRoof(style, roofC, wallC, extra = {}) {
 // 每個 build(k, L, world, pal) 擺好造景，回傳 { spots: [...] }：人物要站／坐／工作的位置
 // spot：{ x, z, face:[x,z]（面向哪裡）, pose:'stand'|'sit'|'work'|'crouch'|'swim', y（坐的高度）, prop:'balloon'|'cup'|'can'|'rod', hat }
 
-function candy(k, L, world, pal) {
-  const spots = [];
-  let first = null;
-  const pastel = ['#ff9ec0', '#9fd8ff', '#ffe08a', '#c8a8ff', '#9ff0c8', '#ffb98a'];
-  // 大杯子蛋糕
-  for (let i = 0; i < 2; i++) {
-    const p = L.place(k.rnd, 0.7, 1.6, { away: first }); if (!p) continue; first = first || p;
-    const g = new THREE.Group(); g.position.set(p.x, 0.13, p.z);
-    const wrap = k.stripes(hex(pal[i % 6]), '#ffffff', 10);
-    g.add(k.mesh(k.g('cwrap', () => new THREE.CylinderGeometry(0.6, 0.45, 0.62, 18, 1)), [new THREE.MeshStandardMaterial({ map: wrap, roughness: 0.6 }), k.m('#ffffff'), k.m('#ffffff')], 0, 0.31, 0));
-    const cream = k.m(k.pick(['#fff4f8', '#fff1d6', '#ffe0ec']), { roughness: 0.45 });
-    [[0.62, 0.72, 0.32], [0.48, 0.98, 0.28], [0.32, 1.2, 0.24]].forEach(([r, y, s]) => { const b = k.mesh(k.g('cream' + r, () => new THREE.SphereGeometry(r, 20, 12)), cream, 0, y, 0); b.scale.y = s / r * 1.2; g.add(b); });
-    g.add(k.mesh(k.g('cherry', () => new THREE.SphereGeometry(0.13, 14, 10)), k.m('#e8384f', { roughness: 0.25 }), 0, 1.45, 0));
-    const spr = k.g('spr', () => new THREE.BoxGeometry(0.03, 0.03, 0.1));
-    for (let j = 0; j < 22; j++) { const a = j * 2.4, r = 0.2 + (j % 5) * 0.08; const s = k.mesh(spr, k.m(pastel[j % 6]), Math.cos(a) * r, 0.92 + (5 - j % 5) * 0.05, Math.sin(a) * r, false); s.rotation.set(j, j * 2, 0); g.add(s); }
-    world.add(g);
-    spots.push({ x: p.x + 0.95, z: p.z + 0.35, face: [p.x, p.z], pose: 'stand', prop: 'balloon' });
-  }
-  // 拐杖糖
-  const caneTex = k.stripes('#e8384f', '#ffffff', 12, false); caneTex.wrapS = caneTex.wrapT = THREE.RepeatWrapping; caneTex.repeat.set(1, 6);
-  const caneGeo = k.g('cane', () => new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.9, 0), new THREE.Vector3(0, 1.25, 0), new THREE.Vector3(0.18, 1.42, 0), new THREE.Vector3(0.36, 1.25, 0), new THREE.Vector3(0.38, 1.1, 0)]), 24, 0.07, 8));
-  for (let i = 0; i < (k.mobile ? 2 : 4); i++) { const p = L.spot(k.rnd, { rad: 0.35, h: 1.5 }); if (!p) continue; const c = k.mesh(caneGeo, new THREE.MeshStandardMaterial({ map: caneTex, roughness: 0.3 }), p.x, 0.13, p.z); c.rotation.y = k.rnd() * TAU; world.add(c); }
-  plantTrees(k, L, world, k.mobile ? 6 : 11, ['lolli', 'lolli', 'blossom']);
-  // 軟糖
-  const gum = k.g('gum', () => new THREE.SphereGeometry(0.16, 14, 8, 0, TAU, 0, Math.PI / 2));
-  for (let i = 0; i < (k.mobile ? 10 : 18); i++) { const p = L.spot(k.rnd, { rad: 0.16 }); if (!p) continue; world.add(k.mesh(gum, k.m(pastel[i % 6], { roughness: 0.25, transparent: true, opacity: 0.92 }), p.x, 0.13, p.z)); }
-  // 甜甜圈
-  const d = L.spot(k.rnd, { zone: 'beach', rad: 0.5, h: 0.4 });
-  if (d) { const g = new THREE.Group(); g.position.set(d.x, -0.12, d.z); const ring = k.mesh(k.g('donut', () => new THREE.TorusGeometry(0.34, 0.16, 12, 28)), k.m('#d9a066'), 0, 0, 0); ring.rotation.x = -Math.PI / 2; const ic = k.mesh(k.g('icing', () => new THREE.TorusGeometry(0.34, 0.12, 10, 28)), k.m('#ff9ec0', { roughness: 0.3 }), 0, 0.06, 0); ic.rotation.x = -Math.PI / 2; g.add(ring, ic); world.add(g); }
-  return { spots };
-}
-
-function market(k, L, world, pal) {
-  const spots = [];
-  let first = null;
-  const red = k.glow('#e8453c', 1.8);
-  const lantern = (parent, x, y, z) => { const l = k.mesh(k.g('lant', () => { const g = new THREE.SphereGeometry(0.12, 12, 8); g.scale(1, 1.25, 1); return g; }), red, x, y, z); parent.add(l); parent.add(k.mesh(k.g('lantcap', () => new THREE.CylinderGeometry(0.06, 0.06, 0.04, 8)), k.m('#3a2a1e'), x, y + 0.16, z)); return l; };
-  // 小吃攤：櫃台、條紋棚子、鍋子冒煙、紅燈籠；攤販在後面忙，客人在前面排隊
-  const n = k.mobile ? 2 : 3;
-  for (let i = 0; i < n; i++) {
-    const p = L.place(k.rnd, 0.75, 1.8, { away: first }); if (!p) continue; first = first || p;
-    const g = new THREE.Group(); g.position.set(p.x, 0.13, p.z); faceTo(g);
-    const c = hex(pal[(i + 1) % 6]);
-    g.add(k.mesh(k.g('counter', () => new THREE.BoxGeometry(1.2, 0.62, 0.55)), k.m(c, { roughness: 0.6 }), 0, 0.31, 0.15));
-    g.add(k.mesh(k.g('ctop', () => new THREE.BoxGeometry(1.28, 0.05, 0.62)), k.m('#f4efe6'), 0, 0.64, 0.15));
-    for (const [dx, dz] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.45], [0.6, 0.45]]) g.add(k.mesh(k.g('spole', () => new THREE.CylinderGeometry(0.025, 0.025, 1.6, 6)), k.m('#6b5a4a'), dx, 0.8, dz));
-    const roof = k.mesh(k.g('sroof', () => new THREE.BoxGeometry(1.45, 0.06, 1.05)), [k.m('#ffffff'), k.m('#ffffff'), new THREE.MeshStandardMaterial({ map: k.stripes(c, '#ffffff', 8), roughness: 0.7 }), k.m('#ffffff'), k.m('#ffffff'), k.m('#ffffff')], 0, 1.62, 0.05);
-    roof.rotation.x = 0.12; g.add(roof);
-    const pot = k.mesh(k.g('pot', () => new THREE.CylinderGeometry(0.15, 0.12, 0.16, 12)), k.m('#8d949a', { metalness: 0.6, roughness: 0.35 }), -0.3, 0.75, 0.15); g.add(pot);
-    puffs(k, g, -0.3, 0.86, 0.15, { n: 4, size: 0.1, rise: 0.7, speed: 0.45, opacity: 0.55 });
-    lantern(g, 0.5, 1.38, 0.5); lantern(g, -0.5, 1.38, 0.5);
-    world.add(g);
-    const fx = Math.sin(g.rotation.y), fz = Math.cos(g.rotation.y);
-    spots.push({ x: p.x - fx * 0.15, z: p.z - fz * 0.15, face: [p.x + fx, p.z + fz], pose: 'work', hat: 'cap' });
-    spots.push({ x: p.x + fx * 0.95, z: p.z + fz * 0.95, face: [p.x, p.z], pose: 'stand' });
-    if (!k.mobile && i === 0) spots.push({ x: p.x + fx * 1.45 + fz * 0.2, z: p.z + fz * 1.45 - fx * 0.2, face: [p.x, p.z], pose: 'stand' });
-  }
-  // 燈籠柱與桌椅
-  for (let i = 0; i < (k.mobile ? 3 : 6); i++) { const p = L.spot(k.rnd, { rad: 0.2, h: 1.6 }); if (!p) continue; const g = new THREE.Group(); g.position.set(p.x, 0.13, p.z); g.add(k.mesh(k.g('lpole', () => new THREE.CylinderGeometry(0.03, 0.04, 1.5, 6)), k.m('#6b4a35'), 0, 0.75, 0)); g.add(k.mesh(k.g('larm', () => new THREE.BoxGeometry(0.4, 0.03, 0.03)), k.m('#6b4a35'), 0.18, 1.45, 0)); lantern(g, 0.34, 1.25, 0); world.add(g); }
-  for (let i = 0; i < (k.mobile ? 1 : 2); i++) {
-    const p = L.spot(k.rnd, { zone: 'inner', rad: 0.75 }) || L.spot(k.rnd, { rad: 0.75 }); if (!p) continue;
-    const t = table(k, p.x, p.z, 3); world.add(t);
-    const s = t.userData.seats[0]; spots.push({ x: p.x + s.dx, z: p.z + s.dz, face: [p.x, p.z], pose: 'sit', y: 0.43 });
-  }
-  plantTrees(k, L, world, k.mobile ? 5 : 9, ['round', 'round', 'pine']);
-  bushes(k, L, world, k.mobile ? 8 : 14, ['#4fae5b', '#6cc163', hex(pal[0])]);
-  return { spots, deco: 'lanterns' };
-}
-
-function tea(k, L, world, pal) {
-  const spots = [];
-  // 階梯茶園：三層台地，每層邊緣一圈茶樹；採茶人戴斗笠
-  const hp = L.place(k.rnd, 1.0, 1.0);
-  if (hp) {
-    const g = new THREE.Group(); g.position.set(hp.x, 0.13, hp.z);
-    const soil = k.m(k.night ? '#3e5a32' : '#6aa24d', { flatShading: true }), bushM = k.m(k.night ? '#24573a' : '#2f8a45', { flatShading: true, roughness: 0.7 });
-    const bushG = k.g('teab', () => new THREE.SphereGeometry(0.12, 8, 6));
-    [[1.0, 0.0], [0.72, 0.22], [0.45, 0.44]].forEach(([r, y], li) => {
-      g.add(k.mesh(k.g('tier' + r, () => new THREE.CylinderGeometry(r, r + 0.06, 0.22, 24)), soil, 0, y + 0.11, 0));
-      const n = Math.round(r * 16);
-      const inst = new THREE.InstancedMesh(bushG, bushM, n); const mtx = new THREE.Matrix4(); const q = new THREE.Quaternion();
-      for (let j = 0; j < n; j++) { const a = j / n * TAU + li; mtx.compose(new THREE.Vector3(Math.sin(a) * (r - 0.1), y + 0.25, Math.cos(a) * (r - 0.1)), q, new THREE.Vector3(1.2, 0.8, 1.2)); inst.setMatrixAt(j, mtx); }
-      inst.castShadow = true; g.add(inst);
-    });
-    world.add(g);
-    const a = Math.atan2(-hp.x, 0.9 - hp.z);
-    spots.push({ x: hp.x + Math.sin(a) * 0.8, z: hp.z + Math.cos(a) * 0.8, face: [hp.x, hp.z], pose: 'work', y: 0.35, hat: 'straw' });
-  }
-  // 咖啡座：陽傘＋桌椅，有人坐著喝
-  for (let i = 0; i < (k.mobile ? 1 : 2); i++) {
-    const p = L.place(k.rnd, 0.8, 1.6, { away: hp }) || L.spot(k.rnd, { rad: 0.8, h: 1.6 }); if (!p) continue;
-    world.add(umbrella(k, p.x, p.z, pal[(i + 2) % 6]));
-    const t = table(k, p.x, p.z, 2); world.add(t);
-    const s = t.userData.seats[0]; spots.push({ x: p.x + s.dx, z: p.z + s.dz, face: [p.x, p.z], pose: 'sit', y: 0.43, prop: 'cup' });
-  }
-  // 咖啡豆麻袋
-  for (let i = 0; i < 3; i++) { const p = L.spot(k.rnd, { rad: 0.22 }); if (!p) continue; const b = k.mesh(k.g('sack', () => { const g = new THREE.SphereGeometry(0.2, 10, 8); g.scale(1, 1.25, 0.85); return g; }), k.m('#b8996b', { flatShading: true }), p.x, 0.36, p.z); b.rotation.y = k.rnd() * 3; world.add(b); }
-  plantTrees(k, L, world, k.mobile ? 6 : 10, ['round', 'blossom', 'round']);
-  bushes(k, L, world, k.mobile ? 6 : 12, ['#2f8a45', '#4fae5b', '#3d9b57']);
-  return { spots };
-}
-
 export function house(k, x, z, wall, roof) {
   const g = new THREE.Group(); g.position.set(x, 0.13, z);
   g.add(k.mesh(k.g('hbody', () => new THREE.BoxGeometry(0.95, 0.8, 0.8)), k.m(wall, { roughness: 0.7 }), 0, 0.4, 0));
@@ -457,226 +347,6 @@ export function cabin(k, x, z) {
   puffs(k, g, -0.3, 1.38, -0.1, { n: 5, color: k.night ? 0x8a93a8 : 0xeeeeee, size: 0.13, rise: 1.2, speed: 0.22, opacity: 0.6 });
   return g;
 }
-function forest(k, L, world, pal) {
-  const spots = [];
-  let first = null;
-  for (let i = 0; i < (k.mobile ? 1 : 2); i++) { const p = L.place(k.rnd, 0.75, 1.5, { away: first }); if (!p) continue; first = first || p; world.add(faceTo(cabin(k, p.x, p.z))); }
-  // 營火：圍著石頭、火焰會閃，夜裡打光；兩個人坐在木頭上
-  const cf = L.place(k.rnd, 0.95, 0.6, { away: first });
-  if (cf) {
-    const g = new THREE.Group(); g.position.set(cf.x, 0.13, cf.z);
-    const stone = k.g('stone', () => new THREE.DodecahedronGeometry(0.08, 0));
-    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; g.add(k.mesh(stone, k.m('#8b8580', { flatShading: true }), Math.sin(a) * 0.3, 0.05, Math.cos(a) * 0.3)); }
-    const fireM = new THREE.MeshStandardMaterial({ color: 0xffa23a, emissive: 0xff7a1a, emissiveIntensity: 1.6, roughness: 0.5, flatShading: true });
-    const f1 = k.mesh(k.g('flame', () => new THREE.ConeGeometry(0.16, 0.42, 6)), fireM, 0, 0.24, 0, false); const f2 = k.mesh(k.g('flame2', () => new THREE.ConeGeometry(0.1, 0.3, 5)), new THREE.MeshStandardMaterial({ color: 0xffe27a, emissive: 0xffc23a, emissiveIntensity: 1.8 }), 0.04, 0.2, 0.03, false);
-    g.add(f1, f2);
-    let light = null; if (k.night) { light = new THREE.PointLight(0xff9a3a, 4, 4.5); light.position.set(0, 0.6, 0); g.add(light); }
-    k.anim.push((t) => { f1.scale.set(1, 1 + Math.sin(t * 13) * 0.15 + Math.sin(t * 7.3) * 0.1, 1); f2.scale.y = 1 + Math.sin(t * 17 + 1) * 0.2; f1.rotation.y = t * 2; if (light) light.intensity = 3.5 + Math.sin(t * 11) * 0.6 + Math.sin(t * 5.7) * 0.4; });
-    world.add(g);
-    const logG = k.g('seatlog', () => new THREE.CylinderGeometry(0.1, 0.1, 0.55, 8));
-    for (const a of [0.9, -0.9 + Math.PI]) {
-      const x = cf.x + Math.sin(a) * 0.72, z = cf.z + Math.cos(a) * 0.72;
-      const lg = k.mesh(logG, k.m('#8a5a3a'), x, 0.21, z); lg.rotation.set(0, a + Math.PI / 2, Math.PI / 2); world.add(lg);
-      spots.push({ x, z, face: [cf.x, cf.z], pose: 'sit', y: 0.31 });
-    }
-  }
-  // 風車（扇葉會轉）
-  const wm = L.spot(k.rnd, { zone: 'outer', rad: 0.45, h: 2.4 }) || L.spot(k.rnd, { rad: 0.45, h: 2.4 });
-  if (wm) {
-    const g = new THREE.Group(); g.position.set(wm.x, 0.13, wm.z); faceTo(g, 0, 0);
-    g.add(k.mesh(k.g('wtower', () => new THREE.CylinderGeometry(0.2, 0.34, 1.7, 8)), k.m('#f1e6d2', { flatShading: true }), 0, 0.85, 0));
-    g.add(k.mesh(k.g('wcap', () => new THREE.ConeGeometry(0.3, 0.4, 8)), k.m(hex(pal[0]), { flatShading: true }), 0, 1.9, 0));
-    const hub = new THREE.Group(); hub.position.set(0, 1.65, 0.3); g.add(hub);
-    for (let i = 0; i < 4; i++) { const b = k.mesh(k.g('blade', () => { const geo = new THREE.BoxGeometry(0.16, 0.8, 0.02); geo.translate(0, 0.45, 0); return geo; }), k.m('#fffaf2'), 0, 0, 0); b.rotation.z = i * Math.PI / 2; hub.add(b); }
-    k.anim.push((t) => { hub.rotation.z = t * 0.9; });
-    world.add(g);
-  }
-  // 柴堆＋劈柴的人
-  const lp = L.spot(k.rnd, { zone: 'inner', rad: 0.6 }) || L.spot(k.rnd, { rad: 0.6 });
-  if (lp) {
-    const g = new THREE.Group(); g.position.set(lp.x, 0.13, lp.z); faceTo(g);
-    const lg = k.g('pilelog', () => new THREE.CylinderGeometry(0.07, 0.07, 0.6, 8));
-    [[-0.08, 0.07], [0.08, 0.07], [0.24, 0.07], [0, 0.2], [0.16, 0.2], [0.08, 0.33]].forEach(([x, y]) => { const l = k.mesh(lg, k.m('#9a6a42'), x - 0.25, y, -0.1); l.rotation.z = Math.PI / 2; l.rotation.y = Math.PI / 2; g.add(l); });
-    g.add(k.mesh(k.g('block', () => new THREE.CylinderGeometry(0.15, 0.17, 0.22, 10)), k.m('#b07b4f'), 0.35, 0.11, 0.1));
-    world.add(g);
-    const fx = Math.sin(g.rotation.y), fz = Math.cos(g.rotation.y);
-    spots.push({ x: lp.x + fx * 0.48 + fz * 0.35, z: lp.z + fz * 0.48 - fx * 0.35, face: [lp.x + fz * 0.35, lp.z - fx * 0.35], pose: 'work' });
-  }
-  plantTrees(k, L, world, k.mobile ? 9 : 17, ['pine', 'pine', 'pine', 'round']);
-  bushes(k, L, world, k.mobile ? 6 : 12, ['#3d7a3a', '#4f8f45', '#7a9a3a']);
-  return { spots, deco: 'chimney' };
-}
-
-function garden(k, L, world, pal) {
-  const spots = [];
-  const fl = [hex(pal[0]), '#ffffff', hex(pal[2]), '#ff7aa2', '#ffd34e', hex(pal[3])];
-  // 一側花田、一側溫室
-  const fp = L.place(k.rnd, 1.0);
-  if (fp) {
-    const g = new THREE.Group(); g.position.set(fp.x, 0, fp.z); faceTo(g);
-    for (let i = 0; i < 4; i++) flowerRow(k, g, -0.66 + i * 0.44, 0, 1.6, 0, [fl[i % fl.length], fl[(i + 3) % fl.length]], { n: 10 });
-    world.add(g);
-    spots.push({ x: fp.x + Math.cos(g.rotation.y) * 0.88, z: fp.z - Math.sin(g.rotation.y) * 0.88, face: [fp.x, fp.z], pose: 'crouch', prop: 'can', hat: 'sun' });
-  }
-  const gp = L.place(k.rnd, 0.85, 1.5, { away: fp });
-  if (gp) {
-    const g = new THREE.Group(); g.position.set(gp.x, 0.13, gp.z); faceTo(g);
-    const glass = new THREE.MeshStandardMaterial({ color: 0xdff5ff, transparent: true, opacity: 0.32, roughness: 0.1, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide });
-    const box = new THREE.BoxGeometry(1.3, 0.75, 0.95);
-    g.add(k.mesh(box, glass, 0, 0.375, 0, false));
-    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0xffffff })).translateY(0.375));
-    const rs = new THREE.Shape(); rs.moveTo(-0.5, 0); rs.lineTo(0.5, 0); rs.lineTo(0, 0.42);
-    const rg = new THREE.ExtrudeGeometry(rs, { depth: 1.3, bevelEnabled: false }); rg.translate(0, 0, -0.65); rg.rotateY(Math.PI / 2);
-    const roof = k.mesh(rg, glass, 0, 0.75, 0, false); g.add(roof);
-    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(rg), new THREE.LineBasicMaterial({ color: 0xffffff })).translateY(0.75));
-    for (let i = 0; i < 6; i++) g.add(k.mesh(k.g('gpl', () => new THREE.IcosahedronGeometry(0.13, 0)), k.m(i % 2 ? '#4fae5b' : fl[i % fl.length], { flatShading: true }), -0.45 + (i % 3) * 0.45, 0.16, i < 3 ? -0.22 : 0.22));
-    world.add(g);
-  }
-  // 前步道上的花拱門
-  const arch = new THREE.Group(); arch.position.set(0, 0.13, 3.0);
-  arch.add(k.mesh(k.g('arch', () => new THREE.TorusGeometry(0.78, 0.05, 8, 24, Math.PI)), k.m('#ffffff'), 0, 0.72, 0));
-  for (const x of [-0.78, 0.78]) arch.add(k.mesh(k.g('apost', () => new THREE.CylinderGeometry(0.05, 0.05, 0.72, 6)), k.m('#ffffff'), x, 0.36, 0));
-  for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI; arch.add(k.mesh(k.g('abloom', () => new THREE.IcosahedronGeometry(0.075, 0)), k.m(fl[i % fl.length], { flatShading: true }), Math.cos(a) * 0.78, 0.72 + Math.sin(a) * 0.78, 0.04)); }
-  world.add(arch);
-  // 向日葵
-  for (let i = 0; i < (k.mobile ? 3 : 6); i++) {
-    const p = L.spot(k.rnd, { rad: 0.2, h: 1.3 }); if (!p) continue;
-    const g = new THREE.Group(); g.position.set(p.x, 0.13, p.z); faceTo(g, 0, 8);
-    g.add(k.mesh(k.g('sstem', () => new THREE.CylinderGeometry(0.025, 0.03, 1.1, 5)), k.m('#4f9a3f'), 0, 0.55, 0));
-    const head = k.mesh(k.g('shead', () => new THREE.CylinderGeometry(0.2, 0.2, 0.05, 14)), k.m('#ffcf2e'), 0, 1.12, 0.04); head.rotation.x = Math.PI / 2 - 0.3;
-    const mid = k.mesh(k.g('smid', () => new THREE.CylinderGeometry(0.1, 0.1, 0.06, 12)), k.m('#6b4a2a'), 0, 1.13, 0.07); mid.rotation.x = head.rotation.x;
-    g.add(head, mid); world.add(g);
-  }
-  // 小花盆
-  for (let i = 0; i < (k.mobile ? 6 : 12); i++) { const p = L.spot(k.rnd, { rad: 0.16 }); if (!p) continue; world.add(k.mesh(k.g('pot2', () => new THREE.CylinderGeometry(0.11, 0.08, 0.14, 8)), k.m('#c2734a'), p.x, 0.2, p.z)); world.add(k.mesh(k.g('pbloom', () => new THREE.IcosahedronGeometry(0.12, 0)), k.m(fl[i % fl.length], { flatShading: true }), p.x, 0.35, p.z)); }
-  // 蝴蝶
-  const wingG = k.g('wing', () => { const g = new THREE.CircleGeometry(0.09, 6); g.translate(0.09, 0, 0); return g; });
-  for (let i = 0; i < (k.mobile ? 3 : 7); i++) {
-    const b = new THREE.Group(); const m = new THREE.MeshBasicMaterial({ color: C(fl[(i + 1) % fl.length]), side: THREE.DoubleSide });
-    const wl = new THREE.Mesh(wingG, m), wr = new THREE.Mesh(wingG, m); wr.rotation.y = Math.PI; b.add(wl, wr); world.add(b);
-    const cx = (fp || gp || { x: 2.8 }).x * (i % 2 ? 1 : -1) * 0.9, cz = 0.5 + k.rnd(), ph = k.rnd() * 6, rr = 0.6 + k.rnd() * 0.8;
-    k.anim.push((t) => { const a = t * 0.5 + ph; b.position.set(cx + Math.sin(a) * rr, 0.6 + Math.sin(t * 1.7 + ph) * 0.25, cz + Math.sin(a * 1.6) * rr * 0.7); b.rotation.y = a; const f = Math.sin(t * 16 + ph) * 1.1; wl.rotation.y = f; wr.rotation.y = Math.PI - f; });
-  }
-  plantTrees(k, L, world, k.mobile ? 5 : 9, ['blossom', 'round', 'blossom']);
-  return { spots, deco: 'flowerbox' };
-}
-
-function resort(k, L, world, pal) {
-  const spots = [];
-  // 泳池（水面會閃）＋泡在水裡的人
-  const pp = L.place(k.rnd, 0.95);
-  if (pp) {
-    const g = new THREE.Group(); g.position.set(pp.x, 0.13, pp.z); faceTo(g);
-    g.add(k.mesh(k.g('pedge', () => new THREE.BoxGeometry(1.5, 0.12, 1.05)), k.m('#fbf7f0', { roughness: 0.5 }), 0, 0.06, 0, false));
-    const wt = k.tex(128, 128, (c, w, h) => { c.fillStyle = '#4fd3e6'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 3; for (let i = 0; i < 9; i++) { c.beginPath(); for (let x = 0; x <= w; x += 8) c.lineTo(x, i * 15 + Math.sin(x * 0.12 + i) * 5); c.stroke(); } });
-    wt.wrapS = wt.wrapT = THREE.RepeatWrapping;
-    const water = k.mesh(k.g('pwater', () => new THREE.PlaneGeometry(1.3, 0.85)), new THREE.MeshStandardMaterial({ map: wt, roughness: 0.1, emissive: k.night ? 0x1a8aa0 : 0x000000, emissiveIntensity: 0.8 }), 0, 0.125, 0, false);
-    water.rotation.x = -Math.PI / 2; g.add(water);
-    k.anim.push((t) => { wt.offset.set(t * 0.03, t * 0.05); });
-    world.add(g);
-    spots.push({ x: pp.x + 0.25, z: pp.z, face: [pp.x - 1, pp.z + 1], pose: 'swim', y: 0.13 });
-  }
-  // 沙灘陽傘＋躺椅
-  const loungerG = k.g('lounger', () => new THREE.BoxGeometry(0.34, 0.06, 0.85));
-  for (let i = 0; i < (k.mobile ? 2 : 4); i++) {
-    const p = L.spot(k.rnd, { zone: 'beach', rad: 0.45, h: 1.5 }); if (!p) continue;
-    const y = L.ground(p.x, p.z);
-    const u = umbrella(k, p.x, p.z, pal[i % 6], { h: 1.4, r: 0.65 }); u.position.y = y; u.rotation.z = 0.12; world.add(u);
-    const ax = p.x + Math.cos(p.th) * 0.35, az = p.z - Math.sin(p.th) * 0.35;
-    const l = k.mesh(loungerG, k.m(i % 2 ? '#ffffff' : hex(pal[(i + 1) % 6])), ax, y + 0.12, az); l.rotation.y = p.th; world.add(l);
-    if (i === 0) spots.push({ x: ax, z: az, face: [Math.sin(p.th) * 30, Math.cos(p.th) * 30], pose: 'sit', y: y + 0.15, hat: 'sun' });
-  }
-  // 衝浪板、海灘球
-  for (let i = 0; i < 2; i++) { const p = L.spot(k.rnd, { zone: 'beach', rad: 0.2, h: 1.0 }); if (!p) continue; const b = k.mesh(k.g('surf', () => { const g = new THREE.SphereGeometry(0.5, 12, 8); g.scale(0.28, 1, 0.06); return g; }), k.m(hex(pal[(i + 3) % 6]), { roughness: 0.3 }), p.x, L.ground(p.x, p.z) + 0.4, p.z); b.rotation.set(0.15, p.th, 0.1); world.add(b); }
-  const bp = L.spot(k.rnd, { zone: 'beach', rad: 0.2 });
-  if (bp) { const tex = k.stripes('#ff5a5a', '#ffffff', 6); world.add(k.mesh(k.g('ball', () => new THREE.SphereGeometry(0.16, 16, 12)), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4 }), bp.x, L.ground(bp.x, bp.z) + 0.16, bp.z)); }
-  plantTrees(k, L, world, k.mobile ? 5 : 9, ['palm', 'palm', 'palm', 'round']);
-  plantTrees(k, L, world, k.mobile ? 1 : 3, ['palm'], { zone: 'beach' });
-  bushes(k, L, world, k.mobile ? 6 : 12, ['#3fae4f', '#ff8fb1', '#ffd36e']);
-  return { spots };
-}
-
-function farm(k, L, world, pal) {
-  const spots = [];
-  let first = null;
-  const fenceM = k.m('#f4ead8');
-  // 菜田：一畦一畦（高麗菜、玉米、紅蘿蔔），有農夫在除草
-  const crops = [['#7cc46a', 'ball'], ['#e9c94a', 'corn'], ['#4f9a3f', 'tuft']];
-  for (let i = 0; i < 2; i++) {
-    const p = L.place(k.rnd, 0.95, 0, { away: first }); if (!p) continue; first = first || p;
-    const g = new THREE.Group(); g.position.set(p.x, 0.13, p.z); faceTo(g);
-    g.add(k.mesh(k.g('field', () => new THREE.BoxGeometry(1.5, 0.05, 1.5)), k.m(k.night ? '#4a3a2a' : '#8a6440'), 0, 0.025, 0, false));
-    const [cc, kind] = crops[(i + Math.floor(k.rnd() * 3)) % 3];
-    const geo = kind === 'corn' ? k.g('corn', () => new THREE.ConeGeometry(0.07, 0.5, 5)) : kind === 'tuft' ? k.g('tuft', () => new THREE.ConeGeometry(0.06, 0.2, 4)) : k.g('cab', () => new THREE.IcosahedronGeometry(0.1, 1));
-    const n = 25, inst = new THREE.InstancedMesh(geo, k.m(cc, { flatShading: true }), n), mtx = new THREE.Matrix4(), q = new THREE.Quaternion();
-    for (let j = 0; j < n; j++) { const r = Math.floor(j / 5), c = j % 5; mtx.compose(new THREE.Vector3(-0.56 + c * 0.28, kind === 'corn' ? 0.28 : 0.1, -0.56 + r * 0.28), q, new THREE.Vector3(1, 0.85 + k.rnd() * 0.3, 1)); inst.setMatrixAt(j, mtx); }
-    inst.castShadow = true; g.add(inst);
-    // 圍籬（面向廣場那邊留開口）
-    for (const [x0, z0, x1, z1] of [[-0.8, -0.8, 0.8, -0.8], [-0.8, -0.8, -0.8, 0.8], [0.8, -0.8, 0.8, 0.8]]) {
-      const len = Math.hypot(x1 - x0, z1 - z0), rot = Math.atan2(x1 - x0, z1 - z0);
-      for (let s = 0; s <= 4; s++) g.add(k.mesh(k.g('fpost', () => new THREE.BoxGeometry(0.05, 0.32, 0.05)), fenceM, x0 + (x1 - x0) * s / 4, 0.16, z0 + (z1 - z0) * s / 4));
-      const rail = k.mesh(k.g('frail' + len.toFixed(2), () => new THREE.BoxGeometry(0.03, 0.04, len)), fenceM, (x0 + x1) / 2, 0.24, (z0 + z1) / 2); rail.rotation.y = rot; g.add(rail);
-    }
-    world.add(g);
-    if (i === 0) spots.push({ x: p.x + Math.cos(g.rotation.y) * 0.2, z: p.z - Math.sin(g.rotation.y) * 0.2, face: [p.x, p.z + 3], pose: 'work', hat: 'straw', y: 0.18 });
-    else { // 稻草人
-      const s = new THREE.Group(); s.position.set(p.x, 0.13, p.z);
-      s.add(k.mesh(k.g('scpole', () => new THREE.CylinderGeometry(0.025, 0.025, 1.1, 5)), k.m('#8a5a3a'), 0, 0.55, 0));
-      s.add(k.mesh(k.g('scarm', () => new THREE.BoxGeometry(0.7, 0.05, 0.05)), k.m('#c94a3a'), 0, 0.85, 0));
-      s.add(k.mesh(k.g('schead', () => new THREE.SphereGeometry(0.12, 10, 8)), k.m('#e9d39a'), 0, 1.1, 0));
-      s.add(k.mesh(k.g('schat', () => new THREE.ConeGeometry(0.2, 0.16, 10)), k.m('#d9b65f'), 0, 1.24, 0));
-      faceTo(s); world.add(s);
-    }
-  }
-  // 紅穀倉＋筒倉
-  const bp = L.spot(k.rnd, { zone: 'outer', rad: 0.7, h: 1.6 }) || L.place(k.rnd, 0.7, 1.6, { zone: 'any' });
-  if (bp) {
-    const g = new THREE.Group(); g.position.set(bp.x, 0.13, bp.z); faceTo(g, 0, 0);
-    const redM = k.m('#c2453a', { roughness: 0.75 });
-    g.add(k.mesh(k.g('barnb', () => new THREE.BoxGeometry(0.95, 0.7, 0.8)), redM, 0, 0.35, 0));
-    const s = new THREE.Shape(); [[-0.52, 0], [-0.46, 0.3], [0, 0.55], [0.46, 0.3], [0.52, 0]].forEach(([u, v], i) => (i ? s.lineTo(u, v) : s.moveTo(u, v)));
-    const rg = new THREE.ExtrudeGeometry(s, { depth: 1.05, bevelEnabled: false }); rg.translate(0, 0, -0.525); rg.rotateY(Math.PI / 2);
-    g.add(k.mesh(rg, [redM, k.m('#5a4a44', { flatShading: true })], 0, 0.7, 0));
-    g.add(k.mesh(k.g('barnd', () => new THREE.BoxGeometry(0.36, 0.46, 0.03)), k.m('#ffffff'), 0, 0.23, 0.41, false));
-    g.add(k.mesh(k.g('silo', () => new THREE.CylinderGeometry(0.24, 0.24, 1.2, 14)), k.m('#d9dde0', { metalness: 0.3, roughness: 0.5 }), 0.72, 0.6, -0.1));
-    g.add(k.mesh(k.g('silod', () => new THREE.SphereGeometry(0.24, 14, 8, 0, TAU, 0, Math.PI / 2)), k.m('#c2453a'), 0.72, 1.2, -0.1));
-    world.add(g);
-  }
-  // 牛（會慢慢走、低頭吃草）
-  for (let i = 0; i < (k.mobile ? 1 : 2); i++) {
-    const p = L.spot(k.rnd, { zone: 'outer', rad: 0.7 }) || L.spot(k.rnd, { rad: 0.7 }); if (!p) continue;
-    const cow = new THREE.Group(); const white = k.m('#fbf7f0'), black = k.m('#2b2b2b');
-    cow.add(k.mesh(k.g('cowb', () => new THREE.BoxGeometry(0.34, 0.3, 0.62)), white, 0, 0.42, 0));
-    cow.add(k.mesh(k.g('cows', () => new THREE.BoxGeometry(0.35, 0.16, 0.2)), black, 0, 0.5, -0.08, false));
-    const head = new THREE.Group(); head.position.set(0, 0.52, 0.34); cow.add(head);
-    head.add(k.mesh(k.g('cowh', () => new THREE.BoxGeometry(0.2, 0.2, 0.22)), white, 0, 0, 0.08));
-    head.add(k.mesh(k.g('cowm', () => new THREE.BoxGeometry(0.2, 0.1, 0.06)), k.m('#f2a6a6'), 0, -0.05, 0.2, false));
-    for (const x of [-0.12, 0.12]) head.add(k.mesh(k.g('horn', () => new THREE.ConeGeometry(0.025, 0.08, 5)), k.m('#e9e0c8'), x, 0.12, 0.02, false));
-    for (const [x, z] of [[-0.11, -0.22], [0.11, -0.22], [-0.11, 0.22], [0.11, 0.22]]) cow.add(k.mesh(k.g('cowl', () => new THREE.BoxGeometry(0.07, 0.28, 0.07)), white, x, 0.14, z));
-    cow.position.set(p.x, 0.13, p.z); world.add(cow);
-    const home = [p.x, p.z]; let tx = p.x, tz = p.z, wait = 2, last = 0;
-    k.anim.push((t) => {
-      const dt = Math.min(0.05, t - last); last = t;
-      const dx = tx - cow.position.x, dz = tz - cow.position.z, d = Math.hypot(dx, dz);
-      if (d > 0.03) { cow.position.x += dx / d * 0.12 * dt; cow.position.z += dz / d * 0.12 * dt; cow.rotation.y = Math.atan2(dx, dz); head.rotation.x = 0; }
-      else { head.rotation.x = 0.5 + Math.sin(t * 2) * 0.15; wait -= dt; if (wait < 0) { const a = k.rnd() * TAU; tx = home[0] + Math.sin(a) * 0.35; tz = home[1] + Math.cos(a) * 0.35; wait = 3 + k.rnd() * 3; } }
-    });
-  }
-  // 乾草捆、蜂箱
-  for (let i = 0; i < 3; i++) { const p = L.spot(k.rnd, { rad: 0.25 }); if (!p) continue; const h = k.mesh(k.g('hay', () => new THREE.CylinderGeometry(0.2, 0.2, 0.3, 14)), k.m('#e2c15a', { roughness: 1 }), p.x, 0.33, p.z); h.rotation.set(Math.PI / 2, 0, k.rnd() * 3); world.add(h); }
-  for (let i = 0; i < 2; i++) {
-    const p = L.spot(k.rnd, { rad: 0.2 }); if (!p) continue;
-    const g = new THREE.Group(); g.position.set(p.x, 0.13, p.z);
-    [0, 1, 2].forEach(j => g.add(k.mesh(k.g('hive', () => new THREE.BoxGeometry(0.3, 0.13, 0.26)), k.m(j === 1 ? '#ffd34e' : '#fbf7f0'), 0, 0.07 + j * 0.135, 0)));
-    world.add(g);
-    const bees = []; for (let j = 0; j < 3; j++) { const b = k.mesh(k.g('bee', () => new THREE.SphereGeometry(0.03, 6, 4)), k.m('#2b2b2b'), 0, 0, 0, false); g.add(b); bees.push(b); }
-    k.anim.push((t) => bees.forEach((b, j) => { const a = t * (2 + j * 0.5) + j * 2; b.position.set(Math.sin(a) * 0.35, 0.45 + Math.sin(t * 3 + j) * 0.1, Math.cos(a * 1.3) * 0.3); }));
-  }
-  plantTrees(k, L, world, k.mobile ? 4 : 8, ['round', 'round', 'pine']);
-  bushes(k, L, world, k.mobile ? 5 : 10, ['#4fae5b', '#6cc163', '#e9c94a']);
-  return { spots };
-}
-
 // 建造某業態的造景；回傳人物要用的定點位置
 export function buildScene(scene, { world, anim, rnd, night, mobile, pal, layout }) {
   const k = kit(world, anim, rnd, night, mobile);

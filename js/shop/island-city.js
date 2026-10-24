@@ -458,7 +458,7 @@ export function buildCity(ctx) {
   }
 
   return {
-    spots, attach, store,
+    spots, attach, store, features: ['百貨公司', '馬路車流與紅綠燈', '公車站', '停車場', '四周大樓'],
     info: () => ({ xc, cars: cars.length, moving: cars.filter(c => c.v > 0.3).length, parked: parkers.filter(c => c.state === 'parked').length, light: light.state, bus: bus.atStop ? 'stop' : 'go', sales, door: +doorOpen.toFixed(2),
       carPos: cars.map(c => ({ x: +c.group.position.x.toFixed(2), z: +c.group.position.z.toFixed(2), state: c.state || 'lane', lane: Object.keys(lanes).find(n => lanes[n] === c.lane) })) }),
   };

@@ -12,18 +12,20 @@ import { esc, money } from '../util.js';
 import { artImage, productPiece, heroKind, heroCenterpiece } from './shop-hero.js';
 import { visibleProducts, featuredId, priceHTML } from './storefront.js';
 import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco, makeBoat, kit, registerScenes } from './island-scenes.js';
-import { MORE_SCENES } from './island-scenes-more.js';
+import { WORLDS_A } from './island-worlds-a.js';
+import { WORLDS_B } from './island-worlds-b.js';
+import { worldLayout, buildWorld, WORLD_VENUE, CORE } from './island-worlds.js';
 import { buildLandmark } from './island-landmarks.js';
-registerScenes(MORE_SCENES);
+registerScenes({ ...WORLDS_A, ...WORLDS_B });
 import { createPeople } from './island-people.js';
 import { cityLayout, buildCity, CITY_VENUE } from './island-city.js';
 
 const TXT = {
-  zh: { scrollC: '往下滾動，逛逛商圈', loadingC: '商圈建造中…', scroll: '往下滾動，逛逛小島', drag: '拖曳可以轉動視角', skip: '直接逛商品', add: '加入購物車', detail: '看詳情', enter: '逛全部商品', welcome: '歡迎光臨', stop: '第 {n} 站', loading: '小島建造中…', shop: '店舖' },
-  en: { scrollC: 'Scroll to explore the shopping district', loadingC: 'Building the city…', scroll: 'Scroll to explore the island', drag: 'Drag to look around', skip: 'Skip to products', add: 'Add to cart', detail: 'Details', enter: 'Browse all products', welcome: 'Welcome', stop: 'Stop {n}', loading: 'Building the island…', shop: 'Shop' },
-  ja: { scrollC: 'スクロールして街を散策', loadingC: '街を準備中…', scroll: 'スクロールして島を散策', drag: 'ドラッグで視点を回転', skip: '商品一覧へ', add: 'カートに入れる', detail: '詳細', enter: '全商品を見る', welcome: 'いらっしゃいませ', stop: '{n} 番目', loading: '島を準備中…', shop: 'ショップ' },
-  vi: { scrollC: 'Cuộn để dạo khu mua sắm', loadingC: 'Đang dựng khu phố…', scroll: 'Cuộn để khám phá hòn đảo', drag: 'Kéo để xoay góc nhìn', skip: 'Xem sản phẩm ngay', add: 'Thêm vào giỏ', detail: 'Chi tiết', enter: 'Xem tất cả sản phẩm', welcome: 'Chào mừng', stop: 'Điểm {n}', loading: 'Đang dựng đảo…', shop: 'Cửa hàng' },
-  ms: { scrollC: 'Tatal untuk menjelajah kawasan beli-belah', loadingC: 'Membina bandar…', scroll: 'Tatal untuk menjelajah pulau', drag: 'Seret untuk melihat sekeliling', skip: 'Terus ke produk', add: 'Tambah ke troli', detail: 'Butiran', enter: 'Lihat semua produk', welcome: 'Selamat datang', stop: 'Hentian {n}', loading: 'Membina pulau…', shop: 'Kedai' },
+  zh: { scrollW: '往下滾動，四處逛逛', loadingW: '場景建造中…', scrollC: '往下滾動，逛逛商圈', loadingC: '商圈建造中…', scroll: '往下滾動，逛逛小島', drag: '拖曳可以轉動視角', skip: '直接逛商品', add: '加入購物車', detail: '看詳情', enter: '逛全部商品', welcome: '歡迎光臨', stop: '第 {n} 站', loading: '小島建造中…', shop: '店舖' },
+  en: { scrollW: 'Scroll to look around', loadingW: 'Building the scene…', scrollC: 'Scroll to explore the shopping district', loadingC: 'Building the city…', scroll: 'Scroll to explore the island', drag: 'Drag to look around', skip: 'Skip to products', add: 'Add to cart', detail: 'Details', enter: 'Browse all products', welcome: 'Welcome', stop: 'Stop {n}', loading: 'Building the island…', shop: 'Shop' },
+  ja: { scrollW: 'スクロールして散策', loadingW: 'シーンを準備中…', scrollC: 'スクロールして街を散策', loadingC: '街を準備中…', scroll: 'スクロールして島を散策', drag: 'ドラッグで視点を回転', skip: '商品一覧へ', add: 'カートに入れる', detail: '詳細', enter: '全商品を見る', welcome: 'いらっしゃいませ', stop: '{n} 番目', loading: '島を準備中…', shop: 'ショップ' },
+  vi: { scrollW: 'Cuộn để dạo quanh', loadingW: 'Đang dựng cảnh…', scrollC: 'Cuộn để dạo khu mua sắm', loadingC: 'Đang dựng khu phố…', scroll: 'Cuộn để khám phá hòn đảo', drag: 'Kéo để xoay góc nhìn', skip: 'Xem sản phẩm ngay', add: 'Thêm vào giỏ', detail: 'Chi tiết', enter: 'Xem tất cả sản phẩm', welcome: 'Chào mừng', stop: 'Điểm {n}', loading: 'Đang dựng đảo…', shop: 'Cửa hàng' },
+  ms: { scrollW: 'Tatal untuk meninjau', loadingW: 'Membina adegan…', scrollC: 'Tatal untuk menjelajah kawasan beli-belah', loadingC: 'Membina bandar…', scroll: 'Tatal untuk menjelajah pulau', drag: 'Seret untuk melihat sekeliling', skip: 'Terus ke produk', add: 'Tambah ke troli', detail: 'Butiran', enter: 'Lihat semua produk', welcome: 'Selamat datang', stop: 'Hentian {n}', loading: 'Membina pulau…', shop: 'Kedai' },
 };
 
 // 開關：網址 ?island=0／1 優先；其次網站設計工作室的設定（預設開啟）
@@ -70,7 +72,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
   const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mobile = () => innerWidth < 760;
   // 城市場景的提示改說「商圈」
-  const tx = (k, v = {}) => { const T = TXT[shop.lang] || TXT.zh; const kk = sceneDef && sceneDef.kind === 'city' && T[k + 'C'] ? k + 'C' : k; return T[kk].replace(/\{(\w+)\}/g, (_, x) => v[x] ?? ''); };
+  const tx = (k, v = {}) => { const T = TXT[shop.lang] || TXT.zh; const suf = sceneDef && sceneDef.kind === 'city' ? 'C' : sceneDef && sceneDef.kind === 'world' ? 'W' : ''; const kk = suf && T[k + suf] ? k + suf : k; return T[kk].replace(/\{(\w+)\}/g, (_, x) => v[x] ?? ''); };
 
   // ---------- DOM ----------
   const sec = document.createElement('section');
@@ -104,7 +106,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
   let world = new THREE.Group(); scene.add(world);
   let anim = [], stations = [], hits = [], products = [], look = {}, lookKey = '', night = false;
   let water = null, sky = null, centerpiece = null, balloon = null, boat = null, birds = [], clouds = [], sparkle = null, buildId = 0;
-  let sceneDef = null, crowd = null, cityObj = null, landmark = null;
+  let sceneDef = null, crowd = null, cityObj = null, landmark = null, built0 = null;
   // 場景：網址 ?scene= 優先，其次網站設計工作室的設定（auto＝依業態）
   let sceneOverride = new URLSearchParams(location.search).get('scene') || getShopConfig().scene || 'auto';
   const ISL_VENUE = { pinZ: SHOP_Z, pinY: 3.9, lookZ: SHOP_Z, lookY: 1.6 };
@@ -128,12 +130,14 @@ export function createIsland({ shop, onOpen, onAdd }) {
     sceneDef = sceneFor(TENANT, sceneOverride);
     // 霓虹街、月夜燈會一律是夜景
     night = !!look.dim || lum(vars.cream || '#ffffff') < 0.3 || !!sceneDef.night;
-    const city = sceneDef.kind === 'city';
-    VENUE = city ? CITY_VENUE : ISL_VENUE; cityObj = null;
+    // city＝不是小島（城市百貨或主題世界）
+    const isCity = sceneDef.kind === 'city', isWorld = sceneDef.kind === 'world', city = isCity || isWorld;
+    VENUE = isCity ? CITY_VENUE : isWorld ? { ...WORLD_VENUE } : ISL_VENUE; cityObj = null;
 
     // 天空、霧、光
-    const zen = night ? C('#0b1430') : C(look.sky || '#bfe3ff').lerp(C('#6fb6ff'), 0.55);
-    const hor = night ? C('#26365e') : C(look.sky || '#fff1df').lerp(C('#ffffff'), 0.25);
+    const sk = sceneDef.sky;
+    const zen = night ? C(sk && sceneDef.night ? sk.top : '#0b1430') : sk ? C(sk.top) : C(look.sky || '#bfe3ff').lerp(C('#6fb6ff'), 0.55);
+    const hor = night ? C(sk && sceneDef.night ? sk.bot : '#26365e') : sk ? C(sk.bot) : C(look.sky || '#fff1df').lerp(C('#ffffff'), 0.25);
     scene.fog = new THREE.Fog(hor, 38, 120);
     scene.background = hor;
     // 天空與海只建立一次（換風格時只更新顏色，避免每次重新編譯著色器）
@@ -195,7 +199,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     const pathC = city ? C(night ? '#8d867a' : '#d6cab3') : C(vars.cream2 || '#ead9bd').lerp(C('#d9c8a8'), 0.4);
     const path = new THREE.Mesh(new THREE.RingGeometry(RING - 0.45, RING + 0.45, 96, 1), std(pathC, { roughness: 1 })); path.rotation.x = -Math.PI / 2; path.position.y = 0.135; path.receiveShadow = true; world.add(path);
     const plaza = new THREE.Mesh(new THREE.CircleGeometry(1.9, 48), std(pathC, { roughness: 1 })); plaza.rotation.x = -Math.PI / 2; plaza.position.set(0, 0.136, 0.9); plaza.receiveShadow = true; world.add(plaza);
-    const walkL = city ? 10.2 - 0.9 : RING - 0.6;
+    const walkL = isCity ? 10.2 - 0.9 : isWorld ? CORE - 0.9 : RING - 0.6;
     const walk = new THREE.Mesh(new THREE.PlaneGeometry(1.1, walkL), std(pathC, { roughness: 1 })); walk.rotation.x = -Math.PI / 2; walk.position.set(0, 0.137, 0.9 + walkL / 2); world.add(walk);
 
     // 店舖
@@ -236,7 +240,15 @@ export function createIsland({ shop, onOpen, onAdd }) {
       lm.group.position.set(p.x, 0.13, p.z); lm.group.rotation.y = Math.atan2(-p.x, 0.9 - p.z); world.add(lm.group);
       landmark = { id: TENANT.id, x: p.x, z: p.z, rad: lm.rad };
     };
-    if (city) {
+    if (isWorld) {
+      // 主題世界：高的東西要避開鏡頭路線
+      const kc = makeKeys(stAngles), camPts = new THREE.CatmullRomCurve3(kc.map(q => q.pos), false, 'centripetal').getSpacedPoints(160);
+      layout = worldLayout({ RING, SHOP_Z, stations: stAngles });
+      placeLandmark(layout);
+      built = buildWorld(sceneDef, { world, anim, rnd, night, mobile: mobile(), pal, vars, layout, camPts });
+      VENUE.pinY = built.heroH + 1.3;
+      if (built.fog) { scene.fog.near = built.fog[0]; scene.fog.far = built.fog[1]; }
+    } else if (isCity) {
       // 城市百貨商圈：大樓要避開鏡頭路線
       const kc = makeKeys(stAngles), cv0 = new THREE.CatmullRomCurve3(kc.map(q => q.pos), false, 'centripetal');
       const camPts = cv0.getSpacedPoints(160);
@@ -280,7 +292,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     anim.push((t) => { const a = Math.sin(t * 0.05); balloon.position.set(6.5 + a * 3.5, 8 + Math.sin(t * 0.6) * 0.5, -7 + Math.cos(t * 0.05) * 2); balloon.rotation.y = t * 0.1; });
 
     // 雲、鳥
-    const cloudM = new THREE.MeshStandardMaterial({ color: night ? 0x6c7aa0 : 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: night ? 0.55 : 0.95 });
+    const cloudM = new THREE.MeshStandardMaterial({ color: night ? 0x6c7aa0 : C(sceneDef.cloud || '#ffffff'), roughness: 1, flatShading: true, transparent: true, opacity: night ? 0.55 : 0.95 });
     for (let i = 0; i < (mobile() ? 4 : 8); i++) {
       const c = new THREE.Group(); const n = 3 + Math.floor(rnd() * 3);
       for (let k = 0; k < n; k++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1 + rnd() * 0.9, 1), cloudM); b.position.set(k * 1.3 - n * 0.6, rnd() * 0.5, rnd() * 0.8); b.scale.y = 0.62; c.add(b); }
@@ -307,6 +319,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     // 島上的人
     crowd = createPeople({ world, anim, rnd, night, mobile: mobile(), pal, L: layout, spots: built.spots, hat: sceneDef.hat, dogs: built.dogs || 0, shadows: renderer.shadowMap.enabled });
     if (cityObj) cityObj.attach(crowd);
+    built0 = built;
 
     // 商品展台
     buildStations(my, pal, vars);
@@ -530,7 +543,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     screenOf(pid) { const st = stations.find(x => x.pid === pid); if (!st) return null; const v = st.pos.clone().setY(1.95).project(camera); const r = cv.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height, onScreen: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 }; },
     setProducts() { products = pickProducts(); build(); renderTexts(); onScroll(); },
     // 測試用：目前的風景、島形與島上的人
-    info() { return { scene: sceneDef && sceneDef.id, night, landmark, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null }; },
+    info() { return { scene: sceneDef && sceneDef.id, kind: sceneDef && (sceneDef.kind || 'isle'), features: built0 ? built0.features || [] : [], night, landmark, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null }; },
     // 換場景（網站設計工作室即時預覽）：auto＝依業態
     setScene(id) { const v = id || 'auto'; if (v === sceneOverride) return; sceneOverride = v; build(); renderTexts(); onScroll(); },
     destroy() { cancelAnimationFrame(raf); removeEventListener('scroll', onScroll); dispose(world); if (sky) dispose(sky); if (water) dispose(water); renderer.dispose(); sec.remove(); document.body.classList.remove('isl-on'); },

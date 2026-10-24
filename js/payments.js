@@ -218,10 +218,13 @@ export function applyStatus(orderId, st) {
       if (st.method && METHOD_MAP[st.method]) o.payment = methodPayment(st.method);
       store.markPaid(orderId);
     }
-    // 競標得標訂單：得標紀錄跟著標記已付款
-    try { const a = auctions.list().find(x => x.orderId === orderId && x.winner && !x.paidAt); if (a) auctions.markPaid(a.id); } catch { /* ignore */ }
+    markAuctionPaid(orderId);
   }
   return rec;
+}
+// 競標得標訂單：得標紀錄跟著標記已付款（付款導回頁收到其他分頁的「已付款」通知時也會呼叫）
+export function markAuctionPaid(orderId) {
+  try { const a = auctions.list().find(x => x.orderId === orderId && x.winner && !x.paidAt); if (a) auctions.markPaid(a.id); } catch { /* ignore */ }
 }
 
 // 每 interval 查一次，最多 max；onUpdate({ status, data, error, elapsed, tries })；回傳 { stop, promise }

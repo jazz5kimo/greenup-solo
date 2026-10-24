@@ -191,6 +191,15 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
       { wait: 3 + rnd() * 2, look: sea, on: (q) => { if (q.bag) q.bag.visible = false; } },
       { wait: 2.6, look: [door[0], door[1] - 2], on: (q) => { if (q.bag) q.bag.visible = true; } }), i * 5);
   }
+  // 主題世界：客人從廣場前緣走進主建築，提著袋子出來再離開
+  if (L.world && v) {
+    for (let i = 0; i < (mobile ? 2 : 3); i++) {
+      const p = person(look({ kind: 'visitor', bag: false }));
+      const out = [v[0][0] * 3, v[0][1] * 3];
+      script(p, [...v.map(go => ({ go })), { wait: 4 + rnd() * 4, look: [door[0], door[1] - 3], on: (q) => { q.root.visible = false; } }, { wait: 0.3, on: (q) => { q.root.visible = true; if (q.bag) q.bag.visible = true; } },
+        ...v.slice(0, -1).reverse().map(go => ({ go })), { wait: 2 + rnd() * 3, look: out, on: (q) => { if (q.bag) q.bag.visible = false; } }], i * 6);
+    }
+  }
   // 前步道 → 店門口
   if (!mobile) {
     const f = L.routes.front;
