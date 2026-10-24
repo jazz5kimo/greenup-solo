@@ -109,7 +109,7 @@ export const ART = {
 
 const N = (zh, en, ja, vi, ms) => ({ zh, en, ja, vi, ms });
 // i18n：[名稱, 規格, 說明]（英日越馬）；tags 給前台標籤，kw 給 AI 導購比對
-const P = (id, name, unit, price, cost, stock, desc, kind, color, accent, x) => ({ id, name, unit, price, cost, stock, desc, en: x.i18n.en[0], descEn: x.i18n.en[2], art: { kind, color, accent }, ...x });
+const P = (id, name, unit, price, cost, stock, desc, kind, color, accent, x) => ({ id, name, unit, price, cost, stock, desc, en: x.i18n.en[0], descEn: x.i18n.en[2], art: { kind, color, accent, img: `img/birdnest/${id}.webp` }, ...x }); // 商品圖：tools/render-birdnest.js 產生的 3D 渲染（示意）
 
 // ─────────────────────────── 精品燕窩 ───────────────────────────
 export const BIZ = [
@@ -117,6 +117,7 @@ export const BIZ = [
     merchant: {
       id: 'birdnest', name: '嬿窩', en: 'YAN NEST', type: 'birdnest', cat: 'food',
       typeName: '精品燕窩', kw: '燕窩 燕盞 燕條 鮮燉燕窩 bird nest swiftlet 燕の巣 yến sào sarang burung', owner: '店主', ownerEn: 'the owner', theme: 'birdnest', brand: '#B8146A', tagline: '一盞好燕，慢火細燉',
+      heroImg: { wide: 'img/birdnest/hero.webp', tall: 'img/birdnest/hero-m.webp', og: 'img/birdnest/og.jpg' },
       layout: 'luxe', ship: { mode: 'ship', fee: 150, free: 1500, cold: true },
       products: [
         P('bn-fresh', '冰糖鮮燉燕窩', '150ml × 6 瓶', 1680, 690, 36, '每週二、五現燉，冰糖清甜、燕絲完整，冷藏宅配到府。（示範規格：每瓶以約 3g 乾燕盞燉製）', 'g5_jar', '#F3E3C0', '#B8146A',

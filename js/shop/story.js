@@ -235,10 +235,17 @@ export function luxeBoot() {
     document.head.appendChild(f);
   }
   const hi = TENANT.heroImg;
+  // 分享到 LINE／Facebook 時的預覽圖與標題
+  if (hi && hi.og && !document.querySelector('meta[property="og:image"]')) {
+    const meta = (k, v) => { const m = document.createElement('meta'); m.setAttribute('property', k); m.content = v; document.head.appendChild(m); };
+    meta('og:image', new URL(hi.og, location.href).href); meta('og:title', `${TENANT.name}｜${TENANT.en || ''}`); meta('og:type', 'website');
+  }
   const hero = $('.s-hero');
   if (hi && hero) {
     document.body.classList.add('lx-photo');
-    hero.style.setProperty('--lx-hero', `url("${hi.wide}")`); hero.style.setProperty('--lx-hero-m', `url("${hi.tall || hi.wide}")`);
+    // 用絕對網址：CSS 變數裡的相對路徑會以樣式表（css/）為基準
+    const abs = (u) => new URL(u, location.href).href;
+    hero.style.setProperty('--lx-hero', `url("${abs(hi.wide)}")`); hero.style.setProperty('--lx-hero-m', `url("${abs(hi.tall || hi.wide)}")`);
     if (!$('.lx-fly', hero)) hero.insertAdjacentHTML('afterbegin', `<div class="lx-fly" aria-hidden="true">${[0, 1, 2, 3, 4].map(i => `<svg class="f${i}" viewBox="0 0 24 16"><path d="M0 8 C4 4.5 8 3.6 11.5 4.6 L21 0 L15.6 6.2 C17.6 7 18.8 8.6 18.2 9.8 C15.6 9 13.4 9.2 11.6 10.2 L3 16 L6.6 10.2 C4 10.4 1.6 9.6 0 8 Z"/></svg>`).join('')}</div><div class="lx-veil" aria-hidden="true"></div>`);
   }
 }
