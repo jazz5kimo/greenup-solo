@@ -515,3 +515,8 @@ body.shop[data-sf-hero="center"] .s-hero-txt { width: 100%; }
 .shop .s-modal-card { max-width: calc(100vw - 24px); }
 @media (max-width: 900px) { .shop .ck-grid { grid-template-columns: minmax(0, 1fr); } .shop .ck-form, .shop .ck-sum { min-width: 0; } }
 @media (max-width: 520px) { .shop .seg2 button { min-width: 0; white-space: normal; padding: 10px 6px; } .shop .s-modal-card.checkout { padding: 26px 18px; } }
+
+/* 已售完（宅配商品庫存為 0）：圖片淡出、角標、按鈕停用；後台補貨入庫後自動恢復 */
+.shop .p-card.soldout .p-art .art { opacity: 0.45; filter: grayscale(0.4); }
+.shop .p-out { position: absolute; top: 14px; right: 14px; z-index: 2; padding: 5px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.08em; background: var(--ink); color: var(--cream); }
+.shop .p-add.sold, .shop #dAdd:disabled { opacity: 0.55; cursor: not-allowed; background: var(--cream2); color: var(--ink2); border-color: transparent; }

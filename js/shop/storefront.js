@@ -30,7 +30,7 @@ export const STYLE = styleOf(TENANT);
 // 非阿美業主共用的文案範本（{name} 業主名、{owner} 負責人、{ai} AI 名、{fee}/{free} 運費）
 const GEN = {
   zh: {
-    feat: '本店主打', announce: '{name}・{tagline}・支援 5 種語言 AI 客服', admin: '店主後台',
+    soldOutP: '已售完', onlyLeft: '庫存只剩 {n}，已幫你加到上限', soldOutMsg: '「{p}」目前已售完，補貨後就能購買。要不要看看其他商品？', feat: '本店主打', announce: '{name}・{tagline}・支援 5 種語言 AI 客服', admin: '店主後台',
     botName: 'AI 導購{ai}', botGreet: '嗨！我是{name}的 AI 導購{ai}。{owner}一個人經營，商品、運送、付款都可以問我，也能直接幫你下單！',
     botStrip: '不知道選什麼？直接告訴 AI 你的需求', botStripSub: '例如：「{c0}」「{c1}」「{c2}」',
     footer: '{name}・虛構示範業主。本頁為「GreenUP」原型示範，所有商品、價格與交易皆為模擬。',
@@ -53,7 +53,7 @@ const GEN = {
     issue: '烘焙日誌', craft: '職人手作', ateliers: '每件作品皆有職人編號', menuNote: '價格含稅・可加大',
   },
   en: {
-    feat: 'Featured', announce: '{name} · {tagline} · AI concierge in 5 languages', admin: 'Owner console',
+    soldOutP: 'Sold out', onlyLeft: 'Only {n} left; added up to the limit', soldOutMsg: '“{p}” is sold out for now and will be back after restocking. Want to see something else?', feat: 'Featured', announce: '{name} · {tagline} · AI concierge in 5 languages', admin: 'Owner console',
     botName: '{name} · AI concierge', botGreet: 'Hi! I’m the AI concierge for {name}. {owner} runs it solo, so ask me anything about products, delivery or payment, or let me place the order for you!',
     botStrip: 'Not sure what to choose? Just tell the AI', botStripSub: 'e.g. “{c0}”, “{c1}”, “{c2}”',
     footer: '{name} · Fictional demo business. A prototype demo of GreenUP; all products, prices and transactions are simulated.',
@@ -76,7 +76,7 @@ const GEN = {
     issue: 'Roast journal', craft: 'Handmade', ateliers: 'Every piece is numbered', menuNote: 'Tax included · Large size available',
   },
   ja: {
-    feat: 'イチオシ', announce: '{name}・{tagline}・5言語のAIスタッフ対応', admin: 'オーナー管理画面',
+    soldOutP: '完売', onlyLeft: '在庫は残り {n} です。上限まで追加しました', soldOutMsg: '「{p}」は現在完売です。入荷後にご購入いただけます。ほかの商品はいかがですか？', feat: 'イチオシ', announce: '{name}・{tagline}・5言語のAIスタッフ対応', admin: 'オーナー管理画面',
     botName: '{name}・AIスタッフ', botGreet: 'こんにちは！{name}のAIスタッフです。{owner}がひとりで営業しているので、商品・配送・お支払いのことは私にどうぞ。ご注文の手続きもできます！',
     botStrip: '迷ったら、AIに話しかけてください', botStripSub: '例：「{c0}」「{c1}」「{c2}」',
     footer: '{name}・架空のデモ事業者です。本ページは「GreenUP」のプロトタイプで、商品・価格・取引はすべて模擬です。',
@@ -99,7 +99,7 @@ const GEN = {
     issue: '焙煎日誌', craft: '職人の手仕事', ateliers: '一点ずつ職人番号入り', menuNote: '税込・大盛り可',
   },
   vi: {
-    feat: 'Nổi bật', announce: '{name} · {tagline} · Trợ lý AI 5 ngôn ngữ', admin: 'Trang quản lý',
+    soldOutP: 'Hết hàng', onlyLeft: 'Chỉ còn {n}; đã thêm tối đa', soldOutMsg: '“{p}” tạm hết hàng, sẽ có lại sau khi nhập hàng. Bạn xem món khác nhé?', feat: 'Nổi bật', announce: '{name} · {tagline} · Trợ lý AI 5 ngôn ngữ', admin: 'Trang quản lý',
     botName: '{name} · Trợ lý AI', botGreet: 'Xin chào! Mình là trợ lý AI của {name}. {owner} tự vận hành tiệm, nên cứ hỏi mình về sản phẩm, giao hàng, thanh toán, hoặc để mình đặt hàng giúp bạn!',
     botStrip: 'Chưa biết chọn gì? Hãy nói với AI', botStripSub: 'Ví dụ: "{c0}", "{c1}", "{c2}"',
     footer: '{name} · Doanh nghiệp demo hư cấu. Trang này là bản demo của GreenUP; mọi sản phẩm, giá và giao dịch đều là mô phỏng.',
@@ -122,7 +122,7 @@ const GEN = {
     issue: 'Nhật ký rang', craft: 'Thủ công', ateliers: 'Mỗi món đều có số hiệu', menuNote: 'Đã gồm thuế · Có size lớn',
   },
   ms: {
-    feat: 'Pilihan utama', announce: '{name} · {tagline} · Pembantu AI 5 bahasa', admin: 'Konsol pemilik',
+    soldOutP: 'Habis dijual', onlyLeft: 'Tinggal {n} sahaja; ditambah hingga had', soldOutMsg: '“{p}” habis dijual buat masa ini dan akan ada semula selepas stok tiba. Mahu lihat yang lain?', feat: 'Pilihan utama', announce: '{name} · {tagline} · Pembantu AI 5 bahasa', admin: 'Konsol pemilik',
     botName: '{name} · Pembantu AI', botGreet: 'Hai! Saya pembantu AI {name}. {owner} mengurus seorang diri, jadi tanya saya tentang produk, penghantaran atau bayaran, atau biar saya buat pesanan untuk anda!',
     botStrip: 'Tidak pasti? Beritahu sahaja AI', botStripSub: 'Contoh: "{c0}", "{c1}", "{c2}"',
     footer: '{name} · Perniagaan demo rekaan. Halaman ini ialah prototaip GreenUP; semua produk, harga dan transaksi adalah simulasi.',

@@ -6,7 +6,7 @@ import { PRODUCT_MAP } from '../data.js';
 import { LANGS, pName, pUnit, pDesc } from '../i18n.js';
 import { $, $$, el, gsap, esc, money, sleep, toast } from '../util.js';
 import { productArt } from '../art.js';
-import { cart } from './cart.js';
+import { cart, stockLeft } from './cart.js';
 import { initBot } from './bot.js';
 import { createShopHero } from './shop-hero.js';
 import { createIsland, islandEnabled } from './island.js';
@@ -94,14 +94,14 @@ const featHTML = (p) => (p.id === featuredId() ? `<span class="p-feat">★ ${esc
 const lowHTML = (p, left) => (left < (p.safety || 0) ? `<span class="p-low">${t(lang, 'soldLow', { n: left })}</span>` : '');
 
 function cardHTML(p, i) {
-  const left = stockOf(p.id);
+  const left = stockOf(p.id), out = SHIP_MODE === 'ship' && left <= 0;
   const no = `<span class="p-no">${esc(G(lang, 'no'))}${String(i + 1).padStart(2, '0')}</span>`;
-  return `<article class="p-card ${p.id === featuredId() ? 'feat' : ''} ${i === 0 && (LAYOUT === 'editorial' || LAYOUT === 'luxe') ? 'lead' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
-    <div class="p-art">${productArt(p.id, (LAYOUT === 'editorial' || LAYOUT === 'luxe') && i === 0 ? 300 : 200)}<div class="p-tags">${tagHTML(p)}</div>${lowHTML(p, left)}${featHTML(p)}${saleTag(p, lang, 'p-sale p-sale-art')}</div>
+  return `<article class="p-card ${p.id === featuredId() ? 'feat' : ''} ${out ? 'soldout' : ''} ${i === 0 && (LAYOUT === 'editorial' || LAYOUT === 'luxe') ? 'lead' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
+    <div class="p-art">${productArt(p.id, (LAYOUT === 'editorial' || LAYOUT === 'luxe') && i === 0 ? 300 : 200)}<div class="p-tags">${tagHTML(p)}</div>${out ? `<span class="p-out">${esc(G(lang, 'soldOutP'))}</span>` : lowHTML(p, left)}${featHTML(p)}${saleTag(p, lang, 'p-sale p-sale-art')}</div>
     <div class="p-body">${LAYOUT === 'editorial' || LAYOUT === 'atelier' || LAYOUT === 'luxe' ? no : ''}<div class="p-top"><h3>${esc(pName(lang, p.id))}</h3><small>${esc(pUnit(lang, p.id))}</small></div>
     <p>${esc(pDesc(lang, p.id))}</p>
     <div class="p-meta">${metaHTML(p)}</div>
-    <div class="p-foot">${priceHTML(p, lang, money)}<button class="p-add" data-add="${p.id}">${t(lang, 'add')}</button></div></div>
+    <div class="p-foot">${priceHTML(p, lang, money)}${out ? `<button class="p-add sold" disabled>${esc(G(lang, 'soldOutP'))}</button>` : `<button class="p-add" data-add="${p.id}">${t(lang, 'add')}</button>`}</div></div>
   </article>`;
 }
 function rowHTML(p) { // 預約制：服務項目列
@@ -144,7 +144,10 @@ function renderProducts(animate) {
 
 function addToCart(pid, qty, srcEl) {
   if (!PRODUCT_MAP[pid]) return;
-  cart.add(pid, qty);
+  const n = cart.add(pid, qty);
+  // 已售完或購物車已達庫存上限：不加入，告訴客人
+  if (n <= 0) { toast(G(lang, 'soldOutMsg', { p: pName(lang, pid) }), '', { kind: 'warn' }); return; }
+  if (n < qty) toast(G(lang, 'onlyLeft', { n: stockLeft(pid) }), '', { kind: 'warn' });
   if (srcEl) {
     const old = srcEl.textContent; srcEl.textContent = srcEl.classList.contains('m-add') ? '✓' : '✓ ' + t(lang, 'added'); srcEl.classList.add('ok');
     setTimeout(() => { srcEl.textContent = old; srcEl.classList.remove('ok'); }, 1200);
@@ -180,7 +183,7 @@ function openDetail(pid) {
       <p>${esc(pDesc(lang, pid))}</p>
       <dl>${dl}</dl>
       ${LAYOUT === 'luxe' && luxeImgNote(lang) ? `<small class="d-imgnote">${esc(luxeImgNote(lang))}</small>` : ''}
-      <div class="d-buy">${priceHTML(p, lang, money)}<div class="qty"><button data-q="-1">−</button><span id="dQ">1</span><button data-q="1">+</button></div><button class="s-btn s-btn-primary" id="dAdd">${t(lang, 'add')}</button></div>
+      <div class="d-buy">${priceHTML(p, lang, money)}<div class="qty"><button data-q="-1">−</button><span id="dQ">1</span><button data-q="1">+</button></div><button class="s-btn s-btn-primary" id="dAdd" ${SHIP_MODE === 'ship' && stockOf(pid) <= 0 ? 'disabled' : ''}>${SHIP_MODE === 'ship' && stockOf(pid) <= 0 ? esc(G(lang, 'soldOutP')) : t(lang, 'add')}</button></div>
     </div>`;
   showModal();
   $$('[data-q]', card).forEach(b => b.addEventListener('click', () => { q = Math.max(1, q + +b.dataset.q); $('#dQ').textContent = q; }));
@@ -339,8 +342,9 @@ $('#langBtn').addEventListener('click', (e) => { e.stopPropagation(); const m = 
 document.addEventListener('click', () => { $('#langMenu').hidden = true; });
 
 // ---------- 同步（後台下單、工作室調整商品時更新） ----------
-store.on('order', ({ remote }) => { if (remote) renderProducts(false); });
+store.on('order', () => renderProducts(false)); // 任何分頁成立訂單都更新庫存（賣到最後一件就顯示已售完）
 store.on('reset', () => renderProducts(false));
+store.on('stock', () => renderProducts(false)); // 後台補貨入庫：賣光的商品立刻恢復可購買
 onStorefront((kind) => { if (kind === 'catalog') renderProducts(true); if (kind === 'slot') renderHeroExtra(); if (kind === 'theme') applyI18n(false); /* AI 設計師的文案隨風格更新 */ });
 
 // ---------- 啟動 ----------

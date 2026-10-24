@@ -190,6 +190,8 @@ export default {
           <div class="kpi-val" data-val>0</div><div class="kpi-foot"><small data-sub></small></div></div>`).join('')}
       </div>
 
+      <div class="glass card ivp-restock anim-in" id="ivpRestock"></div>
+
       <div class="ivp-row ivp-row1">
         <div class="glass card ivp-shelf anim-in">
           <div class="card-h"><h3>${icon('cpu', 18)} 3D 智慧倉儲</h3><span class="chip-sm">方塊高度＝成品庫存・紅光＝低於安全庫存</span></div>
@@ -272,8 +274,11 @@ export default {
     });
 
     renderAll(false);
-    store.on('order', () => refresh(true));
-    store.on('reset', () => refresh(false));
+    renderRestock();
+    bindRestock();
+    store.on('order', () => { refresh(true); renderRestock(); });
+    store.on('reset', () => { refresh(false); renderRestock(); });
+    store.on('stock', () => { refresh(true); renderRestock(); });
   },
   show() {
     if (!chartsReady) { initCharts(); chartsReady = true; }
@@ -1037,4 +1042,52 @@ function createShelf(host, labels) {
       });
     },
   };
+}
+
+/* ---------------- 補貨入庫：賣光／快賣光的商品到貨後登錄數量，前台立即恢復可購買 ---------------- */
+const RS = { armed: false, qty: {} };
+const suggestOf = (r) => Math.max(0, Math.max(r.safety * 2, r.safety + 1) - r.current);
+function renderRestock() {
+  const box = $('#ivpRestock', root); if (!box) return;
+  const inv = store.inventory().slice().sort((a, b) => (b.out - a.out) || (b.low - a.low) || (a.current / Math.max(1, a.safety) - b.current / Math.max(1, b.safety)));
+  const nOut = inv.filter(r => r.out).length, nLow = inv.filter(r => r.low && !r.out).length;
+  const todo = inv.filter(r => suggestOf(r) > 0 && (r.out || r.low));
+  const hist = store.stockIns.slice(-5).reverse();
+  box.innerHTML = `<div class="card-h"><h3>${icon('box', 18)} 補貨入庫</h3>
+      <div class="ivp-rs-sum">${nOut ? `<span class="chip-sm bad">${nOut} 項已售完</span>` : ''}${nLow ? `<span class="chip-sm warn">${nLow} 項低於安全庫存</span>` : ''}${!nOut && !nLow ? '<span class="chip-sm">庫存都充足</span>' : ''}
+      <button class="btn btn-ghost btn-sm" id="ivpRsAll" ${todo.length ? '' : 'disabled'}>${icon('check', 14)} ${RS.armed ? `確定一次入庫 ${todo.length} 項？` : '缺貨的全部補到建議量'}</button></div></div>
+    <p class="ivp-rs-lead">貨到了就在這裡登錄數量，按「入庫」後銷售網頁、POS 與 AI 客服的庫存立即更新，賣光的商品自動恢復可購買。</p>
+    <div class="ivp-rs-list">${inv.map(r => { const q = RS.qty[r.id] ?? (suggestOf(r) || r.safety); const pct = Math.min(100, r.current / Math.max(1, r.safety * 2) * 100);
+      return `<div class="ivp-rs-row ${r.out ? 'out' : r.low ? 'low' : ''}" data-rs="${r.id}">
+        <span class="ivp-rs-art">${productArt(r.id, 44)}</span>
+        <div class="ivp-rs-n"><b>${esc(r.name)}</b><small>${esc(r.unit || '')}${r.received ? `・已補 ${r.received}` : ''}</small></div>
+        <div class="ivp-rs-st"><span class="ivp-rs-chip">${r.out ? '已售完' : r.low ? '快賣光' : '充足'}</span><span class="ivp-rs-c"><b>${r.current}</b>／安全 ${r.safety}</span><i class="ivp-rs-bar"><u style="width:${pct}%"></u></i></div>
+        <div class="ivp-rs-q"><button data-rsd="-1" aria-label="減少">−</button><input type="number" min="1" max="9999" value="${q}" aria-label="入庫數量" data-rsq><button data-rsd="1" aria-label="增加">＋</button></div>
+        <button class="btn btn-primary btn-sm" data-rsin>${icon('plus', 13)} 入庫</button>
+      </div>`; }).join('')}</div>
+    ${hist.length ? `<div class="ivp-rs-hist"><b>最近入庫</b>${hist.map(h => `<span>${fmtMD(new Date(h.ts))} ${String(new Date(h.ts).getHours()).padStart(2, '0')}:${String(new Date(h.ts).getMinutes()).padStart(2, '0')}・${esc((store.inventory().find(x => x.id === h.pid) || {}).name || h.pid)} +${h.qty}</span>`).join('')}</div>` : ''}`;
+}
+function bindRestock() {
+  const box = $('#ivpRestock', root); if (!box) return;
+  box.addEventListener('input', (e) => { const q = e.target.closest('[data-rsq]'); if (q) RS.qty[q.closest('[data-rs]').dataset.rs] = Math.max(1, Math.round(+q.value || 1)); });
+  box.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-rs]');
+    const d = e.target.closest('[data-rsd]');
+    if (d && row) { const inp = $('[data-rsq]', row); const v = Math.max(1, Math.min(9999, Math.round(+inp.value || 0) + +d.dataset.rsd)); inp.value = v; RS.qty[row.dataset.rs] = v; return; }
+    if (e.target.closest('[data-rsin]') && row) {
+      const pid = row.dataset.rs, qty = Math.round(+$('[data-rsq]', row).value || 0);
+      if (!(qty > 0)) { toast('請輸入入庫數量', '數量要大於 0', { kind: 'warn', icon: icon('alert', 18) }); return; }
+      const rec = store.stockIn(pid, qty);
+      if (rec) { delete RS.qty[pid]; const r = store.inventory().find(x => x.id === pid); toast(`已入庫｜${r.name} +${qty}`, `目前庫存 ${r.current}，銷售網頁已恢復可購買`, { icon: icon('box', 18) }); }
+      return;
+    }
+    if (e.target.closest('#ivpRsAll')) {
+      const todo = store.inventory().filter(r => suggestOf(r) > 0 && (r.out || r.low));
+      if (!RS.armed) { RS.armed = true; renderRestock(); setTimeout(() => { if (RS.armed) { RS.armed = false; renderRestock(); } }, 5000); return; }
+      RS.armed = false;
+      let n = 0; for (const r of todo) { const qty = RS.qty[r.id] ?? suggestOf(r); if (store.stockIn(r.id, qty, { note: '批次補到建議量' })) n++; }
+      RS.qty = {};
+      toast(`已入庫 ${n} 項`, '賣光的商品已恢復可購買', { icon: icon('box', 18) });
+    }
+  });
 }

@@ -197,8 +197,8 @@ function bindGift(host, lang) {
   $('#lxGadd', host).addEventListener('click', (e) => {
     const ns = GIFT.jars.filter(x => x === 's').length;
     try { const a = JSON.parse(localStorage.getItem(LS_GIFT) || '[]'); a.push({ sweet: ns, plain: 6 - ns, msg: GIFT.msg }); localStorage.setItem(LS_GIFT, JSON.stringify(a)); } catch { /* ignore */ }
-    cart.add('bn-gift', 1);
-    const b = e.currentTarget, old = b.textContent; b.textContent = '✓ ' + g.added; b.classList.add('ok'); setTimeout(() => { b.textContent = old; b.classList.remove('ok'); }, 1500);
+    const b = e.currentTarget, old = b.textContent;
+    if (!cart.add('bn-gift', 1)) { b.textContent = g.soldout; setTimeout(() => { b.textContent = old; }, 1600); return; } b.textContent = '✓ ' + g.added; b.classList.add('ok'); setTimeout(() => { b.textContent = old; b.classList.remove('ok'); }, 1500);
   });
   paint();
 }

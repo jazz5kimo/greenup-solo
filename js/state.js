@@ -6,6 +6,7 @@ import { generateHistory, generatePurchases, PRODUCTS, PRODUCT_MAP, priceOrder, 
 
 const LS_ORDERS = 'greenup-solo:live-orders:v1';
 const LS_SETTINGS = 'greenup-solo:settings:v1';
+const LS_STOCK = 'greenup-solo:stock-in:v1'; // 補貨入庫紀錄 [{ ts, pid, qty, note }]
 const CH_NAME = 'greenup-solo';
 
 function lsGet(key, fallback) {
@@ -21,6 +22,7 @@ class Store {
     this.history = generateHistory(this.now);
     this.purchases = generatePurchases(this.now);
     this.live = lsGet(LS_ORDERS, []);
+    this.stockIns = lsGet(LS_STOCK, []);
     this.settings = Object.assign({ deploy: 'cloud' }, lsGet(LS_SETTINGS, {}));
     this.bus = new EventTarget();
     this.activity = [];
@@ -42,6 +44,7 @@ class Store {
         }
         if (incoming.length === 0 && this.live.length) this._onRemote({ type: 'reset' });
       }
+      if (e.key === LS_STOCK) { this.stockIns = lsGet(LS_STOCK, []); this.emit('stock', { remote: true }); }
       if (e.key === LS_SETTINGS) { this.settings = Object.assign(this.settings, lsGet(LS_SETTINGS, {})); this.emit('deploy', this.settings.deploy); }
     });
   }
@@ -65,8 +68,10 @@ class Store {
       if (o) { Object.assign(o, msg.order); this._rebuild(); this.emit('order-updated', { order: o, remote: true }); }
     } else if (msg.type === 'deploy') {
       this.settings.deploy = msg.mode; this.emit('deploy', msg.mode);
+    } else if (msg.type === 'stock') {
+      this.stockIns = lsGet(LS_STOCK, []); this.emit('stock', { remote: true });
     } else if (msg.type === 'reset') {
-      this.live = []; this._rebuild(); this.emit('reset', {});
+      this.live = []; this.stockIns = []; this._rebuild(); this.emit('reset', {});
     }
   }
 
@@ -118,6 +123,18 @@ class Store {
     return o;
   }
 
+  // 補貨入庫：到貨後登錄數量，前台與後台的庫存立即更新（其他分頁同步）
+  stockIn(pid, qty, { note = '' } = {}) {
+    const n = Math.round(+qty);
+    if (!PRODUCT_MAP[pid] || !(n > 0) || n > 99999) return null;
+    const rec = { ts: Date.now(), pid, qty: n, note: String(note || '').slice(0, 60) };
+    this.stockIns.push(rec); lsSet(LS_STOCK, this.stockIns);
+    this._broadcast({ type: 'stock' });
+    this.log('stock', `補貨入庫：${PRODUCT_MAP[pid].name} +${n}${note ? `（${rec.note}）` : ''}`);
+    this.emit('stock', { rec, remote: false });
+    return rec;
+  }
+
   setDeploy(mode) {
     this.settings.deploy = mode; lsSet(LS_SETTINGS, this.settings);
     this._broadcast({ type: 'deploy', mode });
@@ -125,7 +142,7 @@ class Store {
   }
 
   reset() {
-    this.live = []; lsSet(LS_ORDERS, []); this._rebuild();
+    this.live = []; lsSet(LS_ORDERS, []); this.stockIns = []; lsSet(LS_STOCK, []); this._rebuild();
     this._broadcast({ type: 'reset' });
     this.emit('reset', {});
   }
@@ -142,12 +159,14 @@ class Store {
   }
 
   // ---- 查詢 ----
+  // 庫存＝期初＋補貨入庫－示範中新增訂單的銷量
   inventory() {
-    const sold = {};
+    const sold = {}, got = {};
     for (const o of this.live) for (const it of o.items) sold[it.pid] = (sold[it.pid] || 0) + it.qty;
+    for (const r of this.stockIns) got[r.pid] = (got[r.pid] || 0) + r.qty;
     return PRODUCTS.map(p => {
-      const stock = Math.max(0, p.stock - (sold[p.id] || 0));
-      return { ...p, current: stock, low: stock < p.safety };
+      const stock = Math.max(0, p.stock + (got[p.id] || 0) - (sold[p.id] || 0));
+      return { ...p, current: stock, low: stock < p.safety, out: stock <= 0, received: got[p.id] || 0 };
     });
   }
   ordersBetween(from, to) { const a = +from, b = +to; return this.orders.filter(o => o.ts >= a && o.ts < b); }

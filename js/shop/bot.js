@@ -1,7 +1,7 @@
 // 聊天導購機器人（規則式意圖比對 + 多語言 + 語音）
 import { PRODUCTS, PRODUCT_MAP } from '../data.js';
 import { LANGS, pName, pDesc, pUnit, PRODUCT_ALIASES, detectLang } from '../i18n.js';
-import { T as t, isAmei, SHIP_MODE, visibleProducts, tagsOf, slotText, saleTag, promoOf } from './storefront.js';
+import { T as t, G, isAmei, SHIP_MODE, visibleProducts, tagsOf, slotText, saleTag, promoOf } from './storefront.js';
 import { $, $$, el, gsap, esc, money, sleep, speak, stopSpeak, getRecognizer } from '../util.js';
 import { icon } from '../icons.js';
 import { productArt } from '../art.js';
@@ -218,7 +218,9 @@ export function initBot(shop) {
     }
     if (prods.length && (R.add.test(q) || extractQty(q))) {
       const qty = Math.max(1, extractQty(q));
-      prods.forEach(pid => cart.add(pid, qty));
+      const none = prods.filter(pid => !cart.add(pid, qty));
+      // 已售完：不加入購物車，告訴客人並推薦其他還有貨的
+      if (none.length === prods.length) return { intent: 'soldout', gloss: `想買已售完的 ${pName('zh', none[0])}`, text: (l) => G(l, 'soldOutMsg', { p: pName(l, none[0]) }), cards: PRODUCTS.map(p => p.id).filter(id => !none.includes(id)).slice(0, 3) };
       const total = cart.totals().subtotal;
       return { intent: 'add', gloss: `要購買 ${prods.map(pid => pName('zh', pid)).join('、')} × ${qty}`, text: (l) => t(l, 'rAdded', { p: prods.map(pid => pName(l, pid)).join(' + '), q: qty, t: total.toLocaleString() }) };
     }
@@ -296,7 +298,9 @@ export function initBot(shop) {
     }
     if (prods.length && (R.add.test(q) || extractQty(q)) && forced == null) {
       const qty = Math.max(1, extractQty(q));
-      prods.forEach(pid => cart.add(pid, qty));
+      const none = prods.filter(pid => !cart.add(pid, qty));
+      // 已售完：不加入購物車，告訴客人並推薦其他還有貨的
+      if (none.length === prods.length) return { intent: 'soldout', gloss: `想買已售完的 ${pName('zh', none[0])}`, text: (l) => G(l, 'soldOutMsg', { p: pName(l, none[0]) }), cards: PRODUCTS.map(p => p.id).filter(id => !none.includes(id)).slice(0, 3) };
       const total = cart.totals().subtotal;
       return { intent: 'add', gloss: `要購買 ${prods.map(pid => pName('zh', pid)).join('、')} × ${qty}`, text: (l) => t(l, 'rAdded', { p: prods.map(pid => pName(l, pid)).join(' + '), q: qty, t: total.toLocaleString() }) };
     }
