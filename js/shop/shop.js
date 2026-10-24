@@ -14,7 +14,7 @@ import { onShopConfig } from '../shop-config.js';
 import { initTrack, trackText } from './track.js';
 import { initStorefront, bootStorefront, T, G, isAmei, LAYOUT, SHIP_MODE, STYLE, visibleProducts, featuredId, tagsOf, heroExtra, priceHTML, saleTag, promoOf, saleLabel, bindHeroExtra, onStorefront, getSlot, setSlot, slotDays, dayLabel, TIME_SLOTS, slotText, setHero } from './storefront.js';
 import { initAuction } from './auction.js';
-import { renderStory, hasStory } from './story.js';
+import { renderStory, hasStory, luxeCardMeta, luxeSpecs, luxeImgNote, takeGiftNote } from './story.js';
 import { isLive, enabledMethods, createPayment, submitToGateway, errorText, methodLabel, methodPayment, defaultReturnUrl, onPayConfig } from '../payments.js';
 
 // 線上金流（正式模式）文字：示範模式沿用 i18n.js 原本的結帳文案
@@ -86,6 +86,7 @@ function stockOf(pid) { const r = store.inventory().find(p => p.id === pid); ret
 const tagHTML = (p) => (isAmei ? (TAGS[p.id] || []).map(tg => `<span>${t(lang, 'tag_' + tg)}</span>`) : (tagsOf(p) || []).map(tg => `<span>${esc(G(lang, 'tag_' + tg))}</span>`)).join('');
 const metaHTML = (p) => {
   if (isAmei) return `<span>${t(lang, 'sweet')} ${sweetDots(p.sweet)}</span>`;
+  if (LAYOUT === 'luxe' && hasStory()) return luxeCardMeta(p, lang);
   if (SHIP_MODE === 'service') return `<span>⏱ ${p.dur ? `${p.dur} ${esc(G(lang, 'min'))}` : esc(pUnit(lang, p.id))}</span>`;
   return `<span>${esc(G(lang, 'dStock'))} ${stockOf(p.id)}</span><span class="dot">·</span><span>${esc(G(lang, 'mode_' + SHIP_MODE))}</span>`;
 };
@@ -170,7 +171,7 @@ function openDetail(pid) {
         <dt>${t(lang, 'storage')}</dt><dd>${t(lang, 'st_' + p.storage, { d: p.days })}</dd>`
     : `<dt>${esc(G(lang, 'dUnit'))}</dt><dd>${esc(pUnit(lang, pid))}</dd>
         ${p.dur ? `<dt>${esc(G(lang, 'dDur'))}</dt><dd>${p.dur} ${esc(G(lang, 'min'))}</dd>` : ''}
-        <dt>${esc(G(lang, 'dStock'))}</dt><dd>${stockOf(pid)}</dd>
+        ${LAYOUT === 'luxe' && hasStory() ? luxeSpecs(p, lang) : `<dt>${esc(G(lang, 'dStock'))}</dt><dd>${stockOf(pid)}</dd>`}
         <dt>${esc(G(lang, 'dMode'))}</dt><dd>${esc(G(lang, 'mode_' + SHIP_MODE))}</dd>`;
   card.innerHTML = `<button class="x-btn m-x">✕</button>
     <div class="d-art" style="--pc:${p.color}">${productArt(pid, 320)}</div>
@@ -178,6 +179,7 @@ function openDetail(pid) {
       <h2>${esc(pName(lang, pid))}</h2><small class="d-unit">${esc(pUnit(lang, pid))}</small>
       <p>${esc(pDesc(lang, pid))}</p>
       <dl>${dl}</dl>
+      ${LAYOUT === 'luxe' && luxeImgNote(lang) ? `<small class="d-imgnote">${esc(luxeImgNote(lang))}</small>` : ''}
       <div class="d-buy">${priceHTML(p, lang, money)}<div class="qty"><button data-q="-1">−</button><span id="dQ">1</span><button data-q="1">+</button></div><button class="s-btn s-btn-primary" id="dAdd">${t(lang, 'add')}</button></div>
     </div>`;
   showModal();
@@ -302,7 +304,8 @@ function placeOrder({ name = '', region = '', pickup = false, payment = '信用�
   const customer = name || `官網訪客${lang !== 'zh' ? `（${LANGS.find(l => l.id === lang).label}）` : ''}`;
   // 後台以中文顯示取貨方式
   const where = SHIP_MODE === 'service' ? `${G('zh', 'ckService')} ${slotText('zh')}` : pickup ? (isAmei ? '台中門市自取' : T('zh', 'ckPickup')) : (region || '宅配');
-  const order = store.createOrder({ channel: 'web', customer, lang, items, payment, status, region: where, pickup: pickup || SHIP_MODE === 'service', conv });
+  const note = hasStory() ? takeGiftNote(items) : '';
+  const order = store.createOrder({ channel: 'web', customer, lang, items, payment, status, region: where, pickup: pickup || SHIP_MODE === 'service', conv, note });
   if (clear) cart.clear();
   return order;
 }

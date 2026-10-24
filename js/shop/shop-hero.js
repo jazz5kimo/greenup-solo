@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { TENANT } from '../tenant.js';
 import { PRODUCTS } from '../data.js';
-import { productArt } from '../art.js';
+import { productArt, productImgUrl } from '../art.js';
 
 function softDot() {
   const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -137,8 +137,8 @@ const KIND_BY_TENANT = { amei: 'dessert', coffee: 'cup', leather: 'craft', flowe
 const imgCache = new Map();
 function artImage(pid) {
   if (imgCache.has(pid)) return imgCache.get(pid);
-  const svg = productArt(pid, 256).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-  const pr = new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+  const url = productImgUrl(pid), svg = url ? '' : productArt(pid, 256).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  const pr = new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = url || 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
   imgCache.set(pid, pr); return pr;
 }
 function faceTexture(img, bg, tint, round) {

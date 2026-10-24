@@ -135,8 +135,12 @@ function detailRows(d) {
   if (amount) rows.push([t('amount'), `<b>${money(amount)}</b>`]);
   if (method) rows.push([t('method'), `<b>${esc(methodLabel(method, lang))}</b>`]);
   if (provider) rows.push([t('provider'), `<b>${esc(PROVIDER_NAME[provider] || provider)}${d && d.env === 'test' ? ' <i class="pr-env">test</i>' : ''}</b>`]);
-  if (d && d.tradeNo) rows.push([t('tradeNo'), `<b class="mono">${esc(d.tradeNo)}</b>`]);
-  if (d && d.status === 'paid' && d.paidAt) rows.push([t('paidAt'), `<b>${esc(fmtExpire(d.paidAt))}</b>`]);
+  // 交易序號與付款時間：本頁輪詢的結果優先，其次是另一個分頁（後台）入帳時寫下的付款紀錄與訂單
+  const op = (o && o.pay) || {};
+  const tradeNo = (d && d.tradeNo) || rec.tradeNo || op.tradeNo || '';
+  const paidAt = (d && d.status === 'paid' && d.paidAt) || ((o && o.status === 'paid') || rec.status === 'paid' ? rec.paidAt || op.paidAt : '');
+  if (tradeNo) rows.push([t('tradeNo'), `<b class="mono">${esc(tradeNo)}</b>`]);
+  if (paidAt) rows.push([t('paidAt'), `<b>${esc(fmtExpire(paidAt))}</b>`]);
   return rows.map(([k, v]) => `<span>${esc(k)}</span>${v}`).join('');
 }
 const copyBtn = (val) => `<button type="button" class="pr-copy" data-copy="${esc(val)}">${esc(t('copy'))}</button>`;
@@ -217,5 +221,5 @@ $('#prLang').addEventListener('change', (e) => { lang = e.target.value; try { lo
 start();
 if (gsap) gsap.from('#prCard', { opacity: 0, y: 24, duration: 0.6, ease: 'power3.out' });
 // 另一個分頁（後台輪詢）先入帳時，本頁跟著顯示成功
-store.on('order-updated', ({ order }) => { if (order && order.id === orderId && order.status === 'paid' && state.kind !== 'ok') { markAuctionPaid(orderId); state = { kind: 'ok', data: state.data }; render(); setErr(''); if (poller) poller.stop(); } });
+store.on('order-updated', ({ order }) => { if (order && order.id === orderId && order.status === 'paid' && state.kind !== 'ok') { markAuctionPaid(orderId); const op = order.pay || {}; state = { kind: 'ok', data: Object.assign({}, state.data, { status: 'paid' }, op.tradeNo ? { tradeNo: op.tradeNo } : {}, op.provider ? { provider: op.provider } : {}, op.paidAt ? { paidAt: op.paidAt } : {}) }; render(); setErr(''); if (poller) poller.stop(); } });
 window.__payReturn = { get state() { return state; }, restart: start, lang: () => lang, config: getPayConfig, POLL_MAX };

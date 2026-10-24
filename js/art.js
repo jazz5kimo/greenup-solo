@@ -2,6 +2,8 @@
 import { TENANT } from './tenant.js';
 import { merchantArt } from './merchant-art.js';
 let uid = 0;
+// 商品有圖片檔（art.img）時回傳網址，給 3D 展台貼圖用
+export function productImgUrl(id) { const tp = (TENANT.products || []).find(x => x.id === id); return (tp && tp.art && tp.art.img) || null; }
 
 export function productArt(id, size = 120, { bg = true } = {}) {
   if (!ART[id]) { const tp = (TENANT.products || []).find(x => x.id === id); if (tp) return merchantArt(tp, size, { bg }); }

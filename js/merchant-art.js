@@ -267,6 +267,8 @@ export const ART_KINDS = Object.keys(ART);
 
 export function merchantArt(product, size = 120, { bg = true } = {}) {
   const a = (product && product.art) || {};
+  // 有實拍或 3D 渲染的商品圖（例如嬿窩）：直接用圖片
+  if (a.img) return `<img class="art art-photo" src="${a.img}" width="${size}" height="${size}" alt="" loading="lazy" decoding="async" draggable="false">`;
   const c = a.color || product?.color || '#cfc6b8', k = a.accent || product?.accent || '#6b5a4a';
   const u = 'm' + (++uid);
   const draw = ART[a.kind] || ART.bag;
@@ -286,7 +288,7 @@ const LOGO_ICON = {
   retail: (b) => `<path d="M11 15 h18 l-1.6 16 h-14.8 z" fill="#fff8ec"/><path d="M15 15 v-2.4 a5 5 0 0 1 10 0 v2.4" fill="none" stroke="#fff8ec" stroke-width="1.8"/><circle cx="16" cy="19" r="1.2" fill="${b}"/><circle cx="24" cy="19" r="1.2" fill="${b}"/>`,
   craft: (b) => `<circle cx="20" cy="20" r="8.5" fill="none" stroke="#fff8ec" stroke-width="2.4"/><path d="M14 26 L27 11" stroke="#fff8ec" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="20" r="3" fill="#fff8ec"/>`,
   farm: (b) => `<path d="M20 31 V18" stroke="#fff8ec" stroke-width="2" stroke-linecap="round"/><path d="M20 20 q-9 -1 -9 -10 q9 0 9 10z" fill="#fff8ec"/><path d="M20 18 q8 -1 8 -9 q-8 0 -8 9z" fill="#fff8ec" opacity=".85"/>`,
-  birdnest: (b) => `<path d="M9 20 Q20 33 31 20 Q20 25 9 20 Z" fill="#f4e3bd"/><path d="M12 23 Q20 29 28 23" stroke="#d9b56b" stroke-width="1" fill="none"/><path d="M10 15 C13 12 16 11.4 18.4 12 L25 9 L21.6 13.2 C23 13.8 23.8 14.8 23.4 15.6 C21.6 15 20 15.2 18.8 15.8 L13 19.8 L15.4 15.8 C13.6 16 11.4 15.6 10 15 Z" fill="#d9b56b"/>`,
+  birdnest: (b) => `<g transform="scale(.2)" fill="#e6c682"><circle cx="100" cy="100" r="86" fill="none" stroke="#e6c682" stroke-width="4" opacity=".85"/><path d="M46 112 Q100 172 154 112 Q100 132 46 112 Z"/><path transform="translate(0 -6)" d="M58 78 C64 72 74 69 84 71 C98 60 118 46 146 36 C130 52 116 64 106 74 C114 76 122 80 130 86 L164 94 C150 96 140 97 132 95 L154 112 C138 107 126 102 116 98 C106 106 94 117 78 126 C86 111 90 100 90 92 C80 91 68 86 58 78 Z"/></g>`,
   food: (b) => `<path d="M9 19 h22 q-1 10 -11 11 q-10 -1 -11 -11 z" fill="#fff8ec"/><path d="M14 15 q-2 -3 0 -5 M20 15 q-2 -3 0 -5 M26 15 q-2 -3 0 -5" stroke="#fff8ec" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M27 8 L16 19" stroke="#fff8ec" stroke-width="1.4"/>`,
 };
 export function merchantLogo(m, size = 40) {

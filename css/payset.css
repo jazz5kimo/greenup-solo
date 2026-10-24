@@ -1,0 +1,31 @@
+/* 線上金流（payset）：選金流商、環境、設定步驟；金流設定與付款狀態卡沿用 bank.css 的 .bnk-pay-* */
+.pys { display: grid; gap: 18px; max-width: 1280px; }
+.pys-lead { margin: 4px 0 16px; color: var(--txt2); line-height: 1.8; }
+.pys-provs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.pys-prov { position: relative; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 18px 18px 16px 52px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--glass2); color: var(--txt); transition: border-color .2s, box-shadow .2s, transform .2s; }
+.pys-prov:hover { transform: translateY(-2px); border-color: var(--leaf); }
+.pys-prov.on .pys-radio, .pys-ol li.ok .pys-n { color: #04130d; }
+.pys-prov.on { border-color: var(--leaf); background: color-mix(in srgb, var(--leaf) 12%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--leaf) 22%, transparent); }
+.pys-radio { position: absolute; left: 18px; top: 20px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--txt3); }
+.pys-prov.on .pys-radio { border-color: var(--leaf, #2DB674); background: radial-gradient(circle, var(--leaf, #2DB674) 0 45%, transparent 50%); }
+.pys-prov b { font-size: 17px; }
+.pys-prov ul { margin: 8px 0 6px; padding-left: 18px; font-size: 13.5px; color: var(--txt2); line-height: 1.7; }
+.pys-prov small { color: var(--txt3); font-size: 12.5px; }
+.pys-env { display: flex; align-items: stretch; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.pys-env > span { align-self: center; font-weight: 700; margin-right: 4px; }
+.pys-env .seg { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--glass2); cursor: pointer; font: inherit; color: var(--txt); }
+.pys-env .seg small { color: var(--txt3); font-size: 12px; }
+.pys-env .seg.on { border-color: var(--leaf); background: color-mix(in srgb, var(--leaf) 14%, transparent); }
+.pys-ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 12px; }
+.pys-ol li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+.pys-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--glass2); color: var(--txt2); }
+.pys-ol li.ok .pys-n { background: var(--leaf, #2DB674); color: #fff; }
+.pys-ol b { font-size: 15px; }
+.pys-ol p { margin: 4px 0 0; color: var(--txt2); font-size: 13.5px; line-height: 1.75; }
+.pys-ol code { font-size: 12.5px; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.28); color: var(--mint); word-break: break-all; }
+.pys-cmd { display: inline-block; margin: 6px 8px 0 0; }
+.pys-foot { margin: 0; font-size: 12.5px; color: var(--txt3); }
+@media (max-width: 760px) { .pys-provs { grid-template-columns: 1fr; } }
+.bnk-pay-link .bnk-pay-lk { margin: 4px 0 14px; color: var(--txt2); line-height: 1.7; }
+.pys-head .card-h { flex-wrap: wrap; gap: 8px; }
+.pys-head #pysState { white-space: normal; max-width: 100%; }

@@ -149,7 +149,7 @@ async function request(url, { method = 'GET', body = null, timeout = REQUEST_TIM
 // ---- 建立付款 ----
 // order：store 的訂單物件；method：credit|atm|cvs|linepay|all
 export async function createPayment(order, method, { lang = 'zh', returnUrl = defaultReturnUrl(), customer = null, base = payBase() } = {}) {
-  if (!base) throw new PayError('config', '尚未設定 n8n 網址（後台「金流對帳」→ 金流設定）');
+  if (!base) throw new PayError('config', '尚未設定 n8n 網址（後台「線上金流」→ 金流設定）');
   if (!order || !order.id) throw new PayError('bad', '沒有訂單');
   const items = (order.items || []).map(it => ({ name: it.name || (PRODUCT_MAP[it.pid] && PRODUCT_MAP[it.pid].name) || it.pid, qty: it.qty, price: it.price }));
   if (order.shipping) items.push({ name: '運費', qty: 1, price: order.shipping });

@@ -2,7 +2,9 @@
 // 故事、產地（芽莊燕島示意地圖）、四種燕窩怎麼挑、從燕島到餐桌、在家燉一盞（份量計算）、品質承諾、常見問題、示範聲明。
 // 內容放在業主的 merchant.story（五語，見 biz/g5.js）；沒有 story 的業主不顯示這一區。
 import { TENANT } from '../tenant.js';
-import { $, $$, el, esc } from '../util.js';
+import { $, $$, el, esc, money } from '../util.js';
+import { PRODUCT_MAP } from '../data.js';
+import { cart } from './cart.js';
 
 export const hasStory = () => !!(TENANT && TENANT.story);
 const S = (l) => (TENANT.story[l] || TENANT.story.en || TENANT.story.zh);
@@ -95,6 +97,7 @@ export function renderStory(lang) {
   const s = S(lang);
   const st = s.story, gr = s.grades, sp = s.steps, ca = s.calc, pr = s.promise, fq = s.faq;
   host.innerHTML = `
+  ${s.gift && PRODUCT_MAP['bn-gift'] ? giftHTML(s) : ''}
   <div class="lx-sec lx-intro lx-rv" id="story">
     <div class="lx-intro-t"><span class="lx-k">${esc(st.k)}</span><h2>${st.h}</h2>${st.p.map(p => `<p>${esc(p)}</p>`).join('')}<span class="lx-sign">— ${esc(st.sign)}</span></div>
     <div class="lx-intro-a">${STORY_ART}</div>
@@ -118,7 +121,9 @@ export function renderStory(lang) {
     <div class="lx-qs">${fq.list.map(([q, a], i) => `<details ${i === 0 ? 'open' : ''}><summary><span>${esc(q)}</span><i></i></summary><p>${esc(a)}</p></details>`).join('')}</div></div>
   <p class="lx-note">${esc(s.note)}</p>`;
   bind(host, lang);
+  if (s.gift && PRODUCT_MAP['bn-gift']) bindGift(host, lang);
   reveal(host);
+  luxeNav(lang); luxeFooter(lang);
 }
 
 function bind(host, lang) {
@@ -147,4 +152,123 @@ export function luxeBadges(lang) {
   if (!hasStory()) return '';
   const b = S(lang).badges || [];
   return `<div class="sfx-luxe">${b.map(x => `<span><i></i>${esc(x)}</span>`).join('')}</div>`;
+}
+
+// ---------- 訂製禮盒：六瓶任選冰糖／無糖（點瓶蓋就能換）＋手寫卡片 ----------
+const GIFT = { jars: ['s', 's', 's', 'p', 'p', 'p'], msg: '' };
+const LS_GIFT = 'greenup-solo:gift-notes';
+function giftBox() {
+  const pos = [[90, 86], [170, 86], [250, 86], [90, 176], [170, 176], [250, 176]];
+  return `<svg class="lx-gbox" viewBox="0 0 340 270" aria-hidden="true">
+    <defs><linearGradient id="lxGb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9c1259"/><stop offset="1" stop-color="#4d0a2e"/></linearGradient>
+      <radialGradient id="lxLid" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fbeec4"/><stop offset=".55" stop-color="#d9b56b"/><stop offset="1" stop-color="#a77c33"/></radialGradient></defs>
+    <rect x="14" y="20" width="312" height="236" rx="10" fill="url(#lxGb)"/><rect x="26" y="32" width="288" height="212" rx="6" fill="#3a0822"/>
+    <rect x="160" y="14" width="20" height="248" fill="#d9b56b" opacity=".9"/><rect x="8" y="128" width="324" height="14" fill="#d9b56b" opacity=".9"/>
+    ${pos.map(([x, y], i) => `<g class="lx-jar ${GIFT.jars[i] === 's' ? 'sw' : 'pl'}" data-jar="${i}" transform="translate(${x} ${y})" tabindex="0" role="button">
+      <circle r="34" fill="#2a0618"/><circle r="30" fill="url(#lxLid)"/>${Array.from({ length: 24 }, (_, k) => { const a = k / 24 * Math.PI * 2; return `<line x1="${(Math.cos(a) * 26).toFixed(1)}" y1="${(Math.sin(a) * 26).toFixed(1)}" x2="${(Math.cos(a) * 30).toFixed(1)}" y2="${(Math.sin(a) * 30).toFixed(1)}" stroke="#a77c33" stroke-width="1"/>`; }).join('')}
+      <circle class="lx-jdot" r="13"/><text class="lx-jt" y="4.5" text-anchor="middle"></text></g>`).join('')}
+  </svg>`;
+}
+function giftHTML(s) {
+  const g = s.gift, p = PRODUCT_MAP['bn-gift'];
+  return `<div class="lx-sec lx-gift lx-rv" id="giftbox">
+    <div class="lx-gift-a">${giftBox()}<div class="lx-gcard"><small>${esc(g.card)}</small><p id="lxGcardTxt">${esc(GIFT.msg || g.ph)}</p><i>嬿窩</i></div></div>
+    <div class="lx-gift-t"><span class="lx-k">${esc(g.k)}</span><h2>${esc(g.h)}</h2><p>${esc(g.sub)}</p>
+      <div class="lx-gmix"><div><i class="sw"></i><b>${esc(g.sweet)}</b><span><button data-gmix="s:-1">−</button><em id="lxGs">0</em><button data-gmix="s:1">＋</button></span></div>
+        <div><i class="pl"></i><b>${esc(g.plain)}</b><span><button data-gmix="p:-1">−</button><em id="lxGp">0</em><button data-gmix="p:1">＋</button></span></div></div>
+      <label class="lx-gmsg">${esc(g.card)}<textarea id="lxGmsg" maxlength="40" rows="2" placeholder="${esc(g.ph)}">${esc(GIFT.msg)}</textarea><small><em id="lxGn">0</em>/40</small></label>
+      <div class="lx-gbuy"><div><small>${esc(g.price)}</small><b>${money(p.price)}</b></div><button class="s-btn s-btn-primary" id="lxGadd">${esc(g.add)}</button></div>
+      <small class="lx-gnote">${esc(g.note)}</small></div>
+  </div>`;
+}
+function bindGift(host, lang) {
+  const g = S(lang).gift;
+  const paint = () => {
+    $$('.lx-jar', host).forEach(j => { const sw = GIFT.jars[+j.dataset.jar] === 's'; j.classList.toggle('sw', sw); j.classList.toggle('pl', !sw); $('.lx-jt', j).textContent = (sw ? g.sweet : g.plain).slice(0, lang === 'zh' || lang === 'ja' ? 2 : 1); });
+    const ns = GIFT.jars.filter(x => x === 's').length; $('#lxGs', host).textContent = ns; $('#lxGp', host).textContent = 6 - ns;
+  };
+  $$('.lx-jar', host).forEach(j => { const flip = () => { const i = +j.dataset.jar; GIFT.jars[i] = GIFT.jars[i] === 's' ? 'p' : 's'; paint(); j.classList.remove('pop'); void j.getBBox(); j.classList.add('pop'); };
+    j.addEventListener('click', flip); j.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } }); });
+  $$('[data-gmix]', host).forEach(b => b.addEventListener('click', () => { const [k, d] = b.dataset.gmix.split(':'); const want = k === 's' ? 's' : 'p', other = want === 's' ? 'p' : 's';
+    if (+d > 0) { const i = GIFT.jars.indexOf(other); if (i >= 0) GIFT.jars[i] = want; } else { const i = GIFT.jars.lastIndexOf(want); if (i >= 0) GIFT.jars[i] = other; } paint(); }));
+  const ta = $('#lxGmsg', host), out = $('#lxGcardTxt', host), n = $('#lxGn', host);
+  const upd = () => { GIFT.msg = ta.value.slice(0, 40); out.textContent = GIFT.msg || g.ph; out.classList.toggle('ph', !GIFT.msg); n.textContent = GIFT.msg.length; };
+  ta.addEventListener('input', upd); upd();
+  $('#lxGadd', host).addEventListener('click', (e) => {
+    const ns = GIFT.jars.filter(x => x === 's').length;
+    try { const a = JSON.parse(localStorage.getItem(LS_GIFT) || '[]'); a.push({ sweet: ns, plain: 6 - ns, msg: GIFT.msg }); localStorage.setItem(LS_GIFT, JSON.stringify(a)); } catch { /* ignore */ }
+    cart.add('bn-gift', 1);
+    const b = e.currentTarget, old = b.textContent; b.textContent = '✓ ' + g.added; b.classList.add('ok'); setTimeout(() => { b.textContent = old; b.classList.remove('ok'); }, 1500);
+  });
+  paint();
+}
+// 結帳時把訂製禮盒的內容與卡片寫進訂單備註（後台出貨看得到），用完就清掉
+export function takeGiftNote(items) {
+  if (!items.some(i => i.pid === 'bn-gift')) return '';
+  let a = []; try { a = JSON.parse(localStorage.getItem(LS_GIFT) || '[]'); localStorage.removeItem(LS_GIFT); } catch { /* ignore */ }
+  return a.map(x => `金緞禮盒：冰糖 ${x.sweet} 瓶、無糖 ${x.plain} 瓶${x.msg ? `；卡片「${x.msg}」` : ''}`).join('\n');
+}
+
+// ---------- 商品卡與商品詳情的精品資訊 ----------
+export function luxeCardMeta(p, lang) {
+  if (!hasStory()) return '';
+  const m = S(lang).meta || {};
+  return `<span class="lx-cm"><i></i>${esc(m.origin || '')}</span><span class="dot">·</span><span>${esc(p.storage === 'fridge' ? m.fridge : m.room)}</span>`;
+}
+export function luxeSpecs(p, lang) {
+  if (!hasStory()) return '';
+  const s = S(lang), sp = s.spec || {}, o = s.origin;
+  const d = p.days >= 365 ? `${Math.round(p.days / 365)}${sp.year}` : `${p.days}${sp.day}`;
+  return `${o ? `<dt>${esc(sp.origin)}</dt><dd>${esc(o.facts[0][1])}</dd>` : ''}<dt>${esc(sp.keep)}</dt><dd>${esc((p.storage === 'fridge' ? sp.fridge : sp.room).replace('{d}', d))}</dd>`;
+}
+export const luxeImgNote = (lang) => (hasStory() ? ((S(lang).spec || {}).img || '') : '');
+
+// ---------- 精品版面啟動：字體、主視覺照片與飛過的燕子 ----------
+export function luxeBoot() {
+  if (!hasStory()) return;
+  // 本機開發與測試（localhost）不載入網路字體，用系統襯線字；正式網站才向 Google Fonts 取字
+  const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get('fonts') !== '1';
+  if (!local && !document.querySelector('link[data-lx-font]')) {
+    for (const href of ['https://fonts.googleapis.com', 'https://fonts.gstatic.com']) { const l = document.createElement('link'); l.rel = 'preconnect'; l.href = href; if (href.includes('gstatic')) l.crossOrigin = ''; document.head.appendChild(l); }
+    const f = document.createElement('link'); f.rel = 'stylesheet'; f.dataset.lxFont = '1';
+    f.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Serif+TC:wght@400;500;600;700&display=swap';
+    document.head.appendChild(f);
+  }
+  const hi = TENANT.heroImg;
+  const hero = $('.s-hero');
+  if (hi && hero) {
+    document.body.classList.add('lx-photo');
+    hero.style.setProperty('--lx-hero', `url("${hi.wide}")`); hero.style.setProperty('--lx-hero-m', `url("${hi.tall || hi.wide}")`);
+    if (!$('.lx-fly', hero)) hero.insertAdjacentHTML('afterbegin', `<div class="lx-fly" aria-hidden="true">${[0, 1, 2, 3, 4].map(i => `<svg class="f${i}" viewBox="0 0 24 16"><path d="M0 8 C4 4.5 8 3.6 11.5 4.6 L21 0 L15.6 6.2 C17.6 7 18.8 8.6 18.2 9.8 C15.6 9 13.4 9.2 11.6 10.2 L3 16 L6.6 10.2 C4 10.4 1.6 9.6 0 8 Z"/></svg>`).join('')}</div><div class="lx-veil" aria-hidden="true"></div>`);
+  }
+}
+
+// ---------- 精品版面的導覽列與頁尾 ----------
+const NAV = { zh: ['產地', '禮盒'], en: ['Origin', 'Gift box'], ja: ['産地', 'ギフト'], vi: ['Xuất xứ', 'Hộp quà'], ms: ['Asal', 'Kotak hadiah'] };
+function luxeNav(lang) {
+  const box = $('.s-links'); if (!box) return;
+  $$('[data-lxnav]', box).forEach(a => a.remove());
+  const [o, g] = NAV[lang] || NAV.en, prod = $('a[href="#products"]', box);
+  const links = [['#origin', o], ['#giftbox', g]].filter(([h]) => document.querySelector(h));
+  links.reverse().forEach(([h, t]) => { const a = el(`<a href="${h}" data-lxnav>${esc(t)}</a>`); if (prod) prod.after(a); else box.prepend(a); });
+}
+const FOOT = {
+  zh: { shop: '購物', about: '關於嬿窩', care: '客服', all: '全部商品', gift: '訂製禮盒', sub: '鮮燉訂閱', track: '訂單查詢', story: '品牌故事', origin: '芽莊燕島', faq: '常見問題', stew: '燉煮方法', ai: 'AI 導購（24 小時）', soon: '客服電話與信箱將於正式上架時公布', rights: '嬿窩 YAN NEST', img: '商品圖為 3D 示意' },
+  en: { shop: 'Shop', about: 'About', care: 'Help', all: 'All products', gift: 'Gift box', sub: 'Subscription', track: 'Track order', story: 'Our story', origin: 'Nha Trang islands', faq: 'FAQ', stew: 'How to stew', ai: 'AI concierge (24/7)', soon: 'Phone and email will be published at launch', rights: 'YAN NEST', img: 'Product images are 3D illustrations' },
+  ja: { shop: 'ショップ', about: '嬿窩について', care: 'サポート', all: 'すべての商品', gift: 'ギフト', sub: '定期便', track: '注文照会', story: 'ブランドストーリー', origin: 'ニャチャンの燕の島', faq: 'よくあるご質問', stew: '炊き方', ai: 'AIスタッフ（24時間）', soon: '電話・メールは正式オープン時に公開します', rights: '嬿窩 YAN NEST', img: '商品画像は3Dのイメージです' },
+  vi: { shop: 'Mua sắm', about: 'Về YAN NEST', care: 'Hỗ trợ', all: 'Tất cả sản phẩm', gift: 'Hộp quà', sub: 'Gói định kỳ', track: 'Tra đơn', story: 'Câu chuyện', origin: 'Đảo yến Nha Trang', faq: 'Câu hỏi', stew: 'Cách chưng', ai: 'Trợ lý AI (24/7)', soon: 'Số điện thoại và email sẽ công bố khi chính thức mở bán', rights: 'YAN NEST', img: 'Hình sản phẩm là minh họa 3D' },
+  ms: { shop: 'Beli-belah', about: 'Tentang', care: 'Bantuan', all: 'Semua produk', gift: 'Kotak hadiah', sub: 'Langganan', track: 'Jejak pesanan', story: 'Kisah kami', origin: 'Pulau Nha Trang', faq: 'Soalan lazim', stew: 'Cara tanak', ai: 'Pembantu AI (24/7)', soon: 'Telefon dan e-mel akan diumumkan semasa pelancaran', rights: 'YAN NEST', img: 'Gambar produk ialah ilustrasi 3D' },
+};
+function luxeFooter(lang) {
+  const f = $('.s-foot'); if (!f) return;
+  const t = FOOT[lang] || FOOT.en, s = S(lang), c = TENANT.contact || null;
+  let box = $('.lx-foot', f); if (!box) { box = el('<div class="lx-foot"></div>'); f.prepend(box); }
+  const care = c ? [c.line && `LINE：${esc(c.line)}`, c.email && esc(c.email), c.phone && esc(c.phone)].filter(Boolean).map(x => `<li>${x}</li>`).join('') : `<li class="muted">${esc(t.soon)}</li>`;
+  box.innerHTML = `<div class="lx-fb"><img src="img/birdnest/logo.svg" width="56" height="56" alt=""><div><b>${esc(TENANT.name)}</b><small>${esc(TENANT.en || '')}</small></div><p>${esc((TENANT.copy && TENANT.copy[lang] && TENANT.copy[lang].tagline) || TENANT.tagline || '')}</p></div>
+    <div><h6>${esc(t.shop)}</h6><ul><li><a href="#products">${esc(t.all)}</a></li><li><a href="#giftbox">${esc(t.gift)}</a></li><li><a href="#products" data-lxp="bn-sub">${esc(t.sub)}</a></li><li><a href="#" data-lxtrack>${esc(t.track)}</a></li></ul></div>
+    <div><h6>${esc(t.about)}</h6><ul><li><a href="#story">${esc(t.story)}</a></li><li><a href="#origin">${esc(t.origin)}</a></li><li><a href="#stew">${esc(t.stew)}</a></li><li><a href="#faq">${esc(t.faq)}</a></li></ul></div>
+    <div><h6>${esc(t.care)}</h6><ul><li><a href="#" data-lxbot>${esc(t.ai)}</a></li>${care}</ul></div>
+    <p class="lx-fcopy">© ${new Date().getFullYear()} ${esc(t.rights)}・${esc(t.img)}</p>`;
+  $('[data-lxbot]', box).addEventListener('click', (e) => { e.preventDefault(); const b = $('#botFab'); if (b) b.click(); });
+  $('[data-lxtrack]', box).addEventListener('click', (e) => { e.preventDefault(); const b = $('.track-btn'); if (b) b.click(); });
 }

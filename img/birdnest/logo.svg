@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7e3a6"/><stop offset=".45" stop-color="#d9b56b"/><stop offset="1" stop-color="#a77c33"/></linearGradient>
+    <radialGradient id="m" cx=".38" cy=".32" r=".8"><stop offset="0" stop-color="#d02a7e"/><stop offset=".6" stop-color="#b8146a"/><stop offset="1" stop-color="#7e1150"/></radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="96" fill="url(#m)"/>
+  <circle cx="100" cy="100" r="88" fill="none" stroke="url(#g)" stroke-width="2.2"/>
+  <circle cx="100" cy="100" r="83" fill="none" stroke="url(#g)" stroke-width=".8" opacity=".7"/>
+  <!-- 燕盞 -->
+  <path d="M46 112 Q100 172 154 112 Q100 132 46 112 Z" fill="url(#g)"/>
+  <path d="M56 121 Q100 156 144 121" fill="none" stroke="#7e1150" stroke-width="1.4" opacity=".55"/>
+  <path d="M66 131 Q100 152 134 131" fill="none" stroke="#7e1150" stroke-width="1.2" opacity=".45"/>
+  <!-- 燕子：弧形雙翼、分叉長尾 -->
+  <path transform="translate(0 -6)" d="M58 78 C64 72 74 69 84 71 C98 60 118 46 146 36 C130 52 116 64 106 74 C114 76 122 80 130 86 L164 94 C150 96 140 97 132 95 L154 112 C138 107 126 102 116 98 C106 106 94 117 78 126 C86 111 90 100 90 92 C80 91 68 86 58 78 Z" fill="url(#g)"/>
+  <circle cx="72" cy="69" r="1.9" fill="#7e1150"/>
+</svg>

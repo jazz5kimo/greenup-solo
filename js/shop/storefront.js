@@ -11,7 +11,7 @@ import { promoInfo, activePromos, onPromos, FESTIVALS } from '../promo.js';
 import { merchantLogo } from '../merchant-art.js';
 import { SCENE_NAMES, defaultScene, SCENE_ICON, SCENE_EN, SCENE_SHORT } from './scene-names.js';
 import { $, $$, el, gsap, esc } from '../util.js';
-import { luxeBadges } from './story.js';
+import { luxeBadges, luxeBoot } from './story.js';
 
 export const isAmei = TENANT_ID === 'amei';
 export const MER = TENANT;
@@ -602,6 +602,7 @@ export function bootStorefront(shop) {
   for (const [k, v] of Object.entries(STYLE)) if (v) b.setAttribute('data-sf-' + k, v);
   renderBrand(shop.lang);
   current = null; applyTheme(computeTheme(), false);
+  if (LAYOUT === 'luxe') luxeBoot();
 }
 export function setHero(api) { heroApi = api; if (api && api.setLook && current) api.setLook({ ...current.theme.hero, vars: current.theme.vars }); }
 

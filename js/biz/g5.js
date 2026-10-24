@@ -159,6 +159,9 @@ export const BIZ = [
       // 前台品牌故事區塊（精品版面）：故事、四種燕窩、工序、燉煮計算、品質承諾、常見問題、聲明
       story: {
         zh: {
+          meta: { origin: '芽莊燕島', fridge: '冷藏宅配', room: '常溫宅配' },
+          spec: { origin: '產地', keep: '保存', fridge: '冷藏 0–7°C・未開封約 {d}（示範）', room: '陰涼乾燥處・約 {d}（示範）', day: ' 天', year: ' 年', img: '商品圖為 3D 示意，實際以包裝為準' },
+          gift: { k: 'GIFT BOX', h: '訂製你的金緞禮盒', sub: '六瓶任選冰糖或無糖，配上一張手寫卡片，送長輩、送客戶都體面。', sweet: '冰糖', plain: '無糖', bottles: ' 瓶', card: '卡片想說的話', ph: '例如：祝 媽媽 生日快樂', add: '放入購物車', price: '禮盒價', added: '已放入購物車', note: '卡片由店主手寫（示範）；禮盒內容以實際出貨為準。' },
           badges: ['出貨前一天現燉', '冷鏈 0–7°C', '每批附檢驗紀錄（示範）'],
           story: { k: 'OUR STORY', h: '海風裡的燕島，<br>一盞一盞慢慢來。', p: ['越南芽莊外海散落著幾座燕島，金絲燕在島上的岩洞與崖壁間，用唾液一圈一圈築巢，一盞燕窩要花上好幾週。', '嬿窩把這份來自燕島的禮物帶回台灣：一盞一盞浸泡、用鑷子挑去細毛，再以隔水燉的方式慢慢燉好。不追求快，只想讓你吃到燕窩本來的樣子。'], sign: '嬿窩' },
           origin: { k: 'ORIGIN', h: '產地：越南芽莊燕島', sub: '芽莊位於越南中南部的慶和省，外海的島嶼岩壁是金絲燕築巢的地方。', coord: '12.2°N  109.2°E', map: ['芽莊', '慶和省・越南', '燕島'], facts: [['產地', '越南慶和省芽莊外海燕島'], ['燕窩種類', '島燕（岩洞燕窩）'], ['採收', '依燕子築巢季節進行'], ['來台', '輸入檢疫與查驗文件（準備中）']], note: '地圖為示意；產地資訊以實際包裝標示為準。' },
@@ -181,6 +184,9 @@ export const BIZ = [
           note: '嬿窩品牌籌備中：本頁商品、價格、規格與檢驗資訊為示範內容，正式上架以實際標示為準。燕窩為一般食品，不具醫療效能；食用與標示規範以主管機關公告為準，特殊體質請諮詢醫師或營養師。',
         },
         en: {
+          meta: { origin: 'Nha Trang islands', fridge: 'Chilled delivery', room: 'Ambient delivery' },
+          spec: { origin: 'Origin', keep: 'Storage', fridge: 'Chilled 0–7°C · about {d} unopened (demo)', room: 'Cool, dry place · about {d} (demo)', day: ' days', year: ' years', img: 'Product images are 3D illustrations; actual packaging may differ' },
+          gift: { k: 'GIFT BOX', h: 'Build your Golden Ribbon box', sub: 'Choose any mix of six rock-sugar or unsweetened jars and add a handwritten card.', sweet: 'Rock sugar', plain: 'Unsweetened', bottles: ' jars', card: 'Your card message', ph: 'e.g. Happy birthday, Mum', add: 'Add to cart', price: 'Box price', added: 'Added to cart', note: 'Cards are handwritten by the owner (demo); box contents follow the actual shipment.' },
           badges: ['Stewed the day before shipping', 'Chilled 0–7°C', 'Test record for every batch (demo)'],
           story: { k: 'OUR STORY', h: 'Islands in the sea breeze,<br>one nest at a time.', p: ['A handful of swiftlet islands lie off the coast of Nha Trang, Vietnam. In their rock caves and cliffs, swiftlets weave their nests strand by strand over several weeks.', 'YAN NEST brings this gift from the islands to Taiwan: every nest is soaked, cleaned by hand with tweezers and slowly double-boiled. We’re not in a hurry; we just want you to taste bird’s nest the way it should be.'], sign: 'YAN NEST' },
           origin: { k: 'ORIGIN', h: 'Origin: the nest islands of Nha Trang', sub: 'Nha Trang is in Khánh Hòa province, south-central Vietnam. The cliffs of its offshore islands are where swiftlets build their nests.', coord: '12.2°N  109.2°E', map: ['Nha Trang', 'Khánh Hòa · Vietnam', 'Nest islands'], facts: [['Origin', 'Nest islands off Nha Trang, Khánh Hòa, Vietnam'], ['Type', 'Island cave nest'], ['Harvest', 'Following the swiftlets’ nesting seasons'], ['Import', 'Quarantine and inspection papers (in preparation)']], note: 'Map is illustrative; origin details follow the actual package label.' },
@@ -203,6 +209,9 @@ export const BIZ = [
           note: 'YAN NEST is a brand in preparation: products, prices, specs and test information on this page are samples, and final listings follow the actual labels. Bird’s nest is a regular food with no medical effect; labelling and consumption rules follow the competent authorities. Please consult a doctor or dietitian if you have special health conditions.',
         },
         ja: {
+          meta: { origin: 'ニャチャンの島', fridge: 'クール便', room: '常温便' },
+          spec: { origin: '産地', keep: '保存', fridge: '冷蔵 0〜7°C・未開封で約{d}（デモ）', room: '冷暗所・約{d}（デモ）', day: '日', year: '年', img: '商品画像は3Dのイメージです。実際の包装とは異なる場合があります' },
+          gift: { k: 'GIFT BOX', h: '金リボンのギフトを組み合わせる', sub: '氷砂糖と無糖を6本自由に選び、手書きのカードを添えて。', sweet: '氷砂糖', plain: '無糖', bottles: '本', card: 'カードのメッセージ', ph: '例：お母さん、お誕生日おめでとう', add: 'カートに入れる', price: 'ギフト価格', added: 'カートに入れました', note: 'カードは店主の手書きです（デモ）。内容は実際の出荷に準じます。' },
           badges: ['出荷前日に炊き上げ', 'クール便 0〜7°C', 'ロットごとに検査記録（デモ）'],
           story: { k: 'OUR STORY', h: '海風の吹く燕の島から、<br>ひとつずつ丁寧に。', p: ['ベトナム・ニャチャンの沖合には燕の島が点在し、アナツバメは島の岩洞や崖で、何週間もかけて少しずつ巣を作ります。', '嬿窩は島からの贈り物を台湾へ。ひとつずつ浸水し、ピンセットで毛を取り、湯せんでゆっくり炊き上げます。急がず、燕の巣本来の味を届けたいと思っています。'], sign: '嬿窩' },
           origin: { k: 'ORIGIN', h: '産地：ベトナム・ニャチャンの燕の島', sub: 'ニャチャンはベトナム中南部のカインホア省。沖合の島の岩壁がアナツバメの巣作りの場所です。', coord: '12.2°N  109.2°E', map: ['ニャチャン', 'カインホア省・ベトナム', '燕の島'], facts: [['産地', 'ベトナム・カインホア省ニャチャン沖の燕の島'], ['種類', '島の岩洞の燕の巣'], ['採取', 'ツバメの営巣シーズンに合わせて'], ['輸入', '輸入検疫・検査書類（準備中）']], note: '地図はイメージです。産地情報は実際の包装表示に従います。' },
@@ -225,6 +234,9 @@ export const BIZ = [
           note: '嬿窩はブランド準備中です。本ページの商品・価格・規格・検査情報はサンプルで、正式な販売時は実物の表示に従います。燕の巣は一般食品であり医療効果はありません。表示や摂取については所管官庁の定めに従い、持病のある方は医師・栄養士にご相談ください。',
         },
         vi: {
+          meta: { origin: 'Đảo yến Nha Trang', fridge: 'Giao lạnh', room: 'Giao thường' },
+          spec: { origin: 'Xuất xứ', keep: 'Bảo quản', fridge: 'Lạnh 0–7°C · chưa mở khoảng {d} (demo)', room: 'Nơi khô mát · khoảng {d} (demo)', day: ' ngày', year: ' năm', img: 'Hình sản phẩm là minh họa 3D; bao bì thực tế có thể khác' },
+          gift: { k: 'GIFT BOX', h: 'Tự chọn hộp quà ruy băng vàng', sub: 'Chọn 6 hũ đường phèn hoặc không đường tùy ý, kèm thiệp viết tay.', sweet: 'Đường phèn', plain: 'Không đường', bottles: ' hũ', card: 'Lời nhắn trên thiệp', ph: 'VD: Chúc mẹ sinh nhật vui vẻ', add: 'Thêm vào giỏ', price: 'Giá hộp quà', added: 'Đã thêm vào giỏ', note: 'Thiệp do chủ tiệm viết tay (demo); nội dung hộp theo hàng giao thực tế.' },
           badges: ['Chưng trước ngày giao', 'Giao lạnh 0–7°C', 'Mỗi lô có hồ sơ kiểm nghiệm (demo)'],
           story: { k: 'OUR STORY', h: 'Đảo yến trong gió biển,<br>từng tổ một, thật chậm.', p: ['Ngoài khơi Nha Trang, Việt Nam có những đảo yến, nơi chim yến kết tổ từng sợi trong hang đá và vách núi suốt nhiều tuần.', 'YAN NEST mang món quà từ đảo yến về Đài Loan: ngâm từng tổ, nhặt lông bằng nhíp và chưng cách thủy thật chậm. Không vội vàng, chỉ muốn bạn thưởng thức yến đúng vị nguyên bản.'], sign: 'YAN NEST' },
           origin: { k: 'ORIGIN', h: 'Xuất xứ: đảo yến Nha Trang', sub: 'Nha Trang thuộc tỉnh Khánh Hòa, Nam Trung Bộ Việt Nam. Vách đá trên các đảo ngoài khơi là nơi chim yến làm tổ.', coord: '12.2°N  109.2°E', map: ['Nha Trang', 'Khánh Hòa · Việt Nam', 'Đảo yến'], facts: [['Xuất xứ', 'Đảo yến ngoài khơi Nha Trang, Khánh Hòa'], ['Loại', 'Yến đảo (yến hang)'], ['Thu hoạch', 'Theo mùa làm tổ của chim yến'], ['Nhập khẩu', 'Giấy kiểm dịch và kiểm tra (đang chuẩn bị)']], note: 'Bản đồ mang tính minh họa; thông tin xuất xứ theo nhãn bao bì thực tế.' },
@@ -247,6 +259,9 @@ export const BIZ = [
           note: 'YAN NEST là thương hiệu đang chuẩn bị: sản phẩm, giá, quy cách và thông tin kiểm nghiệm trên trang là mẫu; khi bán chính thức sẽ theo nhãn thực tế. Yến là thực phẩm thông thường, không có tác dụng chữa bệnh; quy định ghi nhãn và sử dụng theo cơ quan có thẩm quyền. Người có tình trạng sức khỏe đặc biệt nên hỏi ý kiến bác sĩ hoặc chuyên gia dinh dưỡng.',
         },
         ms: {
+          meta: { origin: 'Pulau Nha Trang', fridge: 'Penghantaran sejuk', room: 'Penghantaran biasa' },
+          spec: { origin: 'Asal', keep: 'Simpanan', fridge: 'Sejuk 0–7°C · kira-kira {d} belum dibuka (demo)', room: 'Tempat sejuk & kering · kira-kira {d} (demo)', day: ' hari', year: ' tahun', img: 'Gambar produk ialah ilustrasi 3D; bungkusan sebenar mungkin berbeza' },
+          gift: { k: 'GIFT BOX', h: 'Bina kotak Reben Emas anda', sub: 'Pilih enam balang gula batu atau tanpa gula, dengan kad tulisan tangan.', sweet: 'Gula batu', plain: 'Tanpa gula', bottles: ' balang', card: 'Mesej kad', ph: 'cth. Selamat hari jadi, Ibu', add: 'Tambah ke troli', price: 'Harga kotak', added: 'Ditambah ke troli', note: 'Kad ditulis tangan oleh pemilik (demo); isi kotak ikut penghantaran sebenar.' },
           badges: ['Ditanak sehari sebelum hantar', 'Sejuk 0–7°C', 'Rekod ujian setiap kelompok (demo)'],
           story: { k: 'OUR STORY', h: 'Pulau dalam bayu laut,<br>satu sarang demi satu.', p: ['Di luar pantai Nha Trang, Vietnam terdapat beberapa pulau walit. Di gua batu dan tebingnya, burung walit menganyam sarang helai demi helai selama beberapa minggu.', 'YAN NEST membawa hadiah dari pulau ini ke Taiwan: setiap sarang direndam, dibersihkan dengan penyepit dan ditanak secara double-boil perlahan-lahan. Tidak tergesa-gesa, cuma mahu anda merasa sarang burung yang sebenar.'], sign: 'YAN NEST' },
           origin: { k: 'ORIGIN', h: 'Asal: pulau walit Nha Trang', sub: 'Nha Trang terletak di wilayah Khánh Hòa, tengah selatan Vietnam. Tebing pulau-pulau di luar pantainya ialah tempat burung walit bersarang.', coord: '12.2°N  109.2°E', map: ['Nha Trang', 'Khánh Hòa · Vietnam', 'Pulau walit'], facts: [['Asal', 'Pulau walit di luar Nha Trang, Khánh Hòa, Vietnam'], ['Jenis', 'Sarang gua pulau'], ['Kutipan', 'Mengikut musim bersarang burung walit'], ['Import', 'Dokumen kuarantin dan pemeriksaan (dalam persediaan)']], note: 'Peta ialah ilustrasi; maklumat asal ikut label pada bungkusan sebenar.' },

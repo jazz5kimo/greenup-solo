@@ -57,6 +57,7 @@ const DEFAULTS = {
   books: D('edit', 'view', 'none', 'view', 'view'),
   tax: D('edit', 'view', 'none', 'view', 'view'),
   bank: D('edit', 'view', 'none', 'view', 'view'),
+  payset: D('edit', 'view', 'none', 'view', 'view'),
   receipts: D('edit', 'view', 'none', 'view', 'view'),
   owner: D('edit', 'none', 'none', 'view', 'none'),
   ask: D('edit', 'view', 'none', 'view', 'view'),

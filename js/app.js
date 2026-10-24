@@ -22,6 +22,7 @@ import inventory from './views/inventory.js';
 import shipping from './views/shipping.js';
 import staff from './views/staff.js';
 import bank from './views/bank.js';
+import payset from './views/payset.js';
 import hub from './views/hub.js';
 import auto from './views/auto.js';
 import market from './views/market.js';
@@ -50,6 +51,7 @@ const VIEWS = [
   { mod: chat, id: 'chat', group: '接單收款', name: 'AI 聊天收單', icon: 'chat', sub: 'LINE、WhatsApp、Zalo、Messenger 多語言自動接單', tag: '多語' },
   { mod: phone, id: 'phone', group: '接單收款', name: 'AI 電話客服', icon: 'phone', sub: '24 小時接聽、複述確認、自動建單' },
   { mod: booking, id: 'booking', group: '接單收款', name: '預約與訂金', icon: 'calendar', sub: '客製蛋糕、取貨時段、課程預約，LINE 收訂金與提醒' },
+  { mod: payset, id: 'payset', group: '接單收款', name: '線上金流', icon: 'lock', sub: '綠界 ECPay／藍新 NewebPay：選金流商、設定步驟、連線測試、線上付款入帳' },
   { mod: quotes, id: 'quotes', group: '接單收款', name: '報價與請款', icon: 'file', sub: '企業客戶報價、電子簽回、月結請款、定期扣款' },
   { mod: listing, id: 'listing', group: '商品上架', name: 'AI 商品上架', icon: 'sparkle', sub: '拍一張照，AI 寫五語介紹、建議定價、一鍵上架各通路' },
   { mod: market, id: 'market', group: '商品上架', name: '多平台上架', icon: 'store', sub: '一次上架蝦皮、momo、PChome、Yahoo、露天、Pinkoi…；不能串接的自動打包上傳檔', tag: '新' },
@@ -98,7 +100,9 @@ auth.registerModules(VIEWS);
 auth.init(); // ?role= 直接以該角色進入；?nolaunch 無 role → 負責人；否則沿用上次登入或顯示登入畫面
 
 // 簡單模式：一人公司只看核心頁面（接單、收款、帳務報稅、用問的、自動化），其餘收進「全部功能」
-const SIMPLE = new Set(['dashboard', 'autopilot', 'auto', 'brief', 'chat', 'phone', 'pos', 'promo', 'receipts', 'bank', 'books', 'tax', 'ask']);
+const SIMPLE = new Set(['dashboard', 'autopilot', 'auto', 'brief', 'chat', 'phone', 'pos', 'payset', 'promo', 'receipts', 'bank', 'books', 'tax', 'ask']);
+// 宅配出貨的店（賣商品寄到家）：出貨物流與庫存也是每天要做的事
+if (((TENANT.ship && TENANT.ship.mode) || 'ship') === 'ship') ['shipping', 'inventory'].forEach(id => SIMPLE.add(id));
 // 依角色決定「核心」：員工的核心是收銀出貨打卡，記帳士的核心是帳務報稅（自訂角色沿用負責人的，太少就全部顯示）
 const CORE_BY_ROLE = {
   manager: new Set(['dashboard', 'autopilot', 'brief', 'pos', 'chat', 'phone', 'booking', 'promo', 'crm', 'inventory', 'shipping', 'staff', 'ask']),

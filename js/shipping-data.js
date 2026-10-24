@@ -79,7 +79,9 @@ function pick(rng, list) { const tot = list.reduce((s, x) => s + x[1], 0); let r
 const H = 3600e3;
 
 // 冷藏判斷：阿美依商品主檔；其他業主依業態與保存天數（鮮食、鮮花、短效飲品走冷藏）
-const coldOf = (p) => !!p && (IS_AMEI ? p.storage === 'fridge' : ['food', 'farm', 'dessert', 'flower', 'drink'].includes(CAT) && (KIT.shelfOf(p) ?? 999) <= 7);
+// 業主在商品資料寫明保存方式（storage）時以它為準，例如嬿窩：乾燕盞常溫、鮮燉冷藏
+const ownStorage = (p) => { const raw = (TENANT.products || []).find(x => x.id === p.id); return raw && raw.storage; };
+const coldOf = (p) => !!p && (IS_AMEI ? p.storage === 'fridge' : ownStorage(p) ? ownStorage(p) === 'fridge' : ['food', 'farm', 'dessert', 'flower', 'drink'].includes(CAT) && (KIT.shelfOf(p) ?? 999) <= 7);
 export function isFridge(order) { return order.items.some(it => coldOf(PRODUCT_MAP[it.pid])); }
 
 export function trackingNo(carrier, rng) {
