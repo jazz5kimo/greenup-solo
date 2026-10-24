@@ -157,7 +157,10 @@ function town({ k, world, pal, clear, mobile }) {
   const flagC = [hex(pal[0]), '#e74c3c', '#f1c40f', '#3498db', '#2ecc71'];
   for (let s = 0; s < 4; s++) { const a0 = -2.4 + s * 1.6, x0 = Math.sin(a0) * (CORE - 0.4), z0 = Math.cos(a0) * (CORE - 0.4); add(k, world, cyl(0.05, 0.06, 4, 6), '#555', x0, 2, z0);
     for (let j = 1; j < 10; j++) { const u = j / 10, x = x0 * (1 - u), z = z0 * (1 - u) + 0.9 * u, y = 4 - Math.sin(Math.PI * u) * 0.8 + u * 0.4; const f = add(k, world, cone(0.18, 0.35, 3), flagC[j % flagC.length], x, y - 0.18, z, false); f.rotation.x = Math.PI; } }
-  return { features: ['鐘樓市政廳', '彩色排屋', '石板廣場', '三角旗'], heroH: 9.5 };
+  // 鴿子：在廣場上啄食，偶爾一起飛起來繞一圈
+  const doves = []; for (let i = 0; i < (mobile ? 6 : 12); i++) { const d = grp(); add(k, d, sph(0.12, 8, 6), '#9aa3ab', 0, 0.1, 0).scale.set(1, 0.8, 1.4); add(k, d, sph(0.07, 8, 6), '#7a8590', 0, 0.2, 0.13); world.add(d); doves.push({ d, a: k.rnd() * TAU, r: 6 + k.rnd() * 2 }); }
+  k.anim.push((t) => { const c = t % 18, fly = c > 12 ? Math.sin((c - 12) / 6 * Math.PI) : 0; doves.forEach(({ d, a, r }, i) => { const aa = a + (fly ? t * 0.8 : 0); d.position.set(Math.sin(aa) * r, 0.13 + fly * (4 + (i % 3)), Math.cos(aa) * r); d.rotation.y = aa + Math.PI / 2; d.rotation.x = fly ? 0 : Math.max(0, Math.sin(t * 6 + i)) * 0.5; }); });
+  return { features: ['鐘樓市政廳', '彩色排屋', '石板廣場', '三角旗', '鴿子'], heroH: 9.5 };
 }
 
 // ================= 森林樹屋 =================

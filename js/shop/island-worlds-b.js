@@ -95,7 +95,8 @@ function harbor({ k, world, pal, clear, mobile }) {
   const sign = nameSign(k, 4.6, 0.7, '#1f3b5a', '#ffffff'); sign.position.set(0, 2.25, HD / 2 - 0.12); h.add(sign);
   // 港口起重機、貨櫃
   for (const [x, z] of [[10.5, -15], [10.5, -23]]) { const g = grp(x, 0, z); g.rotation.y = Math.PI / 2; const rM = k.m('#c0392b'), wM = k.m('#f4f4f4'); for (const [lx, lz] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) add(k, g, box(0.3, 9, 0.3), (lx > 0) ? rM : wM, lx, 4.5, lz);
-    add(k, g, box(3.4, 0.6, 3.4), rM, 0, 9.2, 0); const arm = add(k, g, box(0.5, 0.5, 14), wM, 0, 9.8, 4); arm.castShadow = true; add(k, g, box(0.05, 4, 0.05), '#333', 0, 7.6, 9); world.add(g); }
+    add(k, g, box(3.4, 0.6, 3.4), rM, 0, 9.2, 0); const piv = grp(0, 9.8, 0); g.add(piv); add(k, piv, box(0.5, 0.5, 14), wM, 0, 0, 4); const hook = add(k, piv, box(0.05, 4, 0.05), '#333', 0, -2.2, 9); add(k, piv, box(1.2, 0.6, 0.8), '#e67e22', 0, -4.4, 9);
+    const ph = x * 0.3; k.anim.push((t) => { piv.rotation.y = Math.sin(t * 0.15 + ph) * 0.5; hook.scale.y = 1 + Math.sin(t * 0.4 + ph) * 0.2; }); world.add(g); }
   for (let i = 0; i < (mobile ? 10 : 18); i++) { const x = -26 + (i % 6) * 2.7, z = -16 - Math.floor(i / 6) * 3.2, y = (i % 2) * 1.4; add(k, world, box(2.4, 1.3, 6), ['#e74c3c', '#2e86de', '#f39c12', '#16a085', '#8e44ad'][i % 5], x, 0.65 + y, z, { roughness: 0.6 }); }
   // 防波堤燈塔
   add(k, world, box(14, 0.8, 2.2), '#9aa3ab', 20, 0.2, 6, { flatShading: true });
@@ -188,6 +189,10 @@ function campus({ k, world, pal, clear, mobile }) {
   for (let i = 0; i < (mobile ? 5 : 10); i++) { const a = 2.0 + i * 0.09, x = Math.sin(a) * 9.4, z = Math.cos(a) * 9.4; const g = grp(x, 0.02, z); g.rotation.y = a; for (const zz of [-0.4, 0.4]) add(k, g, new THREE.TorusGeometry(0.26, 0.025, 6, 16), '#2b2b2b', 0, 0.27, zz).rotation.y = Math.PI / 2; add(k, g, box(0.04, 0.04, 0.8), hex(pal[i % 6]), 0, 0.45, 0); add(k, g, box(0.2, 0.04, 0.08), '#2b2b2b', 0, 0.65, -0.18); world.add(g); }
   const books = ['#c0392b', '#2e86de', '#f2c94c', '#16a085', '#8e44ad'];
   for (const [x, z] of [[-10, 6], [10.4, 6.4]]) { if (!clear(x, z, 1, 1.5)) continue; const g = grp(x, 0, z); g.rotation.y = Math.atan2(-x, -z); add(k, g, box(2.0, 0.8, 0.8), '#a8754a', 0, 0.4, 0); for (let i = 0; i < 12; i++) add(k, g, box(0.12, 0.35, 0.25), books[i % 5], -0.85 + i * 0.15, 0.98, 0); umbrellaLike(k, g, hex(pal[0])); world.add(g); }
+  // 繞著草地騎腳踏車的學生
+  const riders = []; for (let i = 0; i < (mobile ? 2 : 4); i++) { const g = grp(); for (const zz of [-0.4, 0.4]) add(k, g, new THREE.TorusGeometry(0.26, 0.025, 6, 16), '#2b2b2b', 0, 0.27, zz).rotation.y = Math.PI / 2; add(k, g, box(0.05, 0.05, 0.8), hex(pal[(i + 2) % 6]), 0, 0.5, 0);
+    add(k, g, new THREE.CapsuleGeometry(0.13, 0.25, 4, 8), hex(pal[i % 6]), 0, 0.95, -0.05); add(k, g, sph(0.12), '#f1c7a8', 0, 1.32, 0); world.add(g); riders.push(g); }
+  k.anim.push((t) => riders.forEach((g, i) => { const a = t * 0.18 + i * TAU / riders.length, r = 10.6; g.position.set(Math.sin(a) * r, 0.02, Math.cos(a) * r); g.rotation.y = a + Math.PI / 2; g.rotation.z = Math.sin(t * 6 + i) * 0.03; }));
   const spots = [[-12, 2], [12, -3], [-12.5, -4]].map(([x, z]) => ({ x, z, y: 0.02, face: [0, 0], pose: 'sit', prop: 'cup' }));
   return { spots, features: ['圓頂圖書館', '紅磚教學大樓', '鐘塔', '老樹草地', '書攤'], heroH: 7.4 };
 }
@@ -266,6 +271,9 @@ function desert({ k, world, pal, clear, mobile }) {
     const legs = [[-0.18, -0.42], [0.18, -0.42], [-0.18, 0.42], [0.18, 0.42]].map(([x, z]) => { const l = add(k, c, k.g('cl2', () => box(0.12, 0.85, 0.12).translate(0, -0.42, 0)), fur, x, 0.85, z); return l; });
     if (i === 0) add(k, c, box(0.7, 0.3, 0.6), '#c0392b', 0, 1.5, 0.1); world.add(c); camels.push({ c, legs }); }
   k.anim.push((t) => camels.forEach(({ c, legs }, i) => { const u = ((t * 0.012) - i * 0.012 + 10) % 1, a = -0.9 + u * 1.8, r = 22; c.position.set(Math.sin(a) * r, 0.4 + Math.sin(a * 5) * 0.4, -6 + Math.cos(a) * r * 0.5); c.rotation.y = a + Math.PI / 2; legs.forEach((l, j) => { l.rotation.x = Math.sin(t * 4 + j * Math.PI / 2 + i) * 0.35; }); }));
+  // 滾過沙地的風滾草
+  const weeds = []; for (let i = 0; i < 3; i++) { const m = add(k, world, new THREE.IcosahedronGeometry(0.4, 1), k.m('#b8945a', { wireframe: true }), 0, 0.4, 0, false); weeds.push(m); }
+  k.anim.push((t) => weeds.forEach((m, i) => { const u = ((t * 0.04 + i * 0.33) % 1); m.position.set(-30 + u * 60, 0.42 + Math.abs(Math.sin(t * 3 + i)) * 0.4, 10 + i * 4); m.rotation.z = -t * 3; }));
   return { features: ['摩洛哥土坯屋', '洋蔥圓頂', '沙丘', '綠洲棕櫚', '駱駝商隊'], heroH: 7.4 };
 }
 

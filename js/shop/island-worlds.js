@@ -88,12 +88,66 @@ export function bigTree(k, x, z, s = 1, leaf = '#4fae5b', kind = 'round') {
   return g;
 }
 
-// 建造主題世界；回傳 { spots, dogs, features（特徵清單，給測試與說明）, heroH（主建築高度） }
+// 建造主題世界；回傳 { spots, dogs, features（特徵清單，給測試與說明）, heroH（主建築高度）, attach(crowd) }
 export function buildWorld(def, ctx) {
-  const { world, anim, rnd, night, mobile, camPts = [] } = ctx;
+  const { world, anim, rnd, night, mobile, camPts = [], pal = [] } = ctx;
   const k = kit(world, anim, rnd, night, mobile);
   // 鏡頭路線附近不能放高的東西
   const clear = (x, z, rad, h) => !camPts.some(p => Math.hypot(p.x - x, p.z - z) < rad + 1.3 && p.y < h + 1.6);
   const out = def.build({ ...ctx, k, clear, name: TENANT.name || '' }) || {};
-  return { spots: out.spots || [], dogs: out.dogs || 0, features: out.features || [], heroH: out.heroH || 5, kit: k };
+  const heroH = out.heroH || 5;
+  const live = enliven(k, world, def, pal, heroH);
+  return { spots: out.spots || [], dogs: out.dogs || 0, features: out.features || [], heroH, fog: out.fog, kit: k, attach: live.attach };
+}
+
+// ---------- 讓每個世界更生動：補光、飄浮粒子、主建築門口的氣球與彩旗、買到東西冒出 +1 ----------
+// 各世界的飄浮粒子（沒列的白天用閃光點、晚上用螢火蟲）
+const PARTICLE = { candy: 'confetti', garden: 'petals', zen: 'petals', tea: 'leaves', forest: 'fireflies', farm: 'leaves', moon: 'embers', market: 'embers', carnival: 'confetti', park: 'leaves', campus: 'leaves', snow: 'none', neon: 'none', desert: 'sand', swiftlet: 'gold' };
+const PCOL = { confetti: null, petals: ['#ffc0d6', '#ffd6e6', '#ffffff'], leaves: ['#8bc34a', '#f2c94c', '#e8763a'], fireflies: ['#d8ff6a'], embers: ['#ffb45a', '#ff7a3a'], sparkle: ['#ffffff', '#fff3c4'], sand: ['#f1dca6'], gold: ['#ffd98a', '#f4c25b', '#fff3c4'] };
+function enliven(k, world, def, pal, heroH) {
+  const hexes = pal.map(hex);
+  // 補光：從主光的另一側打一點品牌色，畫面比較不平
+  const fill = new THREE.DirectionalLight(C(hexes[0] || '#ffffff').lerp(C('#ffffff'), 0.6), k.night ? 0.35 : 0.55); fill.position.set(-12, 9, 14); world.add(fill);
+  // 飄浮粒子
+  const kind = PARTICLE[def.id] || (k.night ? 'fireflies' : 'sparkle');
+  if (kind !== 'none') {
+    const N = k.mobile ? 50 : 120, pa = new Float32Array(N * 3), pc = new Float32Array(N * 3), sp = new Float32Array(N);
+    const cols = (PCOL[kind] || hexes.concat(['#ffffff'])).map(c => C(c));
+    for (let i = 0; i < N; i++) { const a = k.rnd() * TAU, r = 1 + k.rnd() * 15; pa.set([Math.sin(a) * r, k.rnd() * 7, Math.cos(a) * r], i * 3); const c = cols[i % cols.length]; pc.set([c.r, c.g, c.b], i * 3); sp[i] = 0.4 + k.rnd(); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pa, 3)); g.setAttribute('color', new THREE.BufferAttribute(pc, 3));
+    const dot = canvas(32, 32, (q) => { const r = q.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.5, 'rgba(255,255,255,.7)'); r.addColorStop(1, 'rgba(255,255,255,0)'); q.fillStyle = r; q.fillRect(0, 0, 32, 32); });
+    const big = kind === 'confetti' || kind === 'petals' || kind === 'leaves';
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: big ? 0.22 : kind === 'fireflies' ? 0.2 : 0.14, map: dot, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, blending: kind === 'fireflies' || kind === 'embers' || kind === 'sparkle' || kind === 'gold' ? THREE.AdditiveBlending : THREE.NormalBlending }));
+    world.add(pts);
+    const fall = big || kind === 'sand' ? -1 : 1; let last = 0;
+    k.anim.push((t) => { const dt = Math.min(0.05, t - last); last = t; const p = g.attributes.position;
+      for (let i = 0; i < N; i++) { let y = p.getY(i) + fall * dt * 0.35 * sp[i]; if (y < 0) y = 7; if (y > 7) y = 0; p.setY(i, y); p.setX(i, p.getX(i) + Math.sin(t * sp[i] + i) * dt * 0.25); p.setZ(i, p.getZ(i) + Math.cos(t * 0.7 * sp[i] + i) * dt * 0.2); }
+      p.needsUpdate = true; pts.material.opacity = kind === 'fireflies' ? 0.6 + Math.sin(t * 3) * 0.3 : 0.9; });
+  }
+  // 主建築門口：兩串品牌色氣球＋門楣上方隨風擺動的三角彩旗
+  const z0 = HERO.z1 + 0.7, cs = (hexes.length ? hexes : ['#ff6b6b', '#ffd34e', '#4ecdc4']).slice(0, 5);
+  const bgeo = k.g('lvball', () => { const g = sph(0.24, 12, 10); g.scale(1, 1.2, 1); return g; });
+  for (const sx of [-1, 1]) {
+    const cl = grp(sx * 2.1, 0.12, z0); world.add(cl);
+    add(k, cl, k.g('lvstr', () => cyl(0.01, 0.01, 1.6, 3)), '#ffffff', 0, 0.8, 0, false);
+    const bs = [];
+    for (let i = 0; i < 5; i++) { const b = add(k, cl, bgeo, k.m(cs[i % cs.length], { roughness: 0.25, metalness: 0.1 }), Math.cos(i * 1.3) * 0.25, 1.75 + (i % 3) * 0.28, Math.sin(i * 1.3) * 0.25); bs.push(b); }
+    const ph = sx * 1.7; k.anim.push((t) => { cl.rotation.z = Math.sin(t * 1.3 + ph) * 0.06; bs.forEach((b, i) => { b.position.y = 1.75 + (i % 3) * 0.28 + Math.sin(t * 2 + i + ph) * 0.05; }); });
+  }
+  const flagG = k.g('lvflag', () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-0.16, 0, 0, 0.16, 0, 0, 0, -0.36, 0], 3)); g.computeVertexNormals(); return g; });
+  const fy = Math.min(heroH * 0.55, 3.6), flags = [];
+  for (let i = 0; i < 13; i++) { const u = i / 12, x = -3.2 + u * 6.4, y = fy - Math.sin(Math.PI * u) * 0.5; const f = add(k, world, flagG, k.m(cs[i % cs.length], { side: THREE.DoubleSide, roughness: 0.7 }), x, y, HERO.z1 + 0.35, false); flags.push(f); }
+  k.anim.push((t) => flags.forEach((f, i) => { f.rotation.x = Math.sin(t * 3 + i * 0.7) * 0.35; }));
+  // 買到東西：客人提著袋子走出主建築時，門口冒出「+1」
+  const popT = canvas(160, 96, (g, w, h) => { g.fillStyle = cs[0]; g.beginPath(); if (g.roundRect) g.roundRect(6, 6, w - 12, h - 12, 26); else g.rect(6, 6, w - 12, h - 12); g.fill(); g.fillStyle = '#ffffff'; g.fillRect(30, 40, 34, 30); g.strokeStyle = '#ffffff'; g.lineWidth = 5; g.beginPath(); g.arc(47, 40, 10, Math.PI, 0); g.stroke(); g.font = '800 40px system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText('+1', 76, 52); });
+  const pops = [0, 1, 2].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: popT, transparent: true, depthWrite: false, toneMapped: false })); s.scale.set(0.9, 0.54, 1); s.visible = false; s.userData.t = 0; world.add(s); return s; });
+  let sales = 0;
+  const pop = (x, z) => { const s = pops.find(p => !p.visible) || pops[0]; s.visible = true; s.userData.t = 0; s.position.set(x, 1.8, z); sales++; };
+  k.anim.push(() => { for (const s of pops) if (s.visible) { s.userData.t += 0.016; const u = s.userData.t / 1.6; s.position.y = 1.8 + u; s.material.opacity = 1 - u; if (u >= 1) s.visible = false; } });
+  function attach(crowd) {
+    const seen = new Map();
+    k.anim.push(() => { for (const p of crowd.list) { if (p.kind !== 'visitor') continue; const vis = p.root.visible !== false, was = seen.get(p); if (was === false && vis && p.bag && p.bag.visible) pop(p.root.position.x, p.root.position.z + 0.3); seen.set(p, vis); } });
+  }
+  world.userData.sales = () => sales;
+  return { attach };
 }

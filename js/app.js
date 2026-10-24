@@ -308,7 +308,7 @@ const ACTIONS = [
   { id: 'quote', name: 'AI 一句話報價', icon: 'file', view: 'quotes', need: 'edit', hint: '企業客戶報價單，一句話產生', syn: '報價 估價 請款', run: () => { go('quotes'); after(() => { const b = $('#qtNew'); if (b) b.click(); }); } },
   { id: 'askai', name: '問 AI 一個經營問題', icon: 'ask', view: 'ask', hint: '例如：上個月哪個商品賣最好？', syn: '問 圖表 報表 分析', run: () => { go('ask'); after(() => { const i = $('#askInput'); if (i) i.focus(); }); } },
   { id: 'approvals', name: '查看待核准申請', icon: 'shield', view: 'hub', need: 'edit', hint: '員工送出的作廢、退款、折讓', syn: '核准 審核 申請 作廢 退款', run: () => { go('hub'); after(() => { const h = $('#hubApprN'); if (h) h.closest('.card')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } },
-  { id: 'tenant', name: '切換業主（示範）', icon: 'users', hint: '50 種業態的示範店家', syn: '業主 店家 切換 業態', run: () => { const b = $('#tenantBtn'); if (b) b.click(); } },
+  { id: 'tenant', name: '切換業主（示範）', icon: 'users', hint: '51 種業態的示範店家', syn: '業主 店家 切換 業態', run: () => { const b = $('#tenantBtn'); if (b) b.click(); } },
   { id: 'role', name: '切換角色／登出', icon: 'user', hint: '負責人、店長、員工、記帳士、支援', syn: '角色 登出 登入 使用者 權限', run: () => { const b = $('#authBtn'); if (b) b.click(); } },
   { id: 'navmode', name: '切換側欄：簡單模式／全部功能', icon: 'dashboard', hint: '簡單模式只顯示核心功能', syn: '簡單 全部 側欄 選單', run: () => modeBtn.click() },
   { id: 'ap-inbox', name: '看 AI 等我確認的事', icon: 'bot', view: 'autopilot', hint: '補貨、催款、報稅、特價…一鍵核准或自己處理', syn: '待確認 核准 AI 自動駕駛 待辦', run: () => go('autopilot') },

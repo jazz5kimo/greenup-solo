@@ -200,6 +200,21 @@ export function createPeople({ world, anim, rnd, night, mobile, pal, L, spots = 
         ...v.slice(0, -1).reverse().map(go => ({ go })), { wait: 2 + rnd() * 3, look: out, on: (q) => { if (q.bag) q.bag.visible = false; } }], i * 6);
     }
   }
+  // 主題世界與城市：在廣場上隨意閒逛的人（走到空地、停下來看展台或聊天）
+  if (L.venue) {
+    const n = mobile ? 1 : 4, homeR = L.world ? 7.4 : 6.5;
+    for (let i = 0; i < n; i++) {
+      const p = person(look({ kind: 'stroll', kid: rnd() < 0.25, prop: rnd() < 0.3 ? 'balloon' : null }));
+      let tx = 0, tz = 0, wait = rnd() * 2, look2 = null;
+      const pickT = () => { for (let j = 0; j < 30; j++) { const a = rnd() * TAU, r = 1.6 + rnd() * (homeR - 1.6), x = Math.sin(a) * r, z = 0.9 + Math.cos(a) * r * 0.9; if (L.free(x, z, 0.12) || Math.abs(Math.hypot(x, z) - RING) < 0.4) { tx = x; tz = z; return; } } tx = 0; tz = 3; };
+      pickT(); p.root.position.set(tx, 0.13, tz); pickT();
+      p.update = (dt) => {
+        if (wait > 0) { wait -= dt; p.mode = 'look'; if (look2) faceTo(p, look2[0], look2[1], dt); return; }
+        if (stepTo(p, tx, tz, dt, SPEED * 0.85) < 0.05) { wait = 2 + rnd() * 4; const a = stations[Math.floor(rnd() * stations.length)] || 0; look2 = rnd() < 0.6 ? [Math.sin(a) * RING, Math.cos(a) * RING] : [0, 0.9]; pickT(); }
+        stick(p, dt);
+      };
+    }
+  }
   // 前步道 → 店門口
   if (!mobile) {
     const f = L.routes.front;

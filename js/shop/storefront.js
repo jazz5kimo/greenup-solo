@@ -11,6 +11,7 @@ import { promoInfo, activePromos, onPromos, FESTIVALS } from '../promo.js';
 import { merchantLogo } from '../merchant-art.js';
 import { SCENE_NAMES, defaultScene, SCENE_ICON, SCENE_EN, SCENE_SHORT } from './scene-names.js';
 import { $, $$, el, gsap, esc } from '../util.js';
+import { luxeBadges } from './story.js';
 
 export const isAmei = TENANT_ID === 'amei';
 export const MER = TENANT;
@@ -572,6 +573,7 @@ export function heroExtra(l) {
   }
   if (SHIP_MODE === 'takeout') return `<div class="sfx-take"><span class="sfx-open"><i></i>${esc(G(l, 'open'))}</span><span>⏱ ${esc(G(l, 'ready'))}</span></div>`;
   if (LAYOUT === 'editorial') return `<div class="sfx-issue"><b>No.07</b><span>${esc(G(l, 'issue'))}</span><span>${new Date().getFullYear()}</span></div>`;
+  if (LAYOUT === 'luxe') return luxeBadges(l);
   if (LAYOUT === 'atelier') return `<div class="sfx-craft"><span>${esc(G(l, 'craft'))}</span><i></i><span>${esc(G(l, 'ateliers'))}</span></div>`;
   return '';
 }

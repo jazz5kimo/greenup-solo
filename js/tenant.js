@@ -3,7 +3,7 @@
 import { MERCHANTS } from './merchants.js';
 import { BIZ, CATS } from './biz/index.js';
 
-// 全部示範業主：原本 6 家＋50 種業態登錄表（biz/）
+// 全部示範業主：原本 6 家＋51 種業態登錄表（biz/）
 const ALL = [...MERCHANTS, ...BIZ.map(b => b.merchant).filter(m => !MERCHANTS.some(x => x.id === m.id))];
 const MERCHANT_MAP = Object.fromEntries(ALL.map(m => [m.id, m]));
 export { CATS };

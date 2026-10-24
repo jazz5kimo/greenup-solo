@@ -282,6 +282,32 @@ const B = {
     const drip = add(k, jar, sph(0.05), '#f2a51a', 0.2, 0.4, 0.1, { roughness: 0.1 }); k.anim.push((t) => { const u = (t * 0.4) % 1; drip.position.y = 0.45 - u * 0.4; drip.scale.y = 1 + u; });
     const bees = []; for (let i = 0; i < 4; i++) { const b = add(k, g, sph(0.05, 8, 6), '#2b2b2b', 0, 0, 0, false); bees.push(b); } k.anim.push((t) => bees.forEach((b, i) => { const a = t * (1.5 + i * 0.3) + i * 1.6; b.position.set(Math.sin(a) * 0.7, 1.0 + Math.sin(t * 3 + i) * 0.25, Math.cos(a * 1.2) * 0.5 + 0.2); }));
     return { rad: 0.95, h: 1.5 }; },
+  // 精品燕窩：洋紅描金底座、青瓷盤上的大燕盞、停在盞邊的雨燕、金蓋鮮燉瓶與緩緩轉動的金環
+  birdnest(k, g) {
+    const gold = k.m('#d9b56b', { metalness: 0.65, roughness: 0.3 }), jade = k.m('#b8146a', { roughness: 0.45 });
+    add(k, g, cyl(0.62, 0.7, 0.5, 32), jade, 0, 0.25, 0); add(k, g, cyl(0.66, 0.66, 0.05, 32), gold, 0, 0.5, 0); add(k, g, cyl(0.72, 0.72, 0.04, 32), gold, 0, 0.02, 0);
+    add(k, g, lathe([[0, 0], [0.3, 0], [0.62, 0.08], [0.66, 0.12], [0.6, 0.11], [0.3, 0.04], [0, 0.04]], 32), '#a9cbbd', 0, 0.52, 0, { roughness: 0.25, side: THREE.DoubleSide });
+    const st = k.tex ? k.tex(256, 128, (q, w, h) => { q.fillStyle = '#f3e4c4'; q.fillRect(0, 0, w, h); q.strokeStyle = 'rgba(170,135,80,.55)'; q.lineWidth = 2; for (let i = 0; i < 14; i++) { q.beginPath(); for (let x = 0; x <= w; x += 8) q.lineTo(x, i * 9 + 4 + Math.sin(x * 0.08 + i) * 2.4); q.stroke(); } }) : null;
+    const nm = st ? new THREE.MeshStandardMaterial({ map: st, roughness: 0.7, side: THREE.DoubleSide }) : k.m('#f3e4c4', { side: THREE.DoubleSide });
+    // 燕盞：半個淺碗（貼牆那面是平的），斜放在盤上
+    const cup = new THREE.Mesh(new THREE.SphereGeometry(0.5, 28, 14, -Math.PI / 2, Math.PI, Math.PI * 0.5, Math.PI * 0.42), nm); cup.scale.set(1, 0.85, 1.25); cup.rotation.set(-0.25, 0, 0); cup.position.set(0, 1.08, -0.08); cup.castShadow = true; g.add(cup);
+    const wall = new THREE.Mesh(new THREE.CircleGeometry(0.5, 28, 0, Math.PI), nm); wall.rotation.set(Math.PI / 2 - 0.25, 0, 0); wall.scale.set(1, 1.25, 1); wall.position.copy(cup.position); g.add(wall);
+    // 停在盞邊的雨燕
+    const bird = new THREE.Group(); bird.position.set(0.3, 1.16, 0.32); bird.rotation.y = -0.8; g.add(bird);
+    const bm = k.m('#2e333d', { roughness: 0.6 });
+    const body = add(k, bird, sph(0.08, 10, 8), bm, 0, 0.06, 0); body.scale.set(1, 0.9, 2.4);
+    add(k, bird, sph(0.055, 10, 8), bm, 0, 0.1, 0.15); add(k, bird, sph(0.03, 8, 6), '#f3e4c4', 0, 0.06, 0.17);
+    for (const sx of [-1, 1]) { const w = add(k, bird, box(0.05, 0.02, 0.36), bm, sx * 0.07, 0.09, -0.08); w.rotation.set(0.15, sx * 0.12, sx * 0.2); }
+    const tail = add(k, bird, box(0.1, 0.01, 0.14), bm, 0, 0.04, -0.24); k.anim.push((t) => { bird.rotation.z = Math.sin(t * 2.2) * 0.05; tail.rotation.y = Math.sin(t * 3) * 0.2; });
+    // 金蓋鮮燉瓶
+    const jar = new THREE.Group(); jar.position.set(-0.55, 0.52, 0.35); g.add(jar);
+    add(k, jar, cyl(0.15, 0.15, 0.36, 18), glass('#fff3d6', 0.7), 0, 0.18, 0); add(k, jar, cyl(0.12, 0.12, 0.28, 16), '#f3e3c0', 0, 0.16, 0, { roughness: 0.4 }); add(k, jar, cyl(0.16, 0.16, 0.08, 18), gold, 0, 0.4, 0);
+    add(k, jar, box(0.18, 0.1, 0.01), jade, 0, 0.18, 0.152);
+    // 緩緩轉動的金環＋閃光
+    const ring = add(k, g, tor(0.86, 0.018, 6, 64), gold, 0, 1.25, 0, false); ring.rotation.x = Math.PI / 2 - 0.3;
+    const sp = []; for (let i = 0; i < 5; i++) { const s2 = add(k, g, k.g('lmspark', () => new THREE.OctahedronGeometry(0.06, 0)), k.m('#ffe7a8', { emissive: C('#ffd07a'), emissiveIntensity: 1.2 }), 0, 0, 0, false); sp.push(s2); }
+    k.anim.push((t) => { ring.rotation.z = t * 0.4; sp.forEach((s2, i) => { const a = t * 0.6 + i * 1.26; s2.position.set(Math.cos(a) * 0.86, 1.25 + Math.sin(a) * 0.86 * Math.sin(0.3), Math.sin(a) * 0.86 * Math.cos(0.3)); s2.rotation.y = t * 2 + i; }); });
+    return { rad: 0.95, h: 2.1 }; },
 };
 // 中文名稱（給測試與工作室顯示）
 export const LANDMARK_NAMES = {
@@ -290,7 +316,7 @@ export const LANDMARK_NAMES = {
   chocolate: '巧克力噴泉', select: '大購物袋', vintage: '古著衣架', bookstore: '書堆', petshop: '狗骨頭與貓爬架', stationery: '大鉛筆', gadget: '大手機與耳機', baby: '搖搖木馬',
   camping: '帳篷營燈', eyewear: '大眼鏡', leather: '皮革卷與針線', soap: '手工皂堆與泡泡', candle: '香氛蠟燭', pottery: '拉坯轆轤與窯', silver: '戒指與寶石', woodwork: '鋸木台與木椅',
   tailor: '縫紉機與人台', indigo: '染缸與晾布', flower: '大花束', succulent: '仙人掌盆', nail: '指甲油瓶', salon: '理髮旋轉燈', lash: '化妝鏡', petgroom: '泡泡浴缸',
-  photo: '相機三腳架', yoga: '瑜伽平台與蓮花', fitness: '大啞鈴', music: '鋼琴與音符', cleaning: '水桶拖把', bnb: '棕櫚吊床', phonefix: '拆開的手機', carcare: '洗車門架', veggiebox: '拖拉機', honey: '蜂巢與蜂蜜罐',
+  photo: '相機三腳架', yoga: '瑜伽平台與蓮花', fitness: '大啞鈴', music: '鋼琴與音符', cleaning: '水桶拖把', bnb: '棕櫚吊床', phonefix: '拆開的手機', carcare: '洗車門架', veggiebox: '拖拉機', honey: '蜂巢與蜂蜜罐', birdnest: '燕盞與雨燕',
 };
 export const hasLandmark = (id) => !!B[id];
 // 建造業主的招牌地標；回傳 { group, rad, h }（沒有專屬地標時回傳 null）

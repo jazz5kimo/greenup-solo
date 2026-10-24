@@ -6,6 +6,7 @@ import { $, $$, el, gsap, esc, money, sleep, speak, stopSpeak, getRecognizer } f
 import { icon } from '../icons.js';
 import { productArt } from '../art.js';
 import { cart } from './cart.js';
+import { TENANT } from '../tenant.js';
 
 const R = {
   checkout: /結帳|買單|付款|下單|checkout|check out|\bpay\b|お会計|会計|注文する|購入|レジ|thanh toán|đặt hàng|\bbayar\b|daftar keluar/i,
@@ -242,6 +243,27 @@ export function initBot(shop) {
   const top = (n = 3) => popular().slice(0, n).map(p => p.id);
   const aliasesOf = (p) => [p.name, p.en, ...Object.values(p.i18n || {}).map(a => a && a[0]), ...(p.kw || [])].filter(Boolean).map(x => String(x).toLowerCase());
   function matchGeneric(q) { return pool().filter(p => aliasesOf(p).some(a => a.length >= 2 && q.includes(a))).map(p => p.id); }
+  // 常見問題的關鍵字（依 story.faq 的順序；比對時先比較明確的題目）
+  const FAQ_RX = [
+    [3, /功效|療效|好處|效果|benefit|効能|効果|công dụng|tác dụng|khasiat|faedah/i],
+    [4, /孕|懷孕|小朋友|小孩|兒童|過敏|pregnan|\bkids?\b|child|allerg|妊娠|子ども|アレルギー|mang thai|trẻ|dị ứng|mengandung|kanak|alah/i],
+    [5, /到貨日|指定日|送給別人|寄給|寄送禮|delivery date|send .*gift|配達日|ngày giao|gửi quà|tarikh hantar|hantar hadiah/i],
+    ['stew', /怎麼燉|如何燉|燉法|燉煮|燉多久|泡多久|浸泡|how .*stew|stew|soak|炊き方|浸水|chưng|ngâm|tanak|rendam/i],
+    [0, /第一次|初次|新手|入門|first time|first-time|beginner|初めて|lần đầu|kali pertama/i],
+    ['store', /保存|冷藏|放多久|可以放|\bstore\b|storage|keep|日持ち|冷蔵|bảo quản|bao lâu|simpan|tahan/i],
+  ];
+  function storyFaq(q) {
+    if (!TENANT.story) return null;
+    const S = (l) => TENANT.story[l] || TENANT.story.en, hit = FAQ_RX.find(([, rx]) => rx.test(q));
+    if (!hit) return null;
+    const k = hit[0], cards = { 0: ['bn-duo', 'bn-fresh', 'bn-plain'], stew: ['bn-cup', 'bn-strip'], store: ['bn-fresh', 'bn-cup'], 5: ['bn-gift', 'bn-fresh'] }[k] || top();
+    const ids = cards.filter(id => PRODUCT_MAP[id]);
+    const text = (l) => { const s = S(l), f = s.faq.list;
+      if (k === 'stew') return `${s.calc.h}：${s.calc.tips.map((x, i) => `${i + 1}. ${x}`).join(' ')}（${s.calc.sub}）`;
+      if (k === 'store') return `${f[1][1]} ${f[2][1]}`;
+      return f[k][1]; };
+    return { intent: 'faq', gloss: k === 'stew' ? '詢問燉煮方法' : '常見問題：' + TENANT.story.zh.faq.list[k === 'store' ? 1 : k][0], text, cards: ids.length ? ids : top() };
+  }
   function respondGeneric(text, chipIdx) {
     const q = text.toLowerCase();
     const CHIP = ['recommend', SHIP_MODE === 'service' ? 'book' : SHIP_MODE === 'takeout' ? 'solo' : 'gift', 'budget', 'shipping', null, 'checkout'];
@@ -251,6 +273,9 @@ export function initBot(shop) {
       if (!cart.count()) return { intent: 'checkout', text: (l) => t(l, 'rCartEmpty'), cards: top() };
       return { intent: 'checkout', text: (l) => t(l, 'rCheckout'), checkout: true };
     }
+    // 有品牌故事的業主（嬿窩）：常見問題與燉煮方法直接用故事區塊的內容回答
+    const faq = storyFaq(q);
+    if (faq) return faq;
     if (forced === 'book' || (SHIP_MODE === 'service' && RX.book.test(q))) return { intent: 'book', gloss: '詢問預約時段', text: (l) => t(l, 'rBook'), cards: top() };
     if (RX.engrave.test(q)) return { intent: 'engrave', gloss: '詢問刻字服務', text: (l) => t(l, 'rEngrave'), cards: pool().filter(p => (tagsOf(p) || []).includes('gift')).slice(0, 3).map(p => p.id).concat(top()).slice(0, 3) };
     if (R.allergen.test(q) || R.storage.test(q)) return { intent: R.allergen.test(q) ? 'allergen' : 'storage', text: (l) => t(l, 'rAsk'), cards: top() };

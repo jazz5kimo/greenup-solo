@@ -14,6 +14,7 @@ import { onShopConfig } from '../shop-config.js';
 import { initTrack, trackText } from './track.js';
 import { initStorefront, bootStorefront, T, G, isAmei, LAYOUT, SHIP_MODE, STYLE, visibleProducts, featuredId, tagsOf, heroExtra, priceHTML, saleTag, promoOf, saleLabel, bindHeroExtra, onStorefront, getSlot, setSlot, slotDays, dayLabel, TIME_SLOTS, slotText, setHero } from './storefront.js';
 import { initAuction } from './auction.js';
+import { renderStory, hasStory } from './story.js';
 import { isLive, enabledMethods, createPayment, submitToGateway, errorText, methodLabel, methodPayment, defaultReturnUrl, onPayConfig } from '../payments.js';
 
 // 線上金流（正式模式）文字：示範模式沿用 i18n.js 原本的結帳文案
@@ -64,6 +65,7 @@ function applyI18n(animate) {
   renderHeroExtra();
   renderProducts(animate);
   renderStripChips();
+  renderStory(lang);
   renderCart();
   if (animate) gsap.fromTo(['.s-hero-txt > *', '.s-sec-h'], { opacity: 0.2, y: 8 }, { opacity: 1, y: 0, stagger: 0.04, duration: 0.5 });
 }
@@ -93,9 +95,9 @@ const lowHTML = (p, left) => (left < (p.safety || 0) ? `<span class="p-low">${t(
 function cardHTML(p, i) {
   const left = stockOf(p.id);
   const no = `<span class="p-no">${esc(G(lang, 'no'))}${String(i + 1).padStart(2, '0')}</span>`;
-  return `<article class="p-card ${p.id === featuredId() ? 'feat' : ''} ${i === 0 && LAYOUT === 'editorial' ? 'lead' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
-    <div class="p-art">${productArt(p.id, LAYOUT === 'editorial' && i === 0 ? 300 : 200)}<div class="p-tags">${tagHTML(p)}</div>${lowHTML(p, left)}${featHTML(p)}${saleTag(p, lang, 'p-sale p-sale-art')}</div>
-    <div class="p-body">${LAYOUT === 'editorial' || LAYOUT === 'atelier' ? no : ''}<div class="p-top"><h3>${esc(pName(lang, p.id))}</h3><small>${esc(pUnit(lang, p.id))}</small></div>
+  return `<article class="p-card ${p.id === featuredId() ? 'feat' : ''} ${i === 0 && (LAYOUT === 'editorial' || LAYOUT === 'luxe') ? 'lead' : ''}" data-pid="${p.id}" style="--pc:${p.color}">
+    <div class="p-art">${productArt(p.id, (LAYOUT === 'editorial' || LAYOUT === 'luxe') && i === 0 ? 300 : 200)}<div class="p-tags">${tagHTML(p)}</div>${lowHTML(p, left)}${featHTML(p)}${saleTag(p, lang, 'p-sale p-sale-art')}</div>
+    <div class="p-body">${LAYOUT === 'editorial' || LAYOUT === 'atelier' || LAYOUT === 'luxe' ? no : ''}<div class="p-top"><h3>${esc(pName(lang, p.id))}</h3><small>${esc(pUnit(lang, p.id))}</small></div>
     <p>${esc(pDesc(lang, p.id))}</p>
     <div class="p-meta">${metaHTML(p)}</div>
     <div class="p-foot">${priceHTML(p, lang, money)}<button class="p-add" data-add="${p.id}">${t(lang, 'add')}</button></div></div>

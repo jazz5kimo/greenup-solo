@@ -1,4 +1,4 @@
-// 50 種業態示範業主的登錄表：每組檔案匯出 BIZ（業主資料＋銷售網頁設計＋後台設定）與 ART（新增的商品插圖種類）
+// 51 種業態示範業主的登錄表（g5：精品燕窩）：每組檔案匯出 BIZ（業主資料＋銷售網頁設計＋後台設定）與 ART（新增的商品插圖種類）
 // BIZ 每筆：{ merchant, theme, profile }
 //   merchant：與 merchants.js 相同欄位（id, name, en, type, cat, typeName, owner, theme, tagline, products[6]）
 //   theme：與 shop/themes.js THEMES 相同欄位（id, kind:'base', name, deco, vars, hero）＋ style（版面設計軸）
@@ -7,8 +7,9 @@ import * as g1 from './g1.js';
 import * as g2 from './g2.js';
 import * as g3 from './g3.js';
 import * as g4 from './g4.js';
+import * as g5 from './g5.js';
 
-const GROUPS = [g1, g2, g3, g4];
+const GROUPS = [g1, g2, g3, g4, g5];
 export const BIZ = GROUPS.flatMap(g => g.BIZ || []);
 export const BIZ_ART = Object.assign({}, ...GROUPS.map(g => g.ART || {}));
 // 業態大類：後台各模組依此挑選情境文案

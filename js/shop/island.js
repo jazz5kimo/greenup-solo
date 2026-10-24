@@ -14,9 +14,14 @@ import { visibleProducts, featuredId, priceHTML } from './storefront.js';
 import { seedOf, rng, shapeOf, sceneFor, makeLayout, buildScene, shopRoof, shopDeco, makeBoat, kit, registerScenes } from './island-scenes.js';
 import { WORLDS_A } from './island-worlds-a.js';
 import { WORLDS_B } from './island-worlds-b.js';
+import { WORLDS_C } from './island-worlds-c.js';
+import { WORLDS_D } from './island-worlds-d.js';
+import { WORLDS_E } from './island-worlds-e.js';
+import { WORLDS_F } from './island-worlds-f.js';
+import { WORLDS_G } from './island-worlds-g.js';
 import { worldLayout, buildWorld, WORLD_VENUE, CORE } from './island-worlds.js';
 import { buildLandmark } from './island-landmarks.js';
-registerScenes({ ...WORLDS_A, ...WORLDS_B });
+registerScenes({ ...WORLDS_A, ...WORLDS_B, ...WORLDS_C, ...WORLDS_D, ...WORLDS_E, ...WORLDS_F, ...WORLDS_G });
 import { createPeople } from './island-people.js';
 import { cityLayout, buildCity, CITY_VENUE } from './island-city.js';
 
@@ -150,6 +155,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     }));
     scene.add(sky);
     }
+    sky.material.uniforms.sunDir.value.fromArray(sceneDef.sunDir || [0.5, 0.35, -0.8]).normalize();
     sky.material.uniforms.top.value.copy(zen); sky.material.uniforms.bot.value.copy(hor); sky.material.uniforms.sunCol.value.copy(night ? C('#c8d6ff') : C('#fff3c4'));
     hemi.color.copy(night ? C('#9fb4ff') : C('#ffffff')); hemi.groundColor.copy(night ? C('#1d2a3a') : C(look.ground || '#9cc489'));
     hemi.intensity = night ? 0.55 : 1.35; sun.intensity = night ? 0.5 : 2.4; sun.color.copy(night ? C('#aab8ff') : C('#fff1dc'));
@@ -319,6 +325,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     // 島上的人
     crowd = createPeople({ world, anim, rnd, night, mobile: mobile(), pal, L: layout, spots: built.spots, hat: sceneDef.hat, dogs: built.dogs || 0, shadows: renderer.shadowMap.enabled });
     if (cityObj) cityObj.attach(crowd);
+    if (isWorld && built.attach) built.attach(crowd);
     built0 = built;
 
     // 商品展台
@@ -543,7 +550,7 @@ export function createIsland({ shop, onOpen, onAdd }) {
     screenOf(pid) { const st = stations.find(x => x.pid === pid); if (!st) return null; const v = st.pos.clone().setY(1.95).project(camera); const r = cv.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height, onScreen: v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1 }; },
     setProducts() { products = pickProducts(); build(); renderTexts(); onScroll(); },
     // 測試用：目前的風景、島形與島上的人
-    info() { return { scene: sceneDef && sceneDef.id, kind: sceneDef && (sceneDef.kind || 'isle'), features: built0 ? built0.features || [] : [], night, landmark, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null }; },
+    info() { return { scene: sceneDef && sceneDef.id, kind: sceneDef && (sceneDef.kind || 'isle'), features: built0 ? built0.features || [] : [], night, landmark, shape: SHAPE, people: crowd ? crowd.info() : [], stations: stations.map(s => ({ x: s.pos.x, z: s.pos.z })), city: cityObj ? cityObj.info() : null, sales: world.userData.sales ? world.userData.sales() : (cityObj ? cityObj.info().sales : 0), catches: world.userData.catches ? world.userData.catches() : 0 }; },
     // 換場景（網站設計工作室即時預覽）：auto＝依業態
     setScene(id) { const v = id || 'auto'; if (v === sceneOverride) return; sceneOverride = v; build(); renderTexts(); onScroll(); },
     destroy() { cancelAnimationFrame(raf); removeEventListener('scroll', onScroll); dispose(world); if (sky) dispose(sky); if (water) dispose(water); renderer.dispose(); sec.remove(); document.body.classList.remove('isl-on'); },

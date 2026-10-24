@@ -1,4 +1,4 @@
-// 網站設計工作室：選業主（50 種業態）、選風格（自動／手動、節慶排程、夜間）、產品顯示管理、AI 依 logo 色票產生風格；右側 iframe 即時預覽
+// 網站設計工作室：選業主（51 種業態）、選風格（自動／手動、節慶排程、夜間）、產品顯示管理、AI 依 logo 色票產生風格；右側 iframe 即時預覽
 // 業主切換＝setTenant（重新載入，各業主資料隔離）；風格與產品設定寫入 shop-config（依業主分開），預覽 iframe 透過 BroadcastChannel 即時更新
 import { TENANT, TENANT_ID, TENANTS, setTenant } from '../tenant.js';
 import { design, toCustom, getSettings, saveSettings, maskKey, MODELS, getHistory, pushHistory, clearHistory } from '../ai-design.js';
