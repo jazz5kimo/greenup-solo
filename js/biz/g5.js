@@ -116,7 +116,7 @@ export const BIZ = [
   {
     merchant: {
       id: 'birdnest', name: '嬿窩', en: 'YAN NEST', type: 'birdnest', cat: 'food',
-      typeName: '精品燕窩', owner: '小嬿', ownerEn: 'Yan', theme: 'birdnest', brand: '#B8146A', tagline: '一盞好燕，慢火細燉',
+      typeName: '精品燕窩', kw: '燕窩 燕盞 燕條 鮮燉燕窩 bird nest swiftlet 燕の巣 yến sào sarang burung', owner: '小嬿', ownerEn: 'Yan', theme: 'birdnest', brand: '#B8146A', tagline: '一盞好燕，慢火細燉',
       layout: 'luxe', ship: { mode: 'ship', fee: 150, free: 1500, cold: true },
       products: [
         P('bn-fresh', '冰糖鮮燉燕窩', '150ml × 6 瓶', 1680, 690, 36, '每週二、五現燉，冰糖清甜、燕絲完整，冷藏宅配到府。（示範規格：每瓶以約 3g 乾燕盞燉製）', 'g5_jar', '#F3E3C0', '#B8146A',

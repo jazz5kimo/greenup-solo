@@ -315,7 +315,8 @@ const ACTIONS = [
   { id: 'ap-pause', name: '暫停／恢復全部 AI 自動化', icon: 'x', view: 'autopilot', need: 'edit', hint: '暫停後全部改為手動，AI 只提醒', syn: '暫停 停止 關閉 AI 手動 恢復', run: () => { if (!AP.canConfigure()) { auth.deny('只有負責人可以暫停 AI'); return; } const on = !AP.isPaused(); AP.setPaused(on); toast(on ? '已暫停全部 AI 自動化' : '已恢復 AI 自動化', on ? '所有工作改為手動，AI 只提醒' : '例行工作會依設定自動完成', { kind: on ? 'warn' : 'ok', icon: icon('bot', 18) }); } },
   { id: 'help', name: '問小幫手／聯絡 GreenUP 支援', icon: 'chat', hint: '常見問題、轉真人客服、回報問題', syn: '幫忙 客服 支援 問題 求助 怎麼 教學', run: () => support.open() },
 ];
-const palette = initPalette({ views: VIEWS, groups: GROUPS, go, can: canDo, actions: ACTIONS });
+const palette = initPalette({ views: VIEWS, groups: GROUPS, go, can: canDo, actions: ACTIONS, tenants: TENANTS,
+  switchTenant: (id) => { if (id === TENANT_ID) return; toast(`切換到「${TENANTS.find(x => x.id === id).name}」的後台…`); setTimeout(() => setTenant(id), 250); } });
 // 右下角小幫手：常見問題即答、帶我去、轉真人客服、允許支援存取、錯誤回報
 const support = initSupport({
   views: VIEWS, go, can: canDo, auth, current: () => current,
@@ -404,7 +405,7 @@ setTimeout(() => ensureMounted(VIEWS.find(v => v.id === 'auto')), 1200);
   const item = (x) => `<button class="tm-item${x.id === TENANT_ID ? ' on' : ''}" role="menuitem" data-tenant="${x.id}"><span class="avatar">${x.avatar || x.name[0]}</span><span><b>${x.name}</b><small>${x.typeName}・${x.region || ''}</small></span>${x.id === TENANT_ID ? '<i>目前</i>' : ''}</button>`;
   const renderList = (q = '') => {
     const k = q.trim().toLowerCase();
-    const hit = TENANTS.filter(x => !k || [x.name, x.en, x.typeName, x.owner, x.region, CATS[x.cat]].some(f => f && String(f).toLowerCase().includes(k)));
+    const hit = TENANTS.filter(x => !k || [x.name, x.en, x.typeName, x.owner, x.region, x.kw, CATS[x.cat]].some(f => f && String(f).toLowerCase().includes(k)));
     const groups = Object.keys(CATS).map(c => [c, hit.filter(x => x.cat === c)]).filter(([, l]) => l.length);
     $('#tmList').innerHTML = groups.length ? groups.map(([c, l]) => `<div class="tm-cat">${CATS[c]}<span>${l.length}</span></div>${l.map(item).join('')}`).join('') : '<div class="tm-empty">找不到符合的業主</div>';
   };

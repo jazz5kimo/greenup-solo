@@ -74,8 +74,10 @@ export function rankPages(q, views) {
  * @param {Function} o.go   go(id)
  * @param {Function} o.can  can(id) → 這個角色看得到嗎
  * @param {Array} o.actions [{ id, name, icon, view?, hint, run }]
+ * @param {Array} o.tenants 示範業主（打店名、業態或關鍵字就能切換，例如「燕窩」→ 嬿窩）
+ * @param {Function} o.switchTenant switchTenant(id)
  */
-export function initPalette({ views, groups, go, can, actions }) {
+export function initPalette({ views, groups, go, can, actions, tenants = [], switchTenant }) {
   const box = el(`<div class="pal" id="palette" hidden role="dialog" aria-modal="true" aria-label="搜尋功能或動作">
     <div class="pal-bg"></div>
     <div class="pal-panel">
@@ -89,6 +91,7 @@ export function initPalette({ views, groups, go, can, actions }) {
   let rows = [], sel = 0, lastFocus = null;
 
   const pages = () => views.filter(v => can(v.id)).map(v => ({ kind: 'page', id: v.id, name: v.name, icon: v.icon, group: v.group, sub: v.sub, syn: SYN[v.id] || '' }));
+  const shops = () => tenants.map(t => ({ kind: 'tenant', id: t.id, name: `切換到「${t.name}」`, icon: 'users', group: '示範店家', sub: [t.typeName, t.region].filter(Boolean).join('・'), syn: [t.name, t.typeName, t.en, t.kw, t.owner].filter(Boolean).join(' ') }));
   const acts = () => actions.filter(a => !a.view || can(a.view, a.need || 'view')).map(a => ({ kind: 'act', ...a, group: '快速動作', sub: a.hint || '', syn: a.syn || '' }));
 
   function render() {
@@ -100,7 +103,7 @@ export function initPalette({ views, groups, go, can, actions }) {
       if (!r.length) sections.push(['常用功能', pages().filter(p => ['dashboard', 'autopilot', 'pos', 'receipts', 'bank', 'ask'].includes(p.id))]);
     } else {
       const ranked = (arr) => arr.map(x => [score(q, x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).map(([, x]) => x);
-      sections = [['功能', ranked(pages()).slice(0, 8)], ['快速動作', ranked(acts()).slice(0, 5)]];
+      sections = [['功能', ranked(pages()).slice(0, 8)], ['快速動作', ranked(acts()).slice(0, 5)], ['切換到店家', ranked(shops()).slice(0, 4)]];
     }
     rows = []; let html = '';
     for (const [title, items] of sections) {
@@ -111,7 +114,7 @@ export function initPalette({ views, groups, go, can, actions }) {
         html += `<button class="pal-row" data-i="${rows.length}" role="option" style="--gc:${color}">
           <span class="pal-ic">${icon(it.icon || 'arrow', 17)}</span>
           <span class="pal-txt"><b>${it.name}</b><small>${it.sub || ''}</small></span>
-          <span class="pal-grp">${it.kind === 'page' ? `<i></i>${it.group}` : '動作'}</span>
+          <span class="pal-grp">${it.kind === 'page' ? `<i></i>${it.group}` : it.kind === 'tenant' ? '店家' : '動作'}</span>
         </button>`;
         rows.push(it);
       }
@@ -128,7 +131,7 @@ export function initPalette({ views, groups, go, can, actions }) {
   function run(i) {
     const it = rows[i]; if (!it) return;
     close();
-    if (it.kind === 'page') go(it.id); else it.run();
+    if (it.kind === 'page') go(it.id); else if (it.kind === 'tenant') { if (switchTenant) switchTenant(it.id); } else it.run();
   }
   function open(q = '') {
     lastFocus = document.activeElement;

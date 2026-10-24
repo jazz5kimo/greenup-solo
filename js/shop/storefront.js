@@ -534,7 +534,7 @@ function sceneSection(l) {
 let merQ = '';
 function merchantList(l) {
   const q = merQ.trim().toLowerCase();
-  const hit = (m) => !q || [m.name, m.en, m.typeName, m.id, catLabel(m.cat, l), m.tagline].some(x => x && String(x).toLowerCase().includes(q));
+  const hit = (m) => !q || [m.name, m.en, m.typeName, m.id, m.kw, catLabel(m.cat, l), m.tagline].some(x => x && String(x).toLowerCase().includes(q));
   const order = Object.keys(CATS);
   const groups = order.map(c => [c, TENANTS.filter(m => (m.cat || 'retail') === c && hit(m))]).filter(([, ms]) => ms.length);
   if (!groups.length) return `<p class="sf-none">${esc(P(l, 'none'))}</p>`;
